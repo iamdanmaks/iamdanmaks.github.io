@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Від тексту до TF-IDF і BM25</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#e9edf2; --ink:#141922; --ink-2:#4a5566; --muted:#7d8795;
+  --line:#d6dce4; --line-soft:#e6eaf0;
+  --tfidf:#2a78d6; --tfidf-soft:#dce9f9; --bm25:#eb6834; --bm25-soft:#fbe3d8;
+  --aqua:#1baf7a; --violet:#4a3aa7;
+  --hl:#fff1b8; --hl-ink:#5a4300;
+  --code-bg:#1b2130; --code-ink:#e6ebf3; --code-kw:#8fb7ff; --code-str:#9fe0b2; --code-cm:#7d8795; --code-num:#ffc46b; --code-fn:#e8b6ff;
+  --grid:#e1e4ea; --axis:#c3c8d1;
+  --shadow:0 1px 2px rgba(20,25,34,.06),0 8px 24px rgba(20,25,34,.06);
+  --fs:17px; --radius:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+    --line:#2c3341; --line-soft:#232a36;
+    --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+    --aqua:#25c48b; --violet:#9085e9;
+    --hl:#4a3b0c; --hl-ink:#ffe9a3;
+    --code-bg:#0b0e14; --code-ink:#e6ebf3;
+    --grid:#262c37; --axis:#3a4250;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+  --line:#2c3341; --line-soft:#232a36;
+  --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+  --aqua:#25c48b; --violet:#9085e9;
+  --hl:#4a3b0c; --hl-ink:#ffe9a3;
+  --code-bg:#0b0e14; --code-ink:#e6ebf3;
+  --grid:#262c37; --axis:#3a4250;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+:root.lecture{ --fs:21px; }
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:var(--fs); line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--tfidf)}
+h1,h2,h3,h4{font-family:"Unbounded","IBM Plex Sans",system-ui,sans-serif;line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:2.3em;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.55em;font-weight:700}
+h3{font-size:1.1em;font-weight:500;margin-top:1.6em}
+p{margin:.75em 0}
+strong{font-weight:600}
+code,kbd,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:.9em;background:var(--surface-2);padding:.1em .35em;border-radius:5px}
+pre code{background:none;padding:0;font-size:inherit}
+
+/* top bar */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  display:flex;align-items:center;gap:14px;padding:10px 20px;
+  background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.topbar .brand{font-family:"Unbounded",sans-serif;font-weight:500;font-size:.8em;letter-spacing:.02em;color:var(--ink-2);white-space:nowrap}
+.topbar .spacer{flex:1}
+.progress{position:absolute;left:0;bottom:-1px;height:2px;background:var(--tfidf);width:0%;transition:width .15s linear}
+.btn{
+  font:inherit;font-size:.8em;font-weight:500;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;transition:background .15s,border-color .15s;
+}
+.btn:hover{border-color:var(--ink-2)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,.card-toggle:focus-visible{outline:2px solid var(--tfidf);outline-offset:2px}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn .dot{width:8px;height:8px;border-radius:50%;background:var(--bm25)}
+.btn[aria-pressed="true"] .dot{background:var(--aqua)}
+
+/* layout */
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1240px;margin:0 auto;padding-block:32px 96px;padding-inline:24px}
+.lecture .wrap{grid-template-columns:minmax(0,1fr);max-width:1080px}
+nav.toc{position:sticky;top:76px;align-self:start;font-size:.82em;max-height:calc(100vh - 100px);overflow:auto}
+.lecture nav.toc{display:none}
+nav.toc ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--line)}
+nav.toc li a{display:block;padding:6px 14px;color:var(--ink-2);text-decoration:none;border-left:2px solid transparent;margin-left:-1px}
+nav.toc li a:hover{color:var(--ink)}
+nav.toc li a.active{color:var(--ink);border-left-color:var(--tfidf);font-weight:500}
+nav.toc .num{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px;font-family:"IBM Plex Mono",monospace;font-size:.85em}
+main{min-width:0}
+section.slide{padding-block:48px;border-top:1px solid var(--line)}
+section.slide:first-child{border-top:0;padding-top:8px}
+.lecture section.slide{min-height:calc(100vh - 60px);scroll-margin-top:60px}
+section.slide>*{max-width:72ch}
+section.slide>.wide,section.slide>.demo,section.slide>.cards,section.slide>.two,section.slide>.hero-grid,section.slide>pre,section.slide>.vs,section.slide>.formula,section.slide>.quiz{max-width:none}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.eyebrow b{color:var(--tfidf);font-weight:500}
+.lead{font-size:1.15em;color:var(--ink-2)}
+
+/* hero */
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:40px;align-items:start;margin-top:24px}
+.agenda{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow)}
+.agenda h3{margin-top:0;font-size:.85em;color:var(--muted);font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;font-weight:400}
+.agenda ol{margin:12px 0 0;padding-left:0;list-style:none;counter-reset:ag}
+.agenda li{counter-increment:ag;padding:8px 0;border-top:1px solid var(--line-soft);display:flex;gap:14px}
+.agenda li::before{content:counter(ag,decimal-leading-zero);font-family:"IBM Plex Mono",monospace;color:var(--tfidf);font-size:.85em;padding-top:2px}
+.agenda li:first-child{border-top:0}
+.hero-vis{margin-top:28px;font-family:"IBM Plex Mono",monospace;font-size:.85em;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;overflow-x:auto}
+.hero-vis .row{display:flex;gap:6px;align-items:center;white-space:nowrap;padding:3px 0}
+.hero-vis .lbl{width:64px;color:var(--muted)}
+.hero-vis .cell{display:inline-block;width:26px;height:22px;border-radius:4px;background:var(--surface-2);text-align:center;line-height:22px;color:var(--ink-2);font-size:.85em}
+.hero-vis .cell.on{background:var(--tfidf);color:#fff}
+.hero-vis .cell.hot{background:var(--bm25);color:#fff}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h4{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:1em;margin:0 0 6px}
+.card p{margin:0;font-size:.92em;color:var(--ink-2)}
+.card .k{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--tfidf);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;align-items:start}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.vs .card{border-top:3px solid var(--tfidf)}
+.vs .card.b{border-top-color:var(--bm25)}
+
+/* callouts */
+.callout{border-left:3px solid var(--tfidf);background:var(--surface);padding:14px 18px;border-radius:0 var(--radius) var(--radius) 0;margin:20px 0}
+.callout.q{border-left-color:var(--violet)}
+.callout.q .qm{font-family:"Unbounded",sans-serif;color:var(--violet);font-size:.8em;letter-spacing:.04em;margin-bottom:6px}
+.callout.warn{border-left-color:var(--bm25);background:var(--bm25-soft)}
+.callout.warn .qm{font-family:"Unbounded",sans-serif;color:var(--bm25);font-size:.8em;margin-bottom:6px}
+.callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
+.term{border-bottom:1px dashed var(--muted);cursor:help}
+
+/* toggles / details */
+details.more{margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+details.more summary{cursor:pointer;padding:12px 16px;font-weight:500;list-style:none;display:flex;align-items:center;gap:10px}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--ink-2);border-bottom:2px solid var(--ink-2);transform:rotate(-45deg);transition:transform .15s;margin-left:4px}
+details.more[open] summary::before{transform:rotate(45deg)}
+details.more .body{padding:0 16px 16px;color:var(--ink-2)}
+details.more .body>*:first-child{margin-top:0}
+
+/* demo panels */
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:24px 0;box-shadow:var(--shadow)}
+.demo .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.demo .head h4{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:1em;margin:0}
+.demo .head .tag{font-family:"IBM Plex Mono",monospace;font-size:.7em;letter-spacing:.06em;text-transform:uppercase;color:var(--aqua);border:1px solid color-mix(in srgb,var(--aqua) 40%,transparent);padding:2px 8px;border-radius:999px}
+.demo .head .hint{font-size:.85em;color:var(--muted);flex-basis:100%}
+.ctl{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:end;margin-bottom:14px}
+.ctl label{display:flex;flex-direction:column;gap:4px;font-size:.82em;color:var(--ink-2);min-width:120px}
+.ctl label span.v{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-weight:500}
+.ctl input[type=text],.ctl input[type=number],.ctl select,.demo textarea{
+  font:inherit;font-size:.95em;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-width:0;
+}
+.ctl input[type=text]{width:100%}
+.ctl .grow{flex:1 1 260px}
+.demo textarea{width:100%;resize:vertical;font-family:"IBM Plex Sans",sans-serif;line-height:1.4}
+input[type=range]{accent-color:var(--tfidf);width:100%;max-width:260px}
+.bm input[type=range]{accent-color:var(--bm25)}
+.chk{display:flex;align-items:center;gap:8px;font-size:.88em;cursor:pointer;flex-direction:row!important;min-width:0!important}
+.chk input{accent-color:var(--tfidf);width:16px;height:16px;margin:0}
+.out{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--bg);border:1px solid var(--line-soft);border-radius:7px;padding:12px 14px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.result{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:8px}
+.result .big{font-family:"IBM Plex Mono",monospace;font-size:1.9em;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.result .big.b{color:var(--bm25)}.result .big.a{color:var(--tfidf)}
+.result .expl{font-size:.85em;color:var(--muted)}
+table.tbl{border-collapse:collapse;width:100%;font-size:.88em;font-variant-numeric:tabular-nums}
+table.tbl th,table.tbl td{padding:6px 10px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+table.tbl th{font-weight:500;color:var(--muted);font-size:.85em;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
+table.tbl td:first-child,table.tbl th:first-child{text-align:left}
+table.tbl td.tok{font-family:"IBM Plex Mono",monospace}
+table.tbl td.z{color:var(--muted)}
+table.tbl td.heat{position:relative}
+table.tbl td .bar{position:absolute;left:4px;right:4px;bottom:2px;height:3px;border-radius:2px;background:var(--tfidf);opacity:.7}
+.tblwrap{overflow-x:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);border-radius:6px;padding:3px 8px;display:inline-flex;gap:6px;align-items:center}
+.chip .i{color:var(--muted);font-size:.8em}
+.chip.stop{opacity:.35;text-decoration:line-through}
+.chip.punct{color:var(--muted)}
+.chip.diff{background:var(--hl);color:var(--hl-ink)}
+mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
+.byte{display:inline-block;background:var(--surface-2);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:"IBM Plex Mono",monospace}
+
+/* vectors visual */
+.vecstrip{display:grid;grid-template-columns:repeat(50,1fr);gap:2px;margin:8px 0}
+.vecstrip i{display:block;aspect-ratio:1;border-radius:2px;background:var(--surface-2)}
+.legendrow{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em;color:var(--ink-2);margin-top:6px}
+.legendrow .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+
+/* charts */
+.chart{width:100%;height:auto;display:block;font-family:"IBM Plex Sans",sans-serif}
+.chart text{fill:var(--muted);font-size:12px}
+.chart .grid line{stroke:var(--grid);stroke-width:1}
+.chart .axis{stroke:var(--axis);stroke-width:1}
+.chart .s1{stroke:var(--tfidf);stroke-width:2.5;fill:none}
+.chart .s2{stroke:var(--bm25);stroke-width:2.5;fill:none}
+.chart .s3{stroke:var(--aqua);stroke-width:2;fill:none;stroke-dasharray:5 4}
+.chart .lab{font-weight:500;fill:var(--ink-2)}
+.chart .marker{fill:var(--surface);stroke-width:2.5}
+.chart .cross{stroke:var(--muted);stroke-dasharray:3 3;display:none}
+.chartwrap{position:relative}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.78em;padding:6px 10px;border-radius:6px;display:none;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5}
+
+/* formulas */
+.formula{font-size:1.15em;margin:18px 0;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;line-height:1.3;display:block}
+.formula>*{vertical-align:middle}
+.formula.inline{display:inline-block;padding:2px 8px;font-size:1em;margin:0 .2em;border:0;background:var(--surface-2)}
+.formula var{font-style:italic;font-family:"IBM Plex Sans",sans-serif}
+.formula .fn{font-style:normal}
+.formula .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 .25em}
+.formula .frac>span{padding:0 .3em}
+.formula .frac>span:first-child{border-bottom:1.5px solid var(--ink)}
+.formula .fr{font-size:.9em}
+.formula sub{font-size:.7em}
+.formula .txt{font-size:.78em;color:var(--ink-2);font-style:normal}
+.formula .c1{color:var(--tfidf)}.formula .c2{color:var(--bm25)}.formula .c3{color:var(--aqua)}
+.formula .sum{font-size:1.6em;line-height:1;position:relative;top:.05em;display:inline-block;margin:0 .15em}
+.formula .sum small{font-size:.45em;position:absolute;left:50%;transform:translateX(-50%);bottom:-.7em;white-space:nowrap}
+
+/* code */
+pre.code{background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;font-size:.82em;line-height:1.55;margin:16px 0;position:relative}
+pre.code::before{content:attr(data-lang);position:absolute;right:14px;top:8px;font-size:.75em;color:var(--code-cm);letter-spacing:.08em;text-transform:uppercase}
+pre.code .kw{color:var(--code-kw)}pre.code .st{color:var(--code-str)}pre.code .cm{color:var(--code-cm);font-style:italic}pre.code .nu{color:var(--code-num)}pre.code .fn{color:var(--code-fn)}
+pre.code .o{color:var(--code-cm)}
+.codelabel{font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 -8px}
+
+/* search results */
+.results{display:flex;flex-direction:column;gap:8px}
+.res{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;font-size:.9em;align-items:start}
+.res .score{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-weight:500}
+.res .score small{display:block;color:var(--muted);font-weight:400;font-size:.75em}
+.res .txt{color:var(--ink-2)}
+.res .meta{font-size:.78em;color:var(--muted);margin-top:4px;font-family:"IBM Plex Mono",monospace}
+.res.moved{border-color:var(--bm25)}
+.rank-cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rank-cmp h5{margin:0 0 8px;font-family:"IBM Plex Mono",monospace;font-size:.75em;letter-spacing:.06em;text-transform:uppercase;font-weight:500}
+.rank-cmp h5.a{color:var(--tfidf)}.rank-cmp h5.b{color:var(--bm25)}
+.rank-cmp .res{grid-template-columns:56px minmax(0,1fr)}
+
+/* precision demo */
+.slots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.slot{width:52px;height:52px;border-radius:8px;border:1px solid var(--line);background:var(--bg);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:.8em;color:var(--muted);position:relative;transition:transform .1s}
+.slot:hover{transform:translateY(-2px)}
+.slot.rel{background:var(--aqua);color:#fff;border-color:var(--aqua)}
+.slot.outk{opacity:.35}
+.slot b{font-size:1.1em;font-weight:500}
+.slot::after{content:"";position:absolute;inset:auto 0 -10px;height:3px;border-radius:2px;background:transparent}
+.slot.ink::after{background:var(--tfidf)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px}
+.metric{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px}
+.metric .n{font-family:"IBM Plex Mono",monospace;font-size:1.6em;font-weight:500;font-variant-numeric:tabular-nums}
+.metric .l{font-size:.78em;color:var(--muted)}
+
+/* pipeline */
+.stage{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--line-soft);align-items:start}
+.stage:first-child{border-top:0}
+.stage .n{font-size:.82em;color:var(--ink-2)}
+.stage .n small{display:block;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:.85em}
+.stage.off{opacity:.4}
+
+/* keyword tags */
+.taglist{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px}
+.tagrow{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px;font-size:.88em;cursor:pointer}
+.tagrow:hover{border-color:var(--tfidf)}
+.tagrow .t{color:var(--ink-2)}
+.tagrow .tags{margin-top:4px;display:flex;gap:6px;flex-wrap:wrap}
+.tagrow .tags span{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--tfidf-soft);color:var(--tfidf);padding:1px 7px;border-radius:5px}
+.tagrow.b .tags span{background:var(--bm25-soft);color:var(--bm25)}
+
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin:14px 0}
+.quiz .q{font-weight:500}
+.quiz .opts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.quiz button.opt{font:inherit;font-size:.92em;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 12px;cursor:pointer;color:var(--ink)}
+.quiz button.opt:hover{border-color:var(--ink-2)}
+.quiz button.opt.ok{border-color:var(--aqua);background:color-mix(in srgb,var(--aqua) 15%,var(--bg))}
+.quiz button.opt.no{border-color:var(--bm25);opacity:.7}
+.quiz .ans{margin-top:10px;font-size:.9em;color:var(--ink-2);display:none}
+.quiz.done .ans{display:block}
+
+.kbd-hint{font-size:.78em;color:var(--muted);margin-top:40px;font-family:"IBM Plex Mono",monospace}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:.9em;background:var(--surface)}
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  nav.toc{display:none}
+  .hero-grid,.rank-cmp,.vs{grid-template-columns:minmax(0,1fr)}
+  .stage{grid-template-columns:minmax(0,1fr)}
+  h1{font-size:1.7em}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Лекція · TF-IDF і BM25</span>
+  <span class="spacer"></span>
+  <button class="btn" id="lectureBtn" aria-pressed="false" title="Збільшує шрифт і робить кожен розділ окремим слайдом"><span class="dot"></span>Режим лекції</button>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Зміст"><ol id="toc"></ol></nav>
+<main id="main">
+
+<!-- ============ 0. HERO ============ -->
+<section class="slide" id="s0" data-title="Вступ">
+  <div class="eyebrow">Обробка природної мови · <b>Без deep learning</b></div>
+  <h1>Від тексту до TF-IDF і BM25</h1>
+  <div class="hero-grid">
+    <div>
+      <p class="lead">Як комп'ютер бачить текст, як зробити з нього числа і як побудувати пошук, який досі працює у production у 2026 році без жодної нейронної мережі.</p>
+      <p>Задача пошуку (<span class="term" title="Information Retrieval">IR</span>) ділиться на два підходи:</p>
+      <div class="vs">
+        <div class="card"><div class="k">Full-text / lexical</div><h4>За ключовими словами</h4><p>Статистика над токенами. Не знає значення слів, але точно знає, які слова є в документі. Це TF-IDF і BM25.</p></div>
+        <div class="card b"><div class="k">Semantic</div><h4>За сенсом</h4><p>Нейронна мережа кодує зміст тексту у dense-вектор. Шукає за синонімами і переносним значенням. Це тема наступних лекцій.</p></div>
+      </div>
+      <div class="hero-vis" id="heroVis" aria-hidden="true"></div>
+    </div>
+    <aside class="agenda">
+      <h3>Сьогодні</h3>
+      <ol>
+        <li>Як працюють з текстом без deep learning</li>
+        <li>Попередня обробка тексту</li>
+        <li>Чому простий підрахунок слів не працює</li>
+        <li>TF-IDF і пошук за косинусною подібністю</li>
+        <li>Метрики якості пошуку</li>
+        <li>BM25: правильна формула і що вона виправляє</li>
+        <li>Чому це все ще актуально</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 1. WHY ============ -->
+<section class="slide" id="s1" data-title="Навіщо класика у 2026">
+  <div class="eyebrow">Розділ 1</div>
+  <h2>Навіщо класичні алгоритми, коли є нейронні мережі?</h2>
+  <p class="lead">Lexical search не помер. Він стоїть під капотом Elasticsearch, OpenSearch, Lucene, Solr, Postgres full-text і майже кожної <span class="term" title="Retrieval-Augmented Generation">RAG</span>-системи як перший етап відбору кандидатів.</p>
+  <div class="cards">
+    <div class="card"><div class="k">01 · Дешево</div><h4>Не потрібне тренування</h4><p>Немає датасету, немає GPU, немає ручної розмітки. Індекс будується за секунди на CPU.</p></div>
+    <div class="card"><div class="k">02 · Точно</div><h4>Досі сильний baseline</h4><p>На бенчмарку BEIR BM25 обходить багато нейронних моделей на незнайомих доменах (zero-shot).</p></div>
+    <div class="card"><div class="k">03 · Терміни</div><h4>Абревіатури і коди</h4><p>Артикул «XR-2200-B» або тікет «PROJ-4821» ембедінг не знає. Точний збіг токена знає завжди.</p></div>
+    <div class="card"><div class="k">04 · Прозоро</div><h4>Легко пояснити</h4><p>Чому документ у топі? Бо у ньому є ці слова з такою вагою. Кожен доданок скору можна показати.</p></div>
+    <div class="card"><div class="k">05 · Швидко</div><h4>Мільйони документів</h4><p>Інвертований індекс дає відповідь за мілісекунди. Нейронний пошук потребує окремої векторної БД.</p></div>
+    <div class="card"><div class="k">06 · Гібрид</div><h4>Hybrid search</h4><p>У production зазвичай поєднують: BM25 відбирає кандидатів за точним збігом, нейронна модель їх перевпорядковує.</p></div>
+  </div>
+</section>
+
+<!-- ============ 2. TEXT AS BYTES ============ -->
+<section class="slide" id="s2" data-title="Текст очима комп'ютера">
+  <div class="eyebrow">Розділ 2</div>
+  <h2>Текстові дані: що бачить комп'ютер?</h2>
+  <p>Для нас текст — це символи, що складаються у слова, речення і сенс. Для комп'ютера текст — це послідовність байтів. Стандарт <strong>Unicode</strong> присвоює кожному символу номер (code point), а кодування <strong>UTF-8</strong> записує цей номер у 1–4 байти.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Текст як байти</h4><span class="tag">interactive</span><span class="hint">Введіть будь-який текст. Спробуйте латиницю, кирилицю, японську і емоджі та порівняйте кількість байтів на символ.</span></div>
+    <div class="ctl"><label class="grow">Текст<input type="text" id="uniIn" value="Привіт, NLP! こんにちは 🚀"></label></div>
+    <div class="tblwrap"><table class="tbl" id="uniTbl"></table></div>
+    <div class="result" id="uniSum"></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Питання</div><p>Чому б не працювати з байтами напряму? Комп'ютер їх уже «розуміє».</p></div>
+  <div class="two">
+    <div class="card"><h4>Розмиття сенсу</h4><p>Байт «0xD0» сам по собі не означає нічого. Він частина літери, яка частина слова. Сигнал розмазаний по кількох позиціях, і статистика по байтах ловить шум, а не зміст.</p></div>
+    <div class="card"><h4>Висока розмірність і довжина</h4><p>Один символ може займати від 1 до 4 байтів. Кирилиця займає 2 байти на літеру, емоджі 4. Послідовність байтів у 2–4 рази довша за послідовність символів, а комбінацій байтів набагато більше, ніж символів.</p></div>
+  </div>
+  <details class="more"><summary>Код із ноутбука: візуалізатор байтів на Python</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">def visualize_unicode_bytes(text: str):
+    print(f"{'Символ':<10} | {'Code point':<10} | UTF-8 байти")
+    for char in text:
+        code_point = ord(char)                 # номер символу у таблиці Unicode
+        utf8_bytes = char.encode('utf-8')      # той самий символ як байти
+        byte_string = ' '.join(f'0x{b:02X}' for b in utf8_bytes)
+        print(f"{char:<10} | U+{code_point:04X}     | {byte_string}")
+
+visualize_unicode_bytes('こんにちは')
+# こ | U+3053 | 0xE3 0x81 0x93
+# ん | U+3093 | 0xE3 0x82 0x93 ...</code></pre>
+  </div></details>
+</section>
+
+<!-- ============ 3. TOKENIZATION ============ -->
+<section class="slide" id="s3" data-title="Токенізація">
+  <div class="eyebrow">Розділ 3</div>
+  <h2>Рішення: токенізація</h2>
+  <p><strong>Токенізація</strong> — це перетворення тексту на змістовні одиниці, <strong>токени</strong>. Мета — стиснути текст у набір блоків, кожен з яких несе частину сенсу.</p>
+  <p>Токеном може бути що завгодно: байт, символ, набір символів (subword), слово, словосполучення, речення чи абзац. Формат токена обирає розробник під задачу. Сьогодні токен = слово.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Токенізація на слова</h4><span class="tag">interactive</span><span class="hint">Пунктуація стає окремими токенами, як у <code>nltk.word_tokenize</code>. Перемкніть режим на регулярний вираз scikit-learn і подивіться, що зникає.</span></div>
+    <div class="ctl">
+      <label class="grow">Текст<input type="text" id="tokIn" value="Hello world! If you see this, you are a student assigned to NLP course."></label>
+      <label>Токенізатор<select id="tokMode"><option value="nltk">як nltk.word_tokenize</option><option value="sk">sklearn: (?u)\b\w\w+\b</option><option value="ws">просто split() по пробілах</option></select></label>
+    </div>
+    <div class="chips" id="tokOut"></div>
+    <div class="result" id="tokSum"></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Нюанс</div><p>Мови без пробілів між словами (японська, китайська, тайська) так токенізувати неможливо. Для них потрібні спеціалізовані морфологічні токенізатори (MeCab для японської) або subword-токенізатори, про які поговоримо пізніше.</p></div>
+<pre class="code" data-lang="python"><code class="py">from nltk.tokenize import word_tokenize
+word_tokenize("Hello world! If you see this, you are a student.")
+# ['Hello', 'world', '!', 'If', 'you', 'see', 'this', ',', 'you', 'are', 'a', 'student', '.']
+
+# Японська: пробілів немає, потрібен морфологічний аналізатор
+import MeCab                                  # pip install mecab-python3 unidic-lite
+wakati = MeCab.Tagger("-Owakati")
+wakati.parse("これは日本語のテキストです。").split()
+# ['これ', 'は', '日本', '語', 'の', 'テキスト', 'です', '。']</code></pre>
+
+  <div class="callout"><p><strong>Корпус</strong> — це набір текстів. Текстовий датасет, не обов'язково розмічений. Просто список документів довільної форми, стилю і теми. Далі всі метрики рахуються відносно корпусу.</p></div>
+</section>
+
+<!-- ============ 4. BAG OF WORDS ============ -->
+<section class="slide" id="s4" data-title="Bag of Words і TF">
+  <div class="eyebrow">Розділ 4</div>
+  <h2>Як представити токени числами?</h2>
+  <p>Найпростіший спосіб: порахувати, скільки разів кожен токен зустрічається у документі. Це <strong>Bag of Words</strong>: порядок слів ігноруємо, лишаємо тільки лічильники. Чим частіше слово у документі, тим, імовірно, воно важливіше для нього.</p>
+
+  <div class="formula"><var>TF</var>(<var>t</var>,<var>d</var>) =
+    <span class="frac"><span class="txt">кількість входжень токена <var>t</var> у документі <var>d</var></span><span class="txt">загальна кількість токенів у документі <var>d</var></span></span>
+  </div>
+  <p>Часто TF (Term Frequency) беруть просто як сирий лічильник <var>f</var>(<var>t</var>,<var>d</var>) без ділення. Обидва варіанти називають TF. Це джерело плутанини, і ми до неї повернемось у BM25.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Матриця частот (CountVectorizer)</h4><span class="tag">interactive</span><span class="hint">Кожний рядок — документ корпусу. Редагуйте тексти і дивіться, як змінюється словник і матриця. Слова рахуються в межах кожного документа окремо.</span></div>
+    <textarea id="bowDocs" rows="3">машинне навчання змінює світ
+глибоке навчання є частиною машинного навчання
+NLP може використовувати як статистичні моделі, так і глибоке навчання</textarea>
+    <div class="ctl" style="margin-top:12px">
+      <label class="chk"><input type="checkbox" id="bowNorm"> показувати TF = лічильник / довжина документа</label>
+    </div>
+    <div class="tblwrap"><table class="tbl" id="bowTbl"></table></div>
+    <div class="result" id="bowSum"></div>
+  </div>
+
+  <p>Результат — <strong>sparse</strong> (розріджений) вектор розмірності <var>N</var>, де <var>N</var> — розмір словника, тобто кількість унікальних токенів у всьому корпусі. Більшість значень у ньому нулі.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Sparse і dense вектори</h4><span class="tag">interactive</span><span class="hint">100 компонентів кожного вектора. Яскравість клітинки = значення. Перегенеруйте кілька разів.</span></div>
+    <div class="ctl"><label>Заповненість sparse-вектора <span class="v" id="spV">10%</span><input type="range" id="spFill" min="1" max="60" value="10"></label><button class="btn" id="spRegen">Перегенерувати</button></div>
+    <div class="legendrow"><span><span class="sw" style="background:var(--tfidf)"></span>Sparse (TF / TF-IDF): майже все нулі</span></div>
+    <div class="vecstrip" id="sparseStrip"></div>
+    <div class="legendrow"><span><span class="sw" style="background:var(--bm25)"></span>Dense (ембедінги нейронних мереж): кожна компонента щось означає</span></div>
+    <div class="vecstrip" id="denseStrip"></div>
+  </div>
+<pre class="code" data-lang="python"><code class="py">from sklearn.feature_extraction.text import CountVectorizer
+
+docs = [
+    "машинне навчання змінює світ",
+    "глибоке навчання є частиною машинного навчання",
+    "NLP може використовувати як статистичні моделі, так і глибоке навчання",
+]
+vectorizer = CountVectorizer()
+X_count = vectorizer.fit_transform(docs)      # sparse-матриця: документи x словник
+
+print(vectorizer.get_feature_names_out())     # словник
+print(X_count.toarray())                      # [[0 0 0 1 1 0 0 0 1 1 0 0 0 0] ...]</code></pre>
+</section>
+
+<!-- ============ 5. IDF / TF-IDF ============ -->
+<section class="slide" id="s5" data-title="IDF і TF-IDF">
+  <div class="eyebrow">Розділ 5</div>
+  <h2>Як врахувати, що слово повторюється у всьому корпусі?</h2>
+  <p>У матриці вище слово «навчання» є у кожному документі. Воно нічого не «підсвічує»: за ним не можна відрізнити один документ від іншого. Для цього вигадали <strong>IDF, Inverse Document Frequency</strong>: чим у більшій частці документів зустрічається токен, тим менша його вага.</p>
+  <div class="formula"><var>IDF</var>(<var>t</var>) = log
+    <span class="frac"><span><var>N</var></span><span><var>df</var>(<var>t</var>)</span></span>
+    = log <span class="frac"><span class="txt">кількість документів у корпусі</span><span class="txt">кількість документів, у яких є токен <var>t</var></span></span>
+  </div>
+  <p>scikit-learn використовує згладжену версію log((1+<var>N</var>)/(1+<var>df</var>)) + 1. Одиниця у чисельнику і знаменнику захищає від ділення на нуль для нового слова, а +1 гарантує, що слово, яке є у всіх документах, не обнулиться повністю.</p>
+
+  <div class="demo">
+    <div class="head"><h4>IDF калькулятор</h4><span class="tag">interactive</span><span class="hint">Крива показує IDF для кожного можливого <var>df</var> від 1 до <var>N</var>. Рухайте точку.</span></div>
+    <div class="ctl">
+      <label>Документів у корпусі <var>N</var> <span class="v" id="idfNv">100</span><input type="range" id="idfN" min="2" max="1000" value="100"></label>
+      <label>Документів з токеном <var>df</var> <span class="v" id="idfDfv">10</span><input type="range" id="idfDf" min="1" max="100" value="10"></label>
+      <label>Формула<select id="idfMode"><option value="classic">класична log(N/df)</option><option value="sk">sklearn log((1+N)/(1+df))+1</option></select></label>
+    </div>
+    <div class="two">
+      <div class="chartwrap"><svg class="chart" id="idfChart" viewBox="0 0 520 260"></svg><div class="tip"></div></div>
+      <div>
+        <div class="result"><span class="big a" id="idfOut">2.30</span><span class="expl">IDF токена</span></div>
+        <p style="font-size:.9em;color:var(--ink-2)" id="idfExpl"></p>
+      </div>
+    </div>
+  </div>
+
+  <h3>TF-IDF</h3>
+  <p>Перемножуємо: частота токена у документі з урахуванням його рідкості у корпусі.</p>
+  <div class="formula"><var>TF-IDF</var>(<var>t</var>,<var>d</var>) = <span class="c1"><var>TF</var>(<var>t</var>,<var>d</var>)</span> · <span class="c3"><var>IDF</var>(<var>t</var>)</span></div>
+
+  <div class="demo">
+    <div class="head"><h4>TF-IDF калькулятор для одного токена</h4><span class="tag">interactive</span></div>
+    <div class="ctl">
+      <label>Токенів у документі <span class="v" id="tfLenV">10</span><input type="range" id="tfLen" min="1" max="200" value="10"></label>
+      <label>Входжень токена <span class="v" id="tfCntV">6</span><input type="range" id="tfCnt" min="0" max="50" value="6"></label>
+      <label>Документів <var>N</var> <span class="v" id="tfNV">100</span><input type="range" id="tfN" min="2" max="1000" value="100"></label>
+      <label>Документів з токеном <var>df</var> <span class="v" id="tfDfV">90</span><input type="range" id="tfDf" min="1" max="100" value="90"></label>
+    </div>
+    <div class="result"><span class="big a" id="tfidfOut">0.06</span><span class="expl" id="tfidfExpl"></span></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>TF-IDF для нашого корпусу</h4><span class="tag">live</span><span class="hint">Рахується з документів, які ви ввели у розділі 4. У клітинках: TF-IDF (лічильник). IDF класичний із згладженням +1, як у ноутбуці.</span></div>
+    <div class="tblwrap"><table class="tbl" id="tfidfTbl"></table></div>
+    <p style="font-size:.88em;color:var(--ink-2);margin-bottom:0" id="tfidfNote"></p>
+  </div>
+<pre class="code" data-lang="python"><code class="py">import math
+
+def idf(n_docs, n_docs_with_token):
+    # згладжений варіант: +1, щоб не ділити на нуль для невідомих слів
+    return math.log((n_docs + 1) / (n_docs_with_token + 1))
+
+def tf(n_tokens_in_doc, n_token_mentions):
+    return n_token_mentions / n_tokens_in_doc
+
+def tf_idf(n_tokens_in_doc, n_token_mentions, n_docs, n_docs_with_token):
+    return tf(n_tokens_in_doc, n_token_mentions) * idf(n_docs, n_docs_with_token)
+
+tf_idf(10, 6, 100, 90)      # 0.0626</code></pre>
+</section>
+
+<!-- ============ 6. SEARCH ============ -->
+<section class="slide" id="s6" data-title="Пошук: косинусна подібність">
+  <div class="eyebrow">Розділ 6</div>
+  <h2>Як шукати за TF-IDF векторами?</h2>
+  <p>Маємо векторизований корпус і векторизатор, який робить такий же вектор для нового запиту. Запит і документи тепер точки в одному просторі розмірності «розмір словника». Лишилось порівняти вектори.</p>
+
+  <div class="vs">
+    <div class="card"><div class="k">Варіант 1</div><h4>Евклідова відстань (L2)</h4><p>Відстань між кінцями векторів. Проблема: довгий документ має більший вектор, і відстань росте навіть за однакового набору слів. Немає фіксованого діапазону, важко інтерпретувати.</p></div>
+    <div class="card b"><div class="k">Варіант 2</div><h4>Косинусна подібність</h4><p>Косинус кута між векторами. Ігнорує довжину, дивиться тільки на напрямок. Однаковий набір слів → кут 0 → подібність 1. Жодного спільного слова → кут 90° → подібність 0.</p></div>
+  </div>
+  <div class="formula"><var>cos</var>(<var>q</var>,<var>d</var>) =
+    <span class="frac"><span><var>q</var> · <var>d</var></span><span>‖<var>q</var>‖ · ‖<var>d</var>‖</span></span>
+    = <span class="frac"><span>Σ <var>q<sub>i</sub></var><var>d<sub>i</sub></var></span><span>√Σ<var>q<sub>i</sub></var>² · √Σ<var>d<sub>i</sub></var>²</span></span>
+  </div>
+  <div class="callout"><p>Загалом косинус лежить у [−1, 1]. Але TF-IDF ваги невід'ємні, тому для TF-IDF векторів косинусна подібність завжди у <strong>[0, 1]</strong>: «протилежних» текстів тут не буває. Є тільки «спільних слів немає» (0) і «набір слів однаковий» (1).</p></div>
+
+  <div class="demo">
+    <div class="head"><h4>Два документи у просторі з двох слів</h4><span class="tag">interactive</span><span class="hint">Словник із двох слів: «scary» і «movie». Задайте лічильники для двох документів і подивіться, як реагують L2 і косинус. Зробіть документ B у 3 рази довшим за A з тими ж пропорціями.</span></div>
+    <div class="two">
+      <div>
+        <div class="ctl">
+          <label>A: «scary» <span class="v" id="vaxV">2</span><input type="range" id="vax" min="0" max="10" value="2"></label>
+          <label>A: «movie» <span class="v" id="vayV">1</span><input type="range" id="vay" min="0" max="10" value="1"></label>
+        </div>
+        <div class="ctl bm">
+          <label>B: «scary» <span class="v" id="vbxV">6</span><input type="range" id="vbx" min="0" max="10" value="6"></label>
+          <label>B: «movie» <span class="v" id="vbyV">3</span><input type="range" id="vby" min="0" max="10" value="3"></label>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="n" id="vecCos">1.00</div><div class="l">косинусна подібність</div></div>
+          <div class="metric"><div class="n" id="vecL2">4.47</div><div class="l">евклідова відстань</div></div>
+          <div class="metric"><div class="n" id="vecAng">0°</div><div class="l">кут між векторами</div></div>
+        </div>
+      </div>
+      <svg class="chart" id="vecChart" viewBox="0 0 300 300" style="max-width:320px"></svg>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Пошук по міні-корпусу рецензій</h4><span class="tag">interactive</span><span class="hint">14 коротких рецензій замість 25 000 з IMDB. Запит проходить той самий векторизатор, документи ранжуються за косинусом. Збіги підсвічено. Спробуйте «scary movie», «boring plot», «great acting».</span></div>
+    <div class="ctl"><label class="grow">Запит<input type="text" id="srchQ" value="scary movie"></label><label>Показати<select id="srchK"><option>3</option><option selected>5</option><option>14</option></select></label></div>
+    <div class="results" id="srchOut"></div>
+  </div>
+<pre class="code" data-lang="python"><code class="py">from datasets import load_dataset
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+
+reviews = load_dataset("imdb")["train"]["text"]            # 25 000 рецензій
+vectorizer = TfidfVectorizer()
+tfidf_matrix = vectorizer.fit_transform(reviews)           # ~7 с на CPU, словник 74 849 токенів
+
+def tfidf_search(query, top_n=5):
+    query_vector = vectorizer.transform([query])           # той самий словник і IDF
+    sims = cosine_similarity(query_vector, tfidf_matrix).flatten()
+    best = np.argsort(sims)[::-1][:top_n]                  # індекси у порядку спадання
+    return [(reviews[i], sims[i]) for i in best]
+
+for text, score in tfidf_search("scary movie"):
+    print(f"{score:.4f}  {text[:80]}...")</code></pre>
+  <details class="more"><summary>Що робить TfidfVectorizer за замовчуванням</summary><div class="body">
+    <p>Приводить текст до нижнього регістру, токенізує регулярним виразом <code>(?u)\b\w\w+\b</code> (пунктуація ігнорується, токен — це мінімум 2 літери чи цифри), рахує IDF як log((1+N)/(1+df))+1 і нормалізує кожен вектор документа до одиничної довжини (L2). Через це косинусна подібність зводиться до звичайного скалярного добутку. Стоп-слова, N-грами і уніфікацію акцентів можна ввімкнути параметрами.</p>
+  </div></details>
+</section>
+
+<!-- ============ 7. METRICS ============ -->
+<section class="slide" id="s7" data-title="Метрики пошуку">
+  <div class="eyebrow">Розділ 7</div>
+  <h2>Як оцінити якість пошуку без ручної перевірки?</h2>
+  <p>Тестовий датасет для пошуку має дві частини: корпус документів і набір запитів, до кожного з яких відомий список релевантних документів. Тоді можна порахувати метрики, схожі на метрики класифікації, але тільки для топ-<var>K</var> результатів.</p>
+  <div class="formula fr"><var>precision</var>@<var>K</var> = <span class="frac"><span class="txt">релевантних серед топ-<var>K</var></span><span><var>K</var></span></span>
+    <span style="display:inline-block;width:32px"></span>
+    <var>recall</var>@<var>K</var> = <span class="frac"><span class="txt">релевантних серед топ-<var>K</var></span><span class="txt">усіх релевантних для запиту</span></span>
+    <span style="display:inline-block;width:32px"></span>
+    <var>F</var>@<var>K</var> = 2 · <span class="frac"><span><var>P</var>·<var>R</var></span><span><var>P</var>+<var>R</var></span></span>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>precision@K і recall@K</h4><span class="tag">interactive</span><span class="hint">10 позицій у видачі. Клацніть по позиції, щоб позначити її як релевантну. Змінюйте <var>K</var> і загальну кількість релевантних документів у корпусі.</span></div>
+    <div class="ctl">
+      <label><var>K</var> <span class="v" id="pkKV">5</span><input type="range" id="pkK" min="1" max="10" value="5"></label>
+      <label>Усього релевантних у корпусі <span class="v" id="pkRelV">6</span><input type="range" id="pkRel" min="1" max="20" value="6"></label>
+    </div>
+    <div class="slots" id="pkSlots"></div>
+    <div class="metrics">
+      <div class="metric"><div class="n" id="pkP">—</div><div class="l">precision@K</div></div>
+      <div class="metric"><div class="n" id="pkR">—</div><div class="l">recall@K</div></div>
+      <div class="metric"><div class="n" id="pkF">—</div><div class="l">F@K</div></div>
+    </div>
+    <p style="font-size:.85em;color:var(--muted);margin-bottom:0">Порядок у топ-K precision і recall не враховують. Метрики, чутливі до порядку (MRR, nDCG), розглянемо на практиці.</p>
+  </div>
+</section>
+
+<!-- ============ 8. PREPROCESSING ============ -->
+<section class="slide" id="s8" data-title="Попередня обробка">
+  <div class="eyebrow">Розділ 8</div>
+  <h2>Як обробити текст перед TF-IDF і навіщо?</h2>
+  <p>Кожен унікальний токен — це +1 вимір вектора. Розмітка, регістр, стоп-слова і форми слова роздувають словник і розмивають сигнал. Обробка нижче має накладатися <strong>і на корпус, і на запити</strong>, інакше вони не зійдуться у одному словнику.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Конвеєр обробки</h4><span class="tag">interactive</span><span class="hint">Вмикайте етапи і дивіться, як змінюється текст після кожного. Стемер — Porter, реалізований тут на JavaScript.</span></div>
+    <textarea id="ppIn" rows="2">&lt;p&gt;The &lt;b&gt;runners&lt;/b&gt; were running through the University's beautiful gardens, and they LOVED it!&lt;/p&gt;</textarea>
+    <div class="ctl" style="margin-top:12px">
+      <label class="chk"><input type="checkbox" id="ppHtml" checked> прибрати HTML</label>
+      <label class="chk"><input type="checkbox" id="ppLower" checked> нижній регістр</label>
+      <label class="chk"><input type="checkbox" id="ppTok" checked> токенізація</label>
+      <label class="chk"><input type="checkbox" id="ppStop" checked> стоп-слова</label>
+      <label class="chk"><input type="checkbox" id="ppStem"> стемінг (Porter)</label>
+      <label class="chk"><input type="checkbox" id="ppLem"> лематизація</label>
+      <label>N-грами<select id="ppN"><option value="1">uni</option><option value="2">bi</option><option value="3">tri</option></select></label>
+    </div>
+    <div id="ppStages"></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Розмітка і шум</div><h4>HTML, посилання, емоджі</h4><p>Зустрічаються по всьому корпусу і не допомагають пошуку. Прибираємо регулярними виразами або BeautifulSoup.</p></div>
+    <div class="card"><div class="k">Регістр</div><h4>Hello = HELLO = hello</h4><p>Для статистики згадка слова — це вже маячок. Регістр не важливий, тож усе у нижній регістр.</p></div>
+    <div class="card"><div class="k">Стоп-слова</div><h4>«і», «але», «the», «is»</h4><p>Є у більшості текстів, тому їхній IDF і так близький до нуля. Стоп-словом може бути й доменне слово: назва університету в документах про цей університет.</p></div>
+    <div class="card"><div class="k">Словоформи</div><h4>Стемінг vs лематизація</h4><p>Стемінг зрізає закінчення за правилами: швидко, але може дати неіснуюче слово («beauti»). Лематизація приводить до словникової форми через морфологію: точніше, але повільніше. Для української стандарт — pymorphy2/pymorphy3.</p></div>
+  </div>
+  <div class="callout"><p>Навіть якщо стемер зріже «університет» і «університетський» до неіснуючого «університ», для пошуку це не проблема. Один «токен» тепер позначає два споріднені слова, і документ отримує їхню сукупну вагу.</p></div>
+<pre class="code" data-lang="python"><code class="py">import re
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk.util import ngrams
+
+text = "&lt;p&gt;The &lt;b&gt;runners&lt;/b&gt; were running through the gardens!&lt;/p&gt;"
+
+text = re.sub(r'&lt;.*?&gt;', '', text)                       # 1. прибрати HTML-теги
+text = text.lower()                                     # 2. нижній регістр
+tokens = word_tokenize(text)                            # 3. токени
+stop_words = set(stopwords.words('english'))
+tokens = [t for t in tokens if t not in stop_words]     # 4. стоп-слова
+
+stemmer = PorterStemmer()
+print([stemmer.stem(t) for t in tokens])                # ['runner', 'run', 'garden', '!']
+
+lemmatizer = WordNetLemmatizer()
+print([lemmatizer.lemmatize(t, pos='v') for t in tokens])  # ['runners', 'run', 'gardens', '!']
+
+print(list(ngrams(tokens, 2)))                          # [('runners', 'running'), ('running', 'gardens'), ...]</code></pre>
+</section>
+
+<!-- ============ 9. OTHER USES ============ -->
+<section class="slide" id="s9" data-title="Інші застосування TF-IDF">
+  <div class="eyebrow">Розділ 9</div>
+  <h2>TF-IDF — це не тільки пошук</h2>
+  <p>TF-IDF вектор — це звичайний числовий вектор. Його можна передати будь-якій класичній моделі машинного навчання як табличні ознаки.</p>
+  <div class="cards">
+    <div class="card"><h4>Класифікація</h4><p>TF-IDF + логістична регресія або LinearSVC. Досі сильний baseline для спаму, тональності, тем.</p></div>
+    <div class="card"><h4>Ключові слова</h4><p>Топ-N токенів документа за TF-IDF — це його теги, проста сумаризація або визначення теми.</p></div>
+    <div class="card"><h4>Кластеризація</h4><p>K-Means поверх TF-IDF групує документи за схожим словником.</p></div>
+    <div class="card"><h4>Рекомендації</h4><p>«Схожі статті»: косинус між TF-IDF векторами документів.</p></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Автоматичні теги за TF-IDF</h4><span class="tag">interactive</span><span class="hint">30 речень на дві теми: космос і кулінарія. Стоп-слова прибрано. Для кожного тексту показано топ-3 токени за TF-IDF. Змініть кількість тегів або додайте свій текст.</span></div>
+    <div class="ctl">
+      <label>Тегів на текст<select id="kwN"><option>1</option><option>2</option><option selected>3</option></select></label>
+      <label class="grow">Додати свій текст у корпус<input type="text" id="kwAdd" placeholder="The chef launched a rocket-shaped cake..." ></label>
+    </div>
+    <div class="taglist" id="kwOut"></div>
+  </div>
+<pre class="code" data-lang="python"><code class="py">from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.svm import LinearSVC
+from sklearn.metrics import classification_report
+
+# df: 30 речень, label 0 = Space Exploration, 1 = Culinary Arts
+X_train, X_test, y_train, y_test = train_test_split(
+    df['text'], df['label'], test_size=0.3, random_state=42, stratify=df['label'])
+
+vectorizer = TfidfVectorizer(stop_words='english')
+X_train_tfidf = vectorizer.fit_transform(X_train)   # fit ТІЛЬКИ на train
+X_test_tfidf = vectorizer.transform(X_test)         # test проходить той самий словник
+
+clf = LinearSVC(random_state=42).fit(X_train_tfidf, y_train)
+print(classification_report(y_test, clf.predict(X_test_tfidf)))
+# accuracy 0.56 на 9 тестових прикладах: словник з 21 речення майже не перетинається
+# з тестовими. На реальному датасеті TF-IDF + лінійна модель дає 85-90% на тональності IMDB.
+
+# Теги: топ-3 токени рядка TF-IDF матриці
+import numpy as np
+feature_names = vectorizer.get_feature_names_out()
+row = vectorizer.transform(["Season the steak with salt and pepper."]).toarray()[0]
+print(feature_names[np.argsort(row)[::-1][:3]])     # ['steak' 'pepper' 'salt']</code></pre>
+</section>
+
+<!-- ============ 10. BM25 ============ -->
+<section class="slide" id="s10" data-title="BM25">
+  <div class="eyebrow">Розділ 10 · <b>Best Matching 25</b></div>
+  <h2>BM25: production-версія лексичного пошуку</h2>
+  <p class="lead">BM25 — це функція ранжування з <span class="term" title="Robertson, Spärck Jones, 1970-90-ті">імовірнісної моделі релевантності</span>. Це дефолт у Lucene, Elasticsearch і OpenSearch. Вона не векторизує документи. Вона напряму рахує оцінку для пари «запит – документ».</p>
+
+  <h3>Два недоліки TF-IDF, які виправляє BM25</h3>
+  <div class="vs">
+    <div class="card b"><div class="k">Проблема 1</div><h4>TF росте лінійно</h4><p>У TF-IDF слово, згадане 20 разів, важить у 20 разів більше, ніж згадане один раз. Але 20-та згадка «scary» майже не додає впевненості, що документ про страшне кіно. Потрібне <strong>насичення</strong> (saturation).</p></div>
+    <div class="card b"><div class="k">Проблема 2</div><h4>Довгі документи виграють</h4><p>З сирими лічильниками довгий документ має більше входжень будь-якого слова просто через довжину. Потрібна <strong>нормалізація за довжиною</strong>, але керована, а не жорстке ділення на довжину.</p></div>
+  </div>
+  <p>Також класичний TF-IDF не має жодних параметрів для налаштування: він вчить лише словник і IDF. BM25 вводить два параметри, <var>k<sub>1</sub></var> і <var>b</var>.</p>
+
+  <div class="demo bm">
+    <div class="head"><h4>Насичення TF: параметр k₁</h4><span class="tag">interactive</span><span class="hint">Внесок одного слова у скор залежно від кількості його входжень у документ. Довжина документа дорівнює середній, тому нормалізація тут не діє. <var>k<sub>1</sub></var> зазвичай 1.2–2.0.</span></div>
+    <div class="ctl"><label><var>k<sub>1</sub></var> <span class="v" id="k1V">1.2</span><input type="range" id="k1" min="0" max="5" step="0.1" value="1.2"></label></div>
+    <div class="chartwrap"><svg class="chart" id="satChart" viewBox="0 0 640 280"></svg><div class="tip"></div></div>
+    <div class="legendrow"><span><span class="sw" style="background:var(--tfidf)"></span>TF-IDF: лінійний внесок <var>f</var>(<var>t</var>,<var>d</var>)</span><span><span class="sw" style="background:var(--bm25)"></span>BM25: насичується і ніколи не перевищує <var>k<sub>1</sub></var>+1</span></div>
+    <p style="font-size:.9em;color:var(--ink-2);margin-bottom:0"><var>k<sub>1</sub></var> = 0 перетворює TF на бінарну ознаку «слово є або немає». Великий <var>k<sub>1</sub></var> наближає поведінку до лінійної.</p>
+  </div>
+
+  <div class="demo bm">
+    <div class="head"><h4>Нормалізація за довжиною: параметр b</h4><span class="tag">interactive</span><span class="hint">Той самий термін з 3 входженнями, але документ різної довжини відносно середньої по корпусу (<var>avgdl</var>). <var>b</var> зазвичай 0.75.</span></div>
+    <div class="ctl"><label><var>b</var> <span class="v" id="bV">0.75</span><input type="range" id="bParam" min="0" max="1" step="0.05" value="0.75"></label></div>
+    <div class="chartwrap"><svg class="chart" id="lenChart" viewBox="0 0 640 280"></svg><div class="tip"></div></div>
+    <p style="font-size:.9em;color:var(--ink-2);margin-bottom:0"><var>b</var> = 0: довжина документа не впливає взагалі. <var>b</var> = 1: повна нормалізація, внесок терміна масштабується на |<var>d</var>|/<var>avgdl</var>. Документ довший за середній штрафується, коротший — отримує бонус.</p>
+  </div>
+
+  <h3>Формула BM25</h3>
+  <div class="formula">
+    <var>score</var>(<var>q</var>,<var>d</var>) = <span class="sum">Σ<small><var>t</var> ∈ <var>q</var></small></span>
+    <span class="c3"><var>IDF</var>(<var>t</var>)</span> ·
+    <span class="frac"><span><span class="c2"><var>f</var>(<var>t</var>,<var>d</var>)</span> · (<var>k<sub>1</sub></var> + 1)</span><span><span class="c2"><var>f</var>(<var>t</var>,<var>d</var>)</span> + <var>k<sub>1</sub></var> · (1 − <var>b</var> + <var>b</var> · <span class="frac fr"><span>|<var>d</var>|</span><span><var>avgdl</var></span></span>)</span></span>
+  </div>
+  <ul style="font-size:.95em">
+    <li><span class="formula inline c2"><var>f</var>(<var>t</var>,<var>d</var>)</span> — <strong>сирий лічильник</strong> входжень токена у документ. Не частка від довжини. Довжина враховується окремо через <var>b</var>.</li>
+    <li>|<var>d</var>| — довжина документа у токенах, <var>avgdl</var> — середня довжина документа у корпусі.</li>
+    <li>Сума йде <strong>по токенах запиту</strong>. Документ отримує один скор на запит. Косинус тут не потрібен.</li>
+  </ul>
+  <div class="formula">
+    <var>IDF<sub>BM25</sub></var>(<var>t</var>) = log <span style="font-size:1.4em">(</span>
+    <span class="frac"><span><var>N</var> − <var>df</var>(<var>t</var>) + 0.5</span><span><var>df</var>(<var>t</var>) + 0.5</span></span>
+    + 1 <span style="font-size:1.4em">)</span>
+  </div>
+  <p>0.5 у чисельнику і знаменнику — це згладжування: воно захищає від ділення на нуль і від log(0). Оригінальна формула Робертсона без «+1» дає <strong>від'ємний</strong> IDF для слів, що є у понад половині документів. Lucene/Elasticsearch і бібліотека <code>rank_bm25</code> додають +1 під логарифм, щоб IDF завжди лишався невід'ємним і дуже часте слово просто важило майже нуль, а не віднімало скор.</p>
+
+  <div class="demo bm">
+    <div class="head"><h4>IDF: класичний проти BM25</h4><span class="tag">interactive</span><span class="hint">Порівняйте, як три формули оцінюють рідкість слова у корпусі зі 100 документів.</span></div>
+    <div class="ctl"><label>Документів з токеном <var>df</var> <span class="v" id="idfcDfV">50</span><input type="range" id="idfcDf" min="1" max="100" value="50"></label></div>
+    <div class="two">
+      <div class="chartwrap"><svg class="chart" id="idfCmpChart" viewBox="0 0 520 260"></svg><div class="tip"></div></div>
+      <div class="metrics" style="margin-top:0">
+        <div class="metric"><div class="n" id="idfcA">—</div><div class="l">класичний log(N/df)</div></div>
+        <div class="metric"><div class="n" id="idfcB" style="color:var(--bm25)">—</div><div class="l">BM25 (Lucene, з +1)</div></div>
+        <div class="metric"><div class="n" id="idfcC" style="color:var(--aqua)">—</div><div class="l">BM25 оригінальний (без +1)</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Часті непорозуміння щодо BM25</div>
+    <p><strong>1. «У формулу BM25 підставляється нормалізований TF = лічильник / довжина».</strong> Ні. Підставляється сирий лічильник <var>f</var>(<var>t</var>,<var>d</var>). Якщо підставити частку, довжина документа буде врахована двічі і формула втратить сенс: <var>f</var> стане меншим за 1, і насичення майже не буде працювати.</p>
+    <p><strong>2. «BM25 — це два оновлені множники, а далі як у TF-IDF: вектори і косинус».</strong> Ні. BM25 не будує вектор документа і не порівнює його з вектором запиту. Це сума внесків тільки тих термінів, що є у запиті. Нормалізації вектора немає, тому скор не обмежений одиницею і не порівнюється між різними запитами.</p>
+    <p><strong>3. «0.5 у IDF потрібне лише проти ділення на нуль».</strong> Частково. Це ще й згладжування оцінки ймовірності, і саме через нього IDF може стати від'ємним у оригінальній версії. Тому у production додають +1.</p>
+    <p><strong>4. «BM25 — це покращений TF-IDF».</strong> Це корисна інтуїція, але походження інше: BM25 виведений з імовірнісної моделі релевантності (Probabilistic Relevance Framework), а TF-IDF — евристика з векторної моделі. Збіг структури «щось схоже на TF, помножене на щось схоже на IDF» — це результат, а не відправна точка.</p>
+  </div>
+
+  <div class="demo bm">
+    <div class="head"><h4>BM25 калькулятор для одного терміна</h4><span class="tag">interactive</span><span class="hint">Внесок одного токена запиту у скор документа. Порівняйте з TF-IDF на тих самих даних.</span></div>
+    <div class="ctl">
+      <label>Входжень у документ <var>f</var> <span class="v" id="bmFV">3</span><input type="range" id="bmF" min="0" max="30" value="3"></label>
+      <label>Довжина документа |<var>d</var>| <span class="v" id="bmLenV">100</span><input type="range" id="bmLen" min="5" max="500" step="5" value="100"></label>
+      <label>Середня довжина <var>avgdl</var> <span class="v" id="bmAvgV">100</span><input type="range" id="bmAvg" min="5" max="500" step="5" value="100"></label>
+      <label>Документів <var>N</var> <span class="v" id="bmNV">1000</span><input type="range" id="bmN" min="2" max="10000" value="1000"></label>
+      <label>Документів з токеном <var>df</var> <span class="v" id="bmDfV">50</span><input type="range" id="bmDf" min="1" max="1000" value="50"></label>
+      <label><var>k<sub>1</sub></var> <span class="v" id="bmK1V">1.2</span><input type="range" id="bmK1" min="0" max="5" step="0.1" value="1.2"></label>
+      <label><var>b</var> <span class="v" id="bmBV">0.75</span><input type="range" id="bmB" min="0" max="1" step="0.05" value="0.75"></label>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="n" style="color:var(--bm25)" id="bmTf">—</div><div class="l">TF-компонент BM25</div></div>
+      <div class="metric"><div class="n" style="color:var(--aqua)" id="bmIdf">—</div><div class="l">IDF<sub>BM25</sub></div></div>
+      <div class="metric"><div class="n" style="color:var(--bm25)" id="bmScore">—</div><div class="l">внесок терміна у score</div></div>
+      <div class="metric"><div class="n" style="color:var(--tfidf)" id="bmVsTfidf">—</div><div class="l">TF-IDF (f/|d| · log(N/df)) для порівняння</div></div>
+    </div>
+  </div>
+
+  <div class="demo bm">
+    <div class="head"><h4>TF-IDF проти BM25 на одному корпусі</h4><span class="tag">interactive</span><span class="hint">Той самий міні-корпус, що у розділі 6. Ліворуч косинус за TF-IDF, праворуч BM25. Помаранчева рамка — документ змінив позицію. Спробуйте «scary», потім «scary movie», потім «long boring movie».</span></div>
+    <div class="ctl">
+      <label class="grow">Запит<input type="text" id="cmpQ" value="scary movie"></label>
+      <label><var>k<sub>1</sub></var> <span class="v" id="cmpK1V">1.2</span><input type="range" id="cmpK1" min="0" max="5" step="0.1" value="1.2"></label>
+      <label><var>b</var> <span class="v" id="cmpBV">0.75</span><input type="range" id="cmpB" min="0" max="1" step="0.05" value="0.75"></label>
+    </div>
+    <div class="rank-cmp">
+      <div><h5 class="a">TF-IDF · косинусна подібність</h5><div class="results" id="cmpA"></div></div>
+      <div><h5 class="b">BM25 · score</h5><div class="results" id="cmpB"></div></div>
+    </div>
+  </div>
+
+  <div class="codelabel">Реалізація з нуля</div>
+<pre class="code" data-lang="python"><code class="py">import math
+from collections import Counter
+
+class BM25:
+    def __init__(self, tokenized_docs, k1=1.2, b=0.75):
+        self.k1, self.b = k1, b
+        self.docs = tokenized_docs
+        self.doc_len = [len(d) for d in tokenized_docs]
+        self.avgdl = sum(self.doc_len) / len(tokenized_docs)
+        self.tf = [Counter(d) for d in tokenized_docs]           # сирі лічильники f(t, d)
+        df = Counter(t for d in tokenized_docs for t in set(d))  # у скількох документах є t
+        N = len(tokenized_docs)
+        self.idf = {t: math.log((N - n + 0.5) / (n + 0.5) + 1) for t, n in df.items()}
+
+    def score(self, query_tokens, i):
+        s = 0.0
+        norm = 1 - self.b + self.b * self.doc_len[i] / self.avgdl
+        for t in query_tokens:                                   # сума ТІЛЬКИ по термінах запиту
+            f = self.tf[i].get(t, 0)
+            if f == 0:
+                continue
+            s += self.idf.get(t, 0) * f * (self.k1 + 1) / (f + self.k1 * norm)
+        return s
+
+    def search(self, query_tokens, top_n=5):
+        scores = [(self.score(query_tokens, i), i) for i in range(len(self.docs))]
+        return sorted(scores, reverse=True)[:top_n]
+
+tokenize = lambda s: s.lower().split()
+bm25 = BM25([tokenize(d) for d in docs])
+bm25.search(tokenize("scary movie"))</code></pre>
+  <div class="codelabel">Готова бібліотека</div>
+<pre class="code" data-lang="python"><code class="py"># pip install rank_bm25
+from rank_bm25 import BM25Okapi
+
+tokenized_corpus = [doc.lower().split() for doc in docs]
+bm25 = BM25Okapi(tokenized_corpus, k1=1.5, b=0.75)
+
+scores = bm25.get_scores("scary movie".split())       # масив скорів, по одному на документ
+bm25.get_top_n("scary movie".split(), docs, n=5)       # топ-5 документів</code></pre>
+</section>
+
+<!-- ============ 11. SUMMARY ============ -->
+<section class="slide" id="s11" data-title="Підсумок і перевірка">
+  <div class="eyebrow">Розділ 11</div>
+  <h2>Підсумок</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Текст → числа</div><h4>Байти → токени → лічильники</h4><p>Токенізація стискає байти у змістовні одиниці. Bag of Words рахує їх і дає sparse-вектор розмірності словника.</p></div>
+    <div class="card"><div class="k">TF-IDF</div><h4>Частота × рідкість</h4><p>TF каже, наскільки слово важливе для документа. IDF каже, наскільки воно рідкісне у корпусі. Пошук — косинус між векторами.</p></div>
+    <div class="card"><div class="k">BM25</div><h4>Насичення + довжина</h4><p>Сирий лічильник із насиченням через <var>k<sub>1</sub></var>, нормалізація за довжиною через <var>b</var>, невід'ємний IDF. Сума по термінах запиту, без векторів і косинуса.</p></div>
+    <div class="card"><div class="k">Обробка</div><h4>Однаково для корпусу і запиту</h4><p>Регістр, стоп-слова, стемінг, N-грами. Один і той самий конвеєр на обох сторонах.</p></div>
+  </div>
+
+  <h3>Перевірте себе</h3>
+  <div class="quiz" data-ans="1">
+    <div class="q">Слово є у кожному документі корпусу. Який його класичний IDF = log(N/df)?</div>
+    <div class="opts"><button class="opt">Максимальний, бо слово дуже часте</button><button class="opt">Нуль, бо N/df = 1</button><button class="opt">Від'ємний</button></div>
+    <div class="ans">log(1) = 0. Слово нічим не допомагає відрізнити документи. В оригінальному BM25 IDF без +1 такий токен був би вже від'ємним.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Документ B — це документ A, скопійований три рази підряд. Яка косинусна подібність TF-IDF векторів A і B?</div>
+    <div class="opts"><button class="opt">Близько 0.33</button><button class="opt">Близько 3</button><button class="opt">1</button></div>
+    <div class="ans">Вектор B — це вектор A, помножений на 3. Напрямок той самий, косинус дорівнює 1. Саме тому косинус кращий за евклідову відстань для текстів різної довжини.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Що підставляють як TF у формулу BM25?</div>
+    <div class="opts"><button class="opt">Сирий лічильник входжень f(t, d)</button><button class="opt">Лічильник, поділений на довжину документа</button><button class="opt">L2-нормалізований TF-IDF</button></div>
+    <div class="ans">Сирий лічильник. Довжина документа входить у формулу окремо через параметр b і відношення |d|/avgdl.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Що станеться з BM25, якщо задати k₁ = 0?</div>
+    <div class="opts"><button class="opt">Скор стане нескінченним</button><button class="opt">Довжина документа перестане враховуватись</button><button class="opt">TF-компонент стане бінарним: 1, якщо слово є, 0, якщо немає</button></div>
+    <div class="ans">При k₁ = 0 дріб дорівнює f·1/(f+0) = 1 для будь-якого f > 0. Лишається тільки сума IDF термінів запиту, що є у документі. Довжину контролює b, а не k₁.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">Чому BM25 не використовує косинусну подібність?</div>
+    <div class="opts"><button class="opt">Бо косинус занадто повільний</button><button class="opt">Бо BM25 рахує скор пари запит–документ напряму як суму по термінах запиту, векторів документів він не будує</button><button class="opt">Використовує, просто це приховано у формулі</button></div>
+    <div class="ans">BM25 — це функція ранжування, а не векторизатор. Внесок мають лише токени запиту, а нормалізація довжини вбудована у сам дріб через b.</div>
+  </div>
+
+  <p class="kbd-hint">Навігація: <kbd>←</kbd> <kbd>→</kbd> між розділами у режимі лекції · <kbd>L</kbd> режим лекції · <kbd>T</kbd> тема</p>
+</section>
+
+</main>
+</div>
+
+<script>
+/* ===================== helpers ===================== */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(x,d=2)=>Number.isFinite(x)?x.toFixed(d):'—';
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const skTokenize=s=>(s.toLowerCase().match(/[\p{L}\p{N}_]{2,}/gu)||[]);
+const nltkTokenize=s=>(s.match(/[\p{L}\p{N}]+(?:['’][\p{L}]+)?|[^\s\p{L}\p{N}]/gu)||[]);
+function bindRange(id,outId,fn,dec){const el=$('#'+id),out=outId?$('#'+outId):null;const h=()=>{if(out)out.textContent=dec!=null?(+el.value).toFixed(dec):el.value;fn(+el.value)};el.addEventListener('input',h);return h}
+
+/* ===================== shell: toc, progress, modes ===================== */
+const sections=$$('section.slide');
+$('#toc').innerHTML=sections.map((s,i)=>`<li><a href="#${s.id}"><span class="num">${String(i).padStart(2,'0')}</span>${esc(s.dataset.title)}</a></li>`).join('');
+const tocLinks=$$('#toc a');
+function updateShell(){
+  const h=document.documentElement,max=h.scrollHeight-h.clientHeight;
+  $('#progress').style.width=(max>0?window.scrollY/max*100:0)+'%';
+  let cur=0;for(const [i,s] of sections.entries()){if(s.getBoundingClientRect().top<=140)cur=i}
+  tocLinks.forEach((a,i)=>a.classList.toggle('active',i===cur));
+}
+addEventListener('scroll',updateShell,{passive:true});addEventListener('resize',updateShell);
+const root=document.documentElement;
+function setLecture(on){root.classList.toggle('lecture',on);$('#lectureBtn').setAttribute('aria-pressed',String(on));store.set('lecture',on?'1':'0');setTimeout(()=>{updateShell();redrawAll()},50)}
+$('#lectureBtn').onclick=()=>setLecture(!root.classList.contains('lecture'));
+if(store.get('lecture')==='1')setLecture(true);
+const themes=['','dark','light'];
+function setTheme(t){if(t)root.setAttribute('data-theme',t);else root.removeAttribute('data-theme');store.set('theme',t);$('#themeBtn').textContent='◐ Тема'+(t?': '+(t==='dark'?'темна':'світла'):'')}
+$('#themeBtn').onclick=()=>setTheme(themes[(themes.indexOf(root.getAttribute('data-theme')||'')+1)%3]);
+setTheme(store.get('theme')||'');
+addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;
+  const cur=sections.findIndex((s,i)=>tocLinks[i].classList.contains('active'));
+  if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();sections[Math.min(cur+1,sections.length-1)].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();sections[Math.max(cur-1,0)].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='l'||e.key==='L')setLecture(!root.classList.contains('lecture'));
+  else if(e.key==='t'||e.key==='T')$('#themeBtn').click();
+});
+
+/* ===================== hero visual ===================== */
+(function(){
+  const text='scary movie is scary';const toks=text.split(' ');const vocab=['boring','is','movie','plot','scary'];
+  const counts=vocab.map(v=>toks.filter(t=>t===v).length);
+  $('#heroVis').innerHTML=
+    `<div class="row"><span class="lbl">текст</span><span>"${text}"</span></div>`+
+    `<div class="row"><span class="lbl">токени</span>${toks.map(t=>`<span class="cell" style="width:auto;padding:0 8px">${t}</span>`).join('')}</div>`+
+    `<div class="row"><span class="lbl">словник</span>${vocab.map(v=>`<span class="cell" style="width:auto;padding:0 8px;background:none;color:var(--muted)">${v}</span>`).join('')}</div>`+
+    `<div class="row"><span class="lbl">вектор</span>${counts.map((c,i)=>`<span class="cell ${c?'on':''} ${c>1?'hot':''}" style="width:${vocab[i].length*9+16}px">${c}</span>`).join('')}<span style="color:var(--muted);margin-left:8px">← sparse</span></div>`;
+})();
+
+/* ===================== 2. unicode ===================== */
+(function(){
+  const inp=$('#uniIn'),tbl=$('#uniTbl'),sum=$('#uniSum'),enc=new TextEncoder();
+  function run(){
+    const chars=[...inp.value];let total=0;
+    let rows=chars.map(ch=>{const b=enc.encode(ch);total+=b.length;
+      return `<tr><td style="font-size:1.2em">${ch===' '?'<span style="color:var(--muted)">␣</span>':esc(ch)}</td><td class="tok">U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')}</td><td class="tok" style="text-align:left">${[...b].map(x=>`<span class="byte">0x${x.toString(16).toUpperCase().padStart(2,'0')}</span>`).join('')}</td><td>${b.length}</td></tr>`}).join('');
+    tbl.innerHTML=`<thead><tr><th>Символ</th><th>Unicode</th><th style="text-align:left">UTF-8 байти</th><th>Байтів</th></tr></thead><tbody>${rows}</tbody>`;
+    sum.innerHTML=`<span class="big a">${chars.length}</span><span class="expl">символів</span><span class="big">${total}</span><span class="expl">байтів. Для комп'ютера існує лише другий рядок.</span>`;
+  }
+  inp.addEventListener('input',run);run();
+})();
+
+/* ===================== 3. tokenizer ===================== */
+(function(){
+  const inp=$('#tokIn'),mode=$('#tokMode'),out=$('#tokOut'),sum=$('#tokSum');
+  function run(){
+    const t=inp.value;let toks;
+    if(mode.value==='nltk')toks=nltkTokenize(t);else if(mode.value==='sk')toks=skTokenize(t);else toks=t.split(/\s+/).filter(Boolean);
+    out.innerHTML=toks.map((x,i)=>`<span class="chip ${/^[^\p{L}\p{N}]+$/u.test(x)?'punct':''}"><span class="i">${i}</span>${esc(x)}</span>`).join('');
+    const uniq=new Set(toks.map(x=>x.toLowerCase())).size;
+    sum.innerHTML=`<span class="big a">${toks.length}</span><span class="expl">токенів</span><span class="big">${uniq}</span><span class="expl">унікальних (без урахування регістру)</span>`;
+  }
+  inp.addEventListener('input',run);mode.addEventListener('change',run);run();
+})();
+
+/* ===================== 4. bag of words + 5. tf-idf table ===================== */
+const bow={docs:[],vocab:[],counts:[]};
+function bowCompute(){
+  bow.docs=$('#bowDocs').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const toks=bow.docs.map(skTokenize);
+  bow.vocab=[...new Set(toks.flat())].sort((a,b)=>a.localeCompare(b));
+  bow.counts=toks.map(t=>bow.vocab.map(v=>t.filter(x=>x===v).length));
+  bow.lens=toks.map(t=>t.length);
+}
+function bowRender(){
+  const norm=$('#bowNorm').checked,D=bow.docs.length;
+  const head=`<thead><tr><th>Токен</th>${bow.docs.map((_,i)=>`<th>Doc ${i+1}</th>`).join('')}</tr></thead>`;
+  const body=bow.vocab.map((v,j)=>`<tr><td class="tok">${esc(v)}</td>${bow.counts.map((row,i)=>{const c=row[j];return `<td class="${c?'':'z'}">${norm?(c?(c/bow.lens[i]).toFixed(2):'0'):c}</td>`}).join('')}</tr>`).join('');
+  $('#bowTbl').innerHTML=head+`<tbody>${body}</tbody>`;
+  const nz=bow.counts.flat().filter(x=>x>0).length,tot=bow.vocab.length*D;
+  $('#bowSum').innerHTML=`<span class="big a">${bow.vocab.length}</span><span class="expl">токенів у словнику = розмірність вектора</span><span class="big">${tot?Math.round(100-nz/tot*100):0}%</span><span class="expl">нулів у матриці</span>`;
+  tfidfTableRender();
+}
+function tfidfTableRender(){
+  const N=bow.docs.length;const idf=bow.vocab.map((v,j)=>{const df=bow.counts.filter(r=>r[j]>0).length;return Math.log((N+1)/(df+1))});
+  let max=0;bow.counts.forEach(r=>r.forEach((c,j)=>max=Math.max(max,c*idf[j])));
+  const head=`<thead><tr><th>Токен</th>${bow.docs.map((_,i)=>`<th>Doc ${i+1}</th>`).join('')}<th>IDF</th></tr></thead>`;
+  const body=bow.vocab.map((v,j)=>`<tr><td class="tok">${esc(v)}</td>${bow.counts.map(r=>{const c=r[j],val=c*idf[j];return `<td class="heat ${c?'':'z'}">${val.toFixed(2)} <span style="color:var(--muted)">(${c})</span>${val>0?`<span class="bar" style="width:${Math.max(4,val/max*90)}%;right:auto"></span>`:''}</td>`}).join('')}<td style="color:var(--aqua)">${idf[j].toFixed(2)}</td></tr>`).join('');
+  $('#tfidfTbl').innerHTML=head+`<tbody>${body}</tbody>`;
+  const zero=bow.vocab.filter((v,j)=>idf[j]===0);
+  $('#tfidfNote').textContent=zero.length?`Токени з IDF = 0 (є у кожному документі): ${zero.join(', ')}. Вони обнулилися у всіх документах і більше не впливають на пошук.`:'Жоден токен не зустрічається у всіх документах одразу, тож усі мають ненульовий IDF.';
+}
+$('#bowDocs').addEventListener('input',()=>{bowCompute();bowRender()});$('#bowNorm').addEventListener('change',bowRender);
+bowCompute();bowRender();
+
+/* sparse vs dense strips */
+(function(){
+  const sp=$('#sparseStrip'),de=$('#denseStrip'),fill=$('#spFill');
+  function paint(el,vals,color){el.innerHTML=vals.map(v=>`<i style="background:${v>0?`color-mix(in srgb,${color} ${Math.round(15+v*85)}%,var(--surface-2))`:'var(--surface-2)'}" title="${v.toFixed(2)}"></i>`).join('')}
+  function run(){
+    $('#spV').textContent=fill.value+'%';
+    const s=Array.from({length:100},()=>Math.random()<fill.value/100?Math.random():0);
+    const d=Array.from({length:100},()=>0.05+Math.random()*0.95);
+    paint(sp,s,'var(--tfidf)');paint(de,d,'var(--bm25)');
+  }
+  fill.addEventListener('input',run);$('#spRegen').addEventListener('click',run);run();
+})();
+
+/* ===================== chart helper ===================== */
+const charts=[];
+function lineChart(svg,o){
+  const W=+svg.viewBox.baseVal.width,H=+svg.viewBox.baseVal.height,p={l:48,r:16,t:16,b:36};
+  const iw=W-p.l-p.r,ih=H-p.t-p.b;
+  const sx=x=>p.l+(x-o.xMin)/(o.xMax-o.xMin)*iw, sy=y=>p.t+ih-(y-o.yMin)/(o.yMax-o.yMin)*ih;
+  const ticks=(a,b,n)=>{const step=(b-a)/n;return Array.from({length:n+1},(_,i)=>a+i*step)};
+  const xt=o.xTicks||ticks(o.xMin,o.xMax,5),yt=o.yTicks||ticks(o.yMin,o.yMax,4);
+  let g=`<g class="grid">${yt.map(y=>`<line x1="${p.l}" x2="${W-p.r}" y1="${sy(y)}" y2="${sy(y)}"/>`).join('')}</g>`;
+  g+=`<line class="axis" x1="${p.l}" x2="${W-p.r}" y1="${sy(Math.max(o.yMin,Math.min(0,o.yMax)))}" y2="${sy(Math.max(o.yMin,Math.min(0,o.yMax)))}"/>`;
+  g+=`<line class="axis" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${p.t+ih}"/>`;
+  g+=yt.map(y=>`<text x="${p.l-8}" y="${sy(y)+4}" text-anchor="end">${o.yFmt?o.yFmt(y):fmt(y,1)}</text>`).join('');
+  g+=xt.map(x=>`<text x="${sx(x)}" y="${H-p.b+18}" text-anchor="middle">${o.xFmt?o.xFmt(x):fmt(x,0)}</text>`).join('');
+  if(o.xLabel)g+=`<text class="lab" x="${W-p.r}" y="${H-4}" text-anchor="end">${o.xLabel}</text>`;
+  if(o.yLabel)g+=`<text class="lab" x="${p.l+8}" y="${p.t+2}" text-anchor="start">${o.yLabel}</text>`;
+  const n=120;
+  o.series.forEach(s=>{
+    const pts=[];for(let i=0;i<=n;i++){const x=o.xMin+(o.xMax-o.xMin)*i/n;let y=s.fn(x);if(!Number.isFinite(y))continue;pts.push([sx(x),sy(Math.max(o.yMin-1,Math.min(o.yMax+1,y)))])}
+    g+=`<path class="${s.cls}" clip-path="url(#clip-${svg.id})" d="${pts.map((pt,i)=>(i?'L':'M')+pt[0].toFixed(1)+' '+pt[1].toFixed(1)).join('')}"/>`;
+    if(s.label){const lx=o.xMin+(o.xMax-o.xMin)*(s.labelAt??0.9),ly=s.fn(lx);if(ly<=o.yMax&&ly>=o.yMin)g+=`<text class="lab" x="${sx(lx)+(s.dx??6)}" y="${sy(ly)+(s.dy??-8)}" text-anchor="${s.anchor||'end'}" style="fill:${s.color}">${s.label}</text>`}
+  });
+  (o.markers||[]).forEach(m=>{if(m.y<=o.yMax&&m.y>=o.yMin)g+=`<circle class="marker" cx="${sx(m.x)}" cy="${sy(m.y)}" r="5" style="stroke:${m.color}"/>`});
+  g+=`<line class="cross" id="${svg.id}-cross" y1="${p.t}" y2="${p.t+ih}"/>`;
+  svg.innerHTML=`<defs><clipPath id="clip-${svg.id}"><rect x="${p.l}" y="${p.t}" width="${iw}" height="${ih}"/></clipPath></defs>`+g;
+  if(!svg._hover){svg._hover=true;
+    const wrap=svg.parentElement,tip=$('.tip',wrap);
+    svg.addEventListener('mousemove',e=>{const oo=svg._o;if(!oo||!tip)return;const r=svg.getBoundingClientRect();const x=oo.xMin+((e.clientX-r.left)/r.width*W-p.l)/iw*(oo.xMax-oo.xMin);if(x<oo.xMin||x>oo.xMax){tip.style.display='none';return}
+      const xs=oo.snap?oo.snap(x):x;const cross=$('#'+svg.id+'-cross');cross.style.display='block';cross.setAttribute('x1',sx(xs));cross.setAttribute('x2',sx(xs));
+      tip.style.display='block';tip.innerHTML=`<div>${oo.xName||'x'} = ${oo.xFmt?oo.xFmt(xs):fmt(xs,oo.snap?0:2)}</div>`+oo.series.map(s=>`<div style="color:${s.color}">${s.name}: ${fmt(s.fn(xs),3)}</div>`).join('');
+      const px=(e.clientX-r.left)/r.width*wrap.clientWidth;tip.style.left=Math.min(px+12,wrap.clientWidth-tip.offsetWidth-4)+'px';tip.style.top=(e.clientY-wrap.getBoundingClientRect().top-10)+'px'});
+    svg.addEventListener('mouseleave',()=>{if(tip)tip.style.display='none';const c=$('#'+svg.id+'-cross');if(c)c.style.display='none'});
+  }
+  svg._o=o;
+}
+const redraws=[];function redrawAll(){redraws.forEach(f=>f())}
+const C={a:'var(--tfidf)',b:'var(--bm25)',c:'var(--aqua)'};
+
+/* ===================== 5. IDF chart + TF-IDF calc ===================== */
+(function(){
+  const N=$('#idfN'),df=$('#idfDf'),mode=$('#idfMode');
+  const idfC=(n,d)=>Math.log(n/d),idfS=(n,d)=>Math.log((1+n)/(1+d))+1;
+  function run(){
+    const n=+N.value;df.max=n;if(+df.value>n)df.value=n;const d=+df.value;
+    $('#idfNv').textContent=n;$('#idfDfv').textContent=d;
+    const f=mode.value==='classic'?idfC:idfS;const val=f(n,d);
+    $('#idfOut').textContent=fmt(val,2);
+    $('#idfExpl').textContent=d===n?'Токен є у кожному документі. Класичний IDF дорівнює нулю: слово не допомагає відрізнити документи.':d===1?'Токен є лише в одному документі. Це максимальна вага: слово точно вказує на конкретний документ.':`Токен є у ${Math.round(d/n*100)}% документів. Що менша ця частка, то вищий IDF.`;
+    lineChart($('#idfChart'),{xMin:1,xMax:n,yMin:0,yMax:Math.ceil(f(n,1))+0.5,xName:'df',snap:x=>Math.round(x),xLabel:'df (документів з токеном)',yLabel:'IDF',
+      series:[{fn:x=>f(n,x),cls:'s1',color:C.a,name:'IDF'}],markers:[{x:d,y:val,color:C.a}]});
+  }
+  [N,df].forEach(e=>e.addEventListener('input',run));mode.addEventListener('change',run);redraws.push(run);run();
+  const L=$('#tfLen'),Ct=$('#tfCnt'),TN=$('#tfN'),TD=$('#tfDf');
+  function run2(){
+    const len=+L.value,c=Math.min(+Ct.value,len),n=+TN.value;TD.max=n;const d=Math.min(+TD.value,n);
+    $('#tfLenV').textContent=len;$('#tfCntV').textContent=c;$('#tfNV').textContent=n;$('#tfDfV').textContent=d;
+    const tf=c/len,idf=Math.log((n+1)/(d+1));
+    $('#tfidfOut').textContent=fmt(tf*idf,3);
+    $('#tfidfExpl').innerHTML=`TF = ${c}/${len} = <b>${fmt(tf,3)}</b> &nbsp;·&nbsp; IDF = ln(${n+1}/${d+1}) = <b>${fmt(idf,3)}</b>`;
+  }
+  [L,Ct,TN,TD].forEach(e=>e.addEventListener('input',run2));run2();
+})();
+</script>
+
+<script>
+/* ===================== 6. vectors 2D ===================== */
+(function(){
+  const ids=['vax','vay','vbx','vby'];
+  function run(){
+    const [ax,ay,bx,by]=ids.map(i=>+$('#'+i).value);ids.forEach(i=>$('#'+i+'V').textContent=$('#'+i).value);
+    const dot=ax*bx+ay*by,na=Math.hypot(ax,ay),nb=Math.hypot(bx,by);
+    const cos=na&&nb?dot/(na*nb):0,l2=Math.hypot(ax-bx,ay-by),ang=na&&nb?Math.acos(Math.min(1,cos))*180/Math.PI:0;
+    $('#vecCos').textContent=fmt(cos,3);$('#vecL2').textContent=fmt(l2,2);$('#vecAng').textContent=fmt(ang,1)+'°';
+    const S=300,p=30,sc=(S-2*p)/10,X=x=>p+x*sc,Y=y=>S-p-y*sc;
+    let g=`<g class="grid">${[0,2,4,6,8,10].map(v=>`<line x1="${X(v)}" x2="${X(v)}" y1="${Y(0)}" y2="${Y(10)}"/><line y1="${Y(v)}" y2="${Y(v)}" x1="${X(0)}" x2="${X(10)}"/>`).join('')}</g>`;
+    g+=`<line class="axis" x1="${X(0)}" x2="${X(10)}" y1="${Y(0)}" y2="${Y(0)}"/><line class="axis" x1="${X(0)}" x2="${X(0)}" y1="${Y(0)}" y2="${Y(10)}"/>`;
+    g+=`<text x="${X(10)}" y="${Y(0)+18}" text-anchor="end">scary →</text><text x="${X(0)-6}" y="${Y(10)}" text-anchor="end" transform="rotate(-90 ${X(0)-6} ${Y(10)})" style="text-anchor:end">movie →</text>`;
+    if(na&&nb){const r=40,a1=Math.atan2(ay,ax),a2=Math.atan2(by,bx),lo=Math.min(a1,a2),hi=Math.max(a1,a2);
+      g+=`<path d="M ${X(0)+r*Math.cos(lo)} ${Y(0)-r*Math.sin(lo)} A ${r} ${r} 0 0 0 ${X(0)+r*Math.cos(hi)} ${Y(0)-r*Math.sin(hi)}" fill="none" stroke="var(--violet)" stroke-width="2"/>`}
+    const arrow=(x,y,c,l)=>x||y?`<line x1="${X(0)}" y1="${Y(0)}" x2="${X(x)}" y2="${Y(y)}" stroke="${c}" stroke-width="3" stroke-linecap="round"/><circle cx="${X(x)}" cy="${Y(y)}" r="5" fill="${c}"/><text x="${X(x)+8}" y="${Y(y)-8}" class="lab" style="fill:${c}">${l} (${x}, ${y})</text>`:'';
+    g+=arrow(bx,by,C.b,'B')+arrow(ax,ay,C.a,'A');
+    $('#vecChart').innerHTML=g;
+  }
+  ids.forEach(i=>$('#'+i).addEventListener('input',run));run();
+})();
+
+/* ===================== mini corpus (shared by 6 and 10) ===================== */
+const CORPUS=[
+ "Scary Movie 2 is a let down. Scary Movie 1, 3 and 4 were good, but this one was boring and not very funny.",
+ "A genuinely scary film. The atmosphere is thick and the ending stays with you for days.",
+ "Not scary at all. The monster looks like a rubber toy and the plot makes no sense.",
+ "Great acting, great script, great score. One of the best dramas of the decade.",
+ "Long, slow and boring. Two and a half hours of people staring at the sea.",
+ "The plot is predictable, but the movie is fun and the jokes land.",
+ "A terrible movie with terrible acting. I want my money back.",
+ "Beautiful animation and a warm story for the whole family.",
+ "This horror movie is scary, scary, scary. Scary jump scares, scary music, scary everything. Did I mention it is scary? Scary scary scary.",
+ "I watched this movie with my friends last weekend. The theater was almost empty, which was strange for a Friday. The film is a mix of comedy and drama with a small horror element near the end, and while it is a little scary in one scene, most of the running time is spent on the relationship between two brothers. The acting is fine, the script is uneven, the music is forgettable and the ending is sweet.",
+ "The documentary about deep sea creatures is fascinating and a little unsettling.",
+ "An action movie with explosions every five minutes. Loud but empty.",
+ "The best comedy of the year. I laughed until my stomach hurt.",
+ "A boring movie with a boring plot and boring characters. Even the popcorn was boring."
+];
+const IDX=(function(){
+  const toks=CORPUS.map(skTokenize),N=CORPUS.length;
+  const df={};toks.forEach(t=>new Set(t).forEach(w=>df[w]=(df[w]||0)+1));
+  const idfSk=w=>Math.log((1+N)/(1+(df[w]||0)))+1;
+  const idfBm=w=>Math.log((N-(df[w]||0)+0.5)/((df[w]||0)+0.5)+1);
+  const tf=toks.map(t=>{const m={};t.forEach(w=>m[w]=(m[w]||0)+1);return m});
+  const vec=tf.map(m=>{const v={};let n=0;for(const w in m){v[w]=m[w]*idfSk(w);n+=v[w]*v[w]}n=Math.sqrt(n);for(const w in v)v[w]/=n;return v});
+  const lens=toks.map(t=>t.length),avgdl=lens.reduce((a,b)=>a+b,0)/N;
+  return{N,toks,df,tf,vec,lens,avgdl,idfSk,idfBm,
+    tfidf(q){const qt=skTokenize(q),qm={};qt.forEach(w=>qm[w]=(qm[w]||0)+1);let qn=0;const qv={};for(const w in qm){qv[w]=qm[w]*idfSk(w);qn+=qv[w]*qv[w]}qn=Math.sqrt(qn)||1;
+      return vec.map((v,i)=>{let s=0;for(const w in qv)if(v[w])s+=qv[w]/qn*v[w];return{i,s}})},
+    bm25(q,k1,b){const qt=[...new Set(skTokenize(q))];
+      return tf.map((m,i)=>{let s=0;const norm=1-b+b*lens[i]/avgdl;qt.forEach(w=>{const f=m[w]||0;if(f)s+=idfBm(w)*f*(k1+1)/(f+k1*norm)});return{i,s}})}
+  };
+})();
+function highlight(text,q){const qt=[...new Set(skTokenize(q))];if(!qt.length)return esc(text);const re=new RegExp('\\b('+qt.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')\\b','giu');return esc(text).replace(re,'<mark>$1</mark>')}
+function resRow(r,q,rank,cls,scoreLabel){const qt=[...new Set(skTokenize(q))];const hits=qt.filter(w=>IDX.tf[r.i][w]).map(w=>`${w}×${IDX.tf[r.i][w]}`).join(' ');
+  return `<div class="res ${cls||''}"><div class="score">${fmt(r.s,3)}<small>#${rank} · doc ${r.i+1}</small></div><div><div class="txt">${highlight(CORPUS[r.i],q)}</div><div class="meta">|d| = ${IDX.lens[r.i]} · ${hits||'збігів немає'}</div></div></div>`}
+
+(function(){
+  const q=$('#srchQ'),k=$('#srchK'),out=$('#srchOut');
+  function run(){const res=IDX.tfidf(q.value).sort((a,b)=>b.s-a.s).slice(0,+k.value);out.innerHTML=res.every(r=>r.s===0)?'<p style="color:var(--muted)">Жоден токен запиту не зустрічається у корпусі. Косинус з усіма документами дорівнює 0.</p>':res.map((r,i)=>resRow(r,q.value,i+1)).join('')}
+  q.addEventListener('input',run);k.addEventListener('change',run);run();
+})();
+
+/* ===================== 7. precision@k ===================== */
+(function(){
+  const rel=new Set([1,2,4,7]),K=$('#pkK'),R=$('#pkRel'),slots=$('#pkSlots');
+  function run(){
+    const k=+K.value;if(+R.value<rel.size)R.value=rel.size;const total=+R.value;
+    $('#pkKV').textContent=k;$('#pkRelV').textContent=total;
+    slots.innerHTML=Array.from({length:10},(_,i)=>`<button class="slot ${rel.has(i+1)?'rel':''} ${i<k?'ink':'outk'}" data-i="${i+1}" title="позиція ${i+1}"><b>${i+1}</b>${rel.has(i+1)?'rel':'—'}</button>`).join('');
+    let hit=0;for(let i=1;i<=k;i++)if(rel.has(i))hit++;
+    const p=hit/k,r=hit/total,f=p+r?2*p*r/(p+r):0;
+    $('#pkP').textContent=fmt(p,2);$('#pkR').textContent=fmt(r,2);$('#pkF').textContent=fmt(f,2);
+    $('#pkP').title=`${hit} релевантних / K=${k}`;$('#pkR').title=`${hit} релевантних / ${total} усього`;
+  }
+  slots.addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b)return;const i=+b.dataset.i;rel.has(i)?rel.delete(i):rel.add(i);run()});
+  [K,R].forEach(e=>e.addEventListener('input',run));run();
+})();
+
+/* ===================== 8. preprocessing ===================== */
+const STOP=new Set("i me my myself we our ours ourselves you your yours yourself yourselves he him his himself she her hers herself it its itself they them their theirs themselves what which who whom this that these those am is are was were be been being have has had having do does did doing a an the and but if or because as until while of at by for with about against between into through during before after above below to from up down in out on off over under again further then once here there when where why how all any both each few more most other some such no nor not only own same so than too very s t can will just don should now d ll m o re ve y ain aren couldn didn doesn hadn hasn haven isn ma mightn mustn needn shan shouldn wasn weren won wouldn".split(' '));
+const LEMMA={runners:'runner',running:'run',ran:'run',runs:'run',were:'be',was:'be',is:'be',are:'be',been:'be',gardens:'garden',loved:'love',loves:'love',loving:'love',mice:'mouse',children:'child',feet:'foot',studies:'study',studying:'study',studied:'study',better:'good',best:'good',movies:'movie',scared:'scare',scares:'scare',scary:'scary',beautiful:'beautiful',"university's":'university',universities:'university',went:'go',goes:'go',going:'go',cats:'cat',dogs:'dog',ate:'eat',eating:'eat',eats:'eat',flew:'fly',flying:'fly',through:'through',they:'they',it:'it'};
+const porter=(function(){
+  const step2={ational:"ate",tional:"tion",enci:"ence",anci:"ance",izer:"ize",bli:"ble",alli:"al",entli:"ent",eli:"e",ousli:"ous",ization:"ize",ation:"ate",ator:"ate",alism:"al",iveness:"ive",fulness:"ful",ousness:"ous",aliti:"al",iviti:"ive",biliti:"ble",logi:"log"};
+  const step3={icate:"ic",ative:"",alize:"al",iciti:"ic",ical:"ic",ful:"",ness:""};
+  const c="[^aeiou]",v="[aeiouy]",Cc=c+"[^aeiouy]*",Vv=v+"[aeiou]*";
+  const mgr0="^("+Cc+")?"+Vv+Cc,meq1="^("+Cc+")?"+Vv+Cc+"("+Vv+")?$",mgr1="^("+Cc+")?"+Vv+Cc+Vv+Cc,s_v="^("+Cc+")?"+v;
+  return function(w){
+    if(w.length<3)return w;let stem,suffix,re,re2,re3,re4,fp;const first=w[0];if(first==="y")w="Y"+w.slice(1);
+    re=/^(.+?)(ss|i)es$/;re2=/^(.+?)([^s])s$/;if(re.test(w))w=w.replace(re,"$1$2");else if(re2.test(w))w=w.replace(re2,"$1$2");
+    re=/^(.+?)eed$/;re2=/^(.+?)(ed|ing)$/;
+    if(re.test(w)){fp=re.exec(w);if(new RegExp(mgr0).test(fp[1]))w=w.replace(/.$/,"")}
+    else if(re2.test(w)){fp=re2.exec(w);stem=fp[1];if(new RegExp(s_v).test(stem)){w=stem;re2=/(at|bl|iz)$/;re3=/([^aeiouylsz])\1$/;re4=new RegExp("^"+Cc+v+"[^aeiouwxy]$");if(re2.test(w))w+="e";else if(re3.test(w))w=w.replace(/.$/,"");else if(re4.test(w))w+="e"}}
+    re=/^(.+?)y$/;if(re.test(w)){fp=re.exec(w);stem=fp[1];if(new RegExp(s_v).test(stem))w=stem+"i"}
+    re=/^(.+?)(ational|tional|enci|anci|izer|bli|alli|entli|eli|ousli|ization|ation|ator|alism|iveness|fulness|ousness|aliti|iviti|biliti|logi)$/;
+    if(re.test(w)){fp=re.exec(w);stem=fp[1];suffix=fp[2];if(new RegExp(mgr0).test(stem))w=stem+step2[suffix]}
+    re=/^(.+?)(icate|ative|alize|iciti|ical|ful|ness)$/;
+    if(re.test(w)){fp=re.exec(w);stem=fp[1];suffix=fp[2];if(new RegExp(mgr0).test(stem))w=stem+step3[suffix]}
+    re=/^(.+?)(al|ance|ence|er|ic|able|ible|ant|ement|ment|ent|ou|ism|ate|iti|ous|ive|ize)$/;re2=/^(.+?)(s|t)(ion)$/;
+    if(re.test(w)){fp=re.exec(w);stem=fp[1];if(new RegExp(mgr1).test(stem))w=stem}
+    else if(re2.test(w)){fp=re2.exec(w);stem=fp[1]+fp[2];if(new RegExp(mgr1).test(stem))w=stem}
+    re=/^(.+?)e$/;if(re.test(w)){fp=re.exec(w);stem=fp[1];re2=new RegExp(meq1);re3=new RegExp("^"+Cc+v+"[^aeiouwxy]$");if(new RegExp(mgr1).test(stem)||(re2.test(stem)&&!re3.test(stem)))w=stem}
+    if(/ll$/.test(w)&&new RegExp(mgr1).test(w))w=w.replace(/.$/,"");
+    if(first==="y")w="y"+w.slice(1);return w};
+})();
+(function(){
+  const inp=$('#ppIn'),out=$('#ppStages'),ids=['ppHtml','ppLower','ppTok','ppStop','ppStem','ppLem'];
+  $('#ppStem').addEventListener('change',e=>{if(e.target.checked)$('#ppLem').checked=false});
+  $('#ppLem').addEventListener('change',e=>{if(e.target.checked)$('#ppStem').checked=false});
+  const chips=(arr,prev)=>`<div class="chips">${arr.map((t,i)=>`<span class="chip ${prev&&prev[i]!==undefined&&prev[i]!==t?'diff':''}">${esc(t)}</span>`).join('')}</div>`;
+  function stage(name,sub,content,on=true){return `<div class="stage ${on?'':'off'}"><div class="n">${name}<small>${sub}</small></div><div>${on?content:'<span style="color:var(--muted);font-size:.85em">пропущено</span>'}</div></div>`}
+  function run(){
+    let s=inp.value,html='';const on=id=>$('#'+id).checked;
+    html+=stage('Сирий текст','input',`<div class="out">${esc(s)}</div>`);
+    if(on('ppHtml'))s=s.replace(/<[^>]*>/g,'');html+=stage('Без HTML','re.sub(r"<.*?>", "", text)',`<div class="out">${esc(s)}</div>`,on('ppHtml'));
+    if(on('ppLower'))s=s.toLowerCase();html+=stage('Нижній регістр','text.lower()',`<div class="out">${esc(s)}</div>`,on('ppLower'));
+    let toks=on('ppTok')?nltkTokenize(s):s.split(/\s+/).filter(Boolean);html+=stage('Токени','word_tokenize(text)',chips(toks)+`<div style="font-size:.8em;color:var(--muted);margin-top:4px">${toks.length} токенів</div>`,on('ppTok'));
+    if(on('ppStop')){const kept=toks.filter(t=>!STOP.has(t.toLowerCase()));html+=stage('Без стоп-слів','w not in stopwords',`<div class="chips">${toks.map(t=>`<span class="chip ${STOP.has(t.toLowerCase())?'stop':''}">${esc(t)}</span>`).join('')}</div><div style="font-size:.8em;color:var(--muted);margin-top:4px">лишилось ${kept.length}</div>`);toks=kept}else html+=stage('Без стоп-слів','w not in stopwords','',false);
+    if(on('ppStem')){const st=toks.map(t=>/^[\p{L}]+$/u.test(t)?porter(t.toLowerCase()):t);html+=stage('Стемінг','PorterStemmer().stem(w)',chips(st,toks)+`<div style="font-size:.8em;color:var(--muted);margin-top:4px">жовтим — змінені токени; зверніть увагу на «beauti» і «univers»</div>`);toks=st}
+    else if(on('ppLem')){const lm=toks.map(t=>LEMMA[t.toLowerCase()]||t);html+=stage('Лематизація','WordNetLemmatizer().lemmatize(w)',chips(lm,toks)+`<div style="font-size:.8em;color:var(--muted);margin-top:4px">тут — невеликий словник для демонстрації; справжня лематизація використовує морфологічний аналіз</div>`);toks=lm}
+    else html+=stage('Стемінг / лематизація','stem(w) або lemmatize(w)','',false);
+    const n=+$('#ppN').value;if(n>1){const grams=[];for(let i=0;i+n<=toks.length;i++)grams.push(toks.slice(i,i+n).join(' '));html+=stage(`${n===2?'Біграми':'Триграми'}`,`ngrams(tokens, ${n})`,chips(grams))}
+    html+=stage('Результат','→ TfidfVectorizer / BM25',`<div class="out">${esc(toks.join(' '))}</div>`);
+    out.innerHTML=html;
+  }
+  inp.addEventListener('input',run);ids.forEach(i=>$('#'+i).addEventListener('change',run));$('#ppN').addEventListener('change',run);run();
+})();
+
+/* ===================== 9. keyword tags ===================== */
+(function(){
+  const BASE=["A new telescope will reveal distant galaxies.","The mission to Mars is a massive challenge.","An astronaut is preparing for a spacewalk.","Jupiter is the largest planet in our solar system.","A star explodes in a supernova.","The rocket launched successfully into orbit.","We are exploring the vastness of the universe.","The International Space Station is a home for cosmonauts.","Scientists discovered a new exoplanet.","Future missions will explore moons of Saturn.","The rover is analyzing rock samples on Mars.","The black hole at the center of our galaxy is huge.","A satellite is monitoring Earth's atmosphere.","The first humans to walk on the moon were brave explorers.","A new rover is being built for the next mission.","This recipe uses only fresh ingredients.","The professional chef prepared a delicious meal.","You need to preheat the oven before you bake.","The secret ingredient is a pinch of spice.","The kitchen is the heart of the home.","This dish has a unique, savory flavor.","He learned how to cook from his grandmother.","The new restaurant serves authentic Italian cuisine.","Mix the dough thoroughly before shaping.","The dessert was the best part of the meal.","It's a simple recipe, perfect for beginners.","A sharp knife is an essential tool for any chef.","Season the steak with salt and pepper.","A good sauce can transform any dish.","She decided to bake a cake for the party."];
+  const add=$('#kwAdd'),n=$('#kwN'),out=$('#kwOut');
+  function run(){
+    const docs=add.value.trim()?[...BASE,add.value.trim()]:BASE;const N=docs.length;
+    const toks=docs.map(d=>skTokenize(d).filter(w=>!STOP.has(w)));const df={};toks.forEach(t=>new Set(t).forEach(w=>df[w]=(df[w]||0)+1));
+    out.innerHTML=toks.map((t,i)=>{const m={};t.forEach(w=>m[w]=(m[w]||0)+1);const sc=Object.entries(m).map(([w,c])=>[w,c*(Math.log((1+N)/(1+df[w]))+1)]).sort((a,b)=>b[1]-a[1]).slice(0,+n.value);
+      return `<div class="tagrow ${i===BASE.length?'b':''}" title="${sc.map(([w,s])=>`${w}: ${s.toFixed(2)}`).join('\n')}"><div class="t">${esc(docs[i])}</div><div class="tags">${sc.map(([w])=>`<span>${w}</span>`).join('')}</div></div>`}).join('');
+  }
+  add.addEventListener('input',run);n.addEventListener('change',run);run();
+})();
+</script>
+
+<script>
+/* ===================== 10. BM25 ===================== */
+const bmTF=(f,k1,b,len,avg)=>f*(k1+1)/(f+k1*(1-b+b*len/avg));
+(function(){
+  const k1=$('#k1');
+  function run(){const k=+k1.value;$('#k1V').textContent=k.toFixed(1);
+    lineChart($('#satChart'),{xMin:0,xMax:20,yMin:0,yMax:Math.max(6,k+1.6),xName:'f(t,d)',snap:x=>Math.round(x),xLabel:'f(t,d): входжень токена у документ',yLabel:'внесок терміна (IDF = 1)',
+      series:[{fn:x=>x,cls:'s1',color:C.a,name:'TF-IDF (лінійно)',label:'TF-IDF → росте лінійно до 20',labelAt:.25,anchor:'start',dx:14,dy:6},{fn:x=>bmTF(x,k,0.75,100,100),cls:'s2',color:C.b,name:'BM25',label:`BM25 → межа k₁+1 = ${(k+1).toFixed(1)}`,labelAt:.75}]})}
+  k1.addEventListener('input',run);redraws.push(run);run();
+  const bp=$('#bParam');
+  function run2(){const b=+bp.value;$('#bV').textContent=b.toFixed(2);
+    lineChart($('#lenChart'),{xMin:0.2,xMax:3,yMin:0,yMax:3,xName:'|d| / avgdl',xFmt:x=>fmt(x,1),xLabel:'|d| / avgdl: довжина документа відносно середньої',yLabel:'внесок терміна при f = 3, k₁ = 1.2',
+      series:[{fn:x=>bmTF(3,1.2,0,x*100,100),cls:'s3',color:C.c,name:'b = 0 (без нормалізації)',label:'b = 0',labelAt:.9},{fn:x=>bmTF(3,1.2,b,x*100,100),cls:'s2',color:C.b,name:`b = ${b.toFixed(2)}`,label:`b = ${b.toFixed(2)}`,labelAt:.62,anchor:'start',dy:-12}],
+      markers:[{x:1,y:bmTF(3,1.2,b,100,100),color:C.b}]})}
+  bp.addEventListener('input',run2);redraws.push(run2);run2();
+  const dfc=$('#idfcDf'),N=100;const fA=d=>Math.log(N/d),fB=d=>Math.log((N-d+.5)/(d+.5)+1),fC=d=>Math.log((N-d+.5)/(d+.5));
+  function run3(){const d=+dfc.value;$('#idfcDfV').textContent=d;$('#idfcA').textContent=fmt(fA(d),2);$('#idfcB').textContent=fmt(fB(d),2);$('#idfcC').textContent=fmt(fC(d),2);
+    lineChart($('#idfCmpChart'),{xMin:1,xMax:100,yMin:-2,yMax:5.5,xName:'df',snap:x=>Math.round(x),xLabel:'df з N = 100',yLabel:'IDF',yTicks:[-2,-1,0,1,2,3,4,5],yFmt:y=>fmt(y,0),
+      series:[{fn:fA,cls:'s1',color:C.a,name:'класичний'},{fn:fB,cls:'s2',color:C.b,name:'BM25 з +1'},{fn:fC,cls:'s3',color:C.c,name:'BM25 без +1'}],
+      markers:[{x:d,y:fA(d),color:C.a},{x:d,y:fB(d),color:C.b},{x:d,y:fC(d),color:C.c}]})}
+  dfc.addEventListener('input',run3);redraws.push(run3);run3();
+  /* single-term calculator */
+  const ids={bmF:0,bmLen:0,bmAvg:0,bmN:0,bmDf:0,bmK1:1,bmB:2};
+  function run4(){const v={};for(const id in ids){v[id]=+$('#'+id).value;$('#'+id+'V').textContent=v[id].toFixed(ids[id])}
+    $('#bmDf').max=v.bmN;if(v.bmDf>v.bmN){v.bmDf=v.bmN;$('#bmDf').value=v.bmN;$('#bmDfV').textContent=v.bmN}
+    const tfc=bmTF(v.bmF,v.bmK1,v.bmB,v.bmLen,v.bmAvg),idf=Math.log((v.bmN-v.bmDf+.5)/(v.bmDf+.5)+1);
+    $('#bmTf').textContent=fmt(tfc,3);$('#bmIdf').textContent=fmt(idf,3);$('#bmScore').textContent=fmt(tfc*idf,3);
+    $('#bmVsTfidf').textContent=fmt(v.bmF/v.bmLen*Math.log(v.bmN/v.bmDf),3)}
+  for(const id in ids)$('#'+id).addEventListener('input',run4);run4();
+  /* side-by-side ranking */
+  const q=$('#cmpQ'),ck=$('#cmpK1'),cb=$('#cmpB');
+  function run5(){const k=+ck.value,b=+cb.value;$('#cmpK1V').textContent=k.toFixed(1);$('#cmpBV').textContent=b.toFixed(2);
+    const A=IDX.tfidf(q.value).sort((x,y)=>y.s-x.s).slice(0,6),B=IDX.bm25(q.value,k,b).sort((x,y)=>y.s-x.s).slice(0,6);
+    const posA=new Map(A.map((r,i)=>[r.i,i]));
+    $('#cmpA').innerHTML=A.map((r,i)=>resRow(r,q.value,i+1)).join('');
+    $('#cmpB').innerHTML=B.map((r,i)=>resRow(r,q.value,i+1,posA.get(r.i)!==i?'moved':'')).join('')}
+  q.addEventListener('input',run5);[ck,cb].forEach(e=>e.addEventListener('input',run5));run5();
+})();
+
+/* ===================== 11. quiz ===================== */
+$$('.quiz').forEach(qz=>{const ans=+qz.dataset.ans;$$('.opt',qz).forEach((b,i)=>b.addEventListener('click',()=>{if(qz.classList.contains('done'))return;qz.classList.add('done');b.classList.add(i===ans?'ok':'no');$$('.opt',qz)[ans].classList.add('ok')}))});
+
+/* ===================== python highlighter ===================== */
+$$('code.py').forEach(el=>{
+  const src=el.textContent;const kw=/\b(def|class|import|from|for|in|if|else|elif|return|lambda|not|and|or|as|with|None|True|False|continue|break|pass|while|yield|print|set|len|sum|sorted|range|list|dict)\b/;
+  const re=/(#.*$)|(f?"(?:[^"\\]|\\.)*"|f?'(?:[^'\\]|\\.)*')|\b(def|class|import|from|for|in|if|else|elif|return|lambda|not|and|or|as|with|None|True|False|continue|break|pass|while|yield|print|set|len|sum|sorted|range|list|dict)\b|\b(\d+\.?\d*)\b/gm;
+  let out='',last=0,m;
+  while((m=re.exec(src))){out+=esc(src.slice(last,m.index));
+    if(m[1])out+=`<span class="cm">${esc(m[1])}</span>`;else if(m[2])out+=`<span class="st">${esc(m[2])}</span>`;else if(m[3])out+=`<span class="kw">${m[3]}</span>`;else out+=`<span class="nu">${m[4]}</span>`;last=re.lastIndex}
+  out+=esc(src.slice(last));
+  el.innerHTML=out.replace(/(<span class="kw">(?:def|class)<\/span> )([A-Za-z_]\w*)/g,'$1<span class="fn">$2</span>');
+});
+updateShell();
+</script>
+</body>
+</html>

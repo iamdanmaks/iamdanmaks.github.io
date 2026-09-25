@@ -1,0 +1,1439 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BPE токенізатори: як моделі бачать текст</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#e9edf2; --ink:#141922; --ink-2:#4a5566; --muted:#7d8795;
+  --line:#d6dce4; --line-soft:#e6eaf0;
+  --tfidf:#2a78d6; --tfidf-soft:#dce9f9; --bm25:#eb6834; --bm25-soft:#fbe3d8;
+  --aqua:#1baf7a; --violet:#4a3aa7;
+  --hl:#fff1b8; --hl-ink:#5a4300;
+  --code-bg:#1b2130; --code-ink:#e6ebf3; --code-kw:#8fb7ff; --code-str:#9fe0b2; --code-cm:#7d8795; --code-num:#ffc46b; --code-fn:#e8b6ff;
+  --grid:#e1e4ea; --axis:#c3c8d1;
+  --shadow:0 1px 2px rgba(20,25,34,.06),0 8px 24px rgba(20,25,34,.06);
+  --fs:17px; --radius:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+    --line:#2c3341; --line-soft:#232a36;
+    --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+    --aqua:#25c48b; --violet:#9085e9;
+    --hl:#4a3b0c; --hl-ink:#ffe9a3;
+    --code-bg:#0b0e14; --code-ink:#e6ebf3;
+    --grid:#262c37; --axis:#3a4250;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+  --line:#2c3341; --line-soft:#232a36;
+  --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+  --aqua:#25c48b; --violet:#9085e9;
+  --hl:#4a3b0c; --hl-ink:#ffe9a3;
+  --code-bg:#0b0e14; --code-ink:#e6ebf3;
+  --grid:#262c37; --axis:#3a4250;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+:root.lecture{ --fs:21px; }
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:var(--fs); line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--tfidf)}
+h1,h2,h3,h4{font-family:"Unbounded","IBM Plex Sans",system-ui,sans-serif;line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:2.3em;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.55em;font-weight:700}
+h3{font-size:1.1em;font-weight:500;margin-top:1.6em}
+p{margin:.75em 0}
+strong{font-weight:600}
+code,kbd,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:.9em;background:var(--surface-2);padding:.1em .35em;border-radius:5px}
+pre code{background:none;padding:0;font-size:inherit}
+
+/* top bar */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  display:flex;align-items:center;gap:14px;padding:10px 20px;
+  background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.topbar .brand{font-family:"Unbounded",sans-serif;font-weight:500;font-size:.8em;letter-spacing:.02em;color:var(--ink-2);white-space:nowrap}
+.topbar .spacer{flex:1}
+.progress{position:absolute;left:0;bottom:-1px;height:2px;background:var(--tfidf);width:0%;transition:width .15s linear}
+.btn{
+  font:inherit;font-size:.8em;font-weight:500;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;transition:background .15s,border-color .15s;
+}
+.btn:hover{border-color:var(--ink-2)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,.card-toggle:focus-visible{outline:2px solid var(--tfidf);outline-offset:2px}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn .dot{width:8px;height:8px;border-radius:50%;background:var(--bm25)}
+.btn[aria-pressed="true"] .dot{background:var(--aqua)}
+
+/* layout */
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1240px;margin:0 auto;padding-block:32px 96px;padding-inline:24px}
+.lecture .wrap{grid-template-columns:minmax(0,1fr);max-width:1080px}
+nav.toc{position:sticky;top:76px;align-self:start;font-size:.82em;max-height:calc(100vh - 100px);overflow:auto}
+.lecture nav.toc{display:none}
+nav.toc ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--line)}
+nav.toc li a{display:block;padding:6px 14px;color:var(--ink-2);text-decoration:none;border-left:2px solid transparent;margin-left:-1px}
+nav.toc li a:hover{color:var(--ink)}
+nav.toc li a.active{color:var(--ink);border-left-color:var(--tfidf);font-weight:500}
+nav.toc .num{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px;font-family:"IBM Plex Mono",monospace;font-size:.85em}
+main{min-width:0}
+section.slide{padding-block:48px;border-top:1px solid var(--line)}
+section.slide:first-child{border-top:0;padding-top:8px}
+.lecture section.slide{min-height:calc(100vh - 60px);scroll-margin-top:60px}
+section.slide>*{max-width:72ch}
+section.slide>.wide,section.slide>.demo,section.slide>.cards,section.slide>.two,section.slide>.hero-grid,section.slide>pre,section.slide>.vs,section.slide>.formula,section.slide>.quiz{max-width:none}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.eyebrow b{color:var(--tfidf);font-weight:500}
+.lead{font-size:1.15em;color:var(--ink-2)}
+
+/* hero */
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:40px;align-items:start;margin-top:24px}
+.agenda{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow)}
+.agenda h3{margin-top:0;font-size:.85em;color:var(--muted);font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;font-weight:400}
+.agenda ol{margin:12px 0 0;padding-left:0;list-style:none;counter-reset:ag}
+.agenda li{counter-increment:ag;padding:8px 0;border-top:1px solid var(--line-soft);display:flex;gap:14px}
+.agenda li::before{content:counter(ag,decimal-leading-zero);font-family:"IBM Plex Mono",monospace;color:var(--tfidf);font-size:.85em;padding-top:2px}
+.agenda li:first-child{border-top:0}
+.hero-vis{margin-top:28px;font-family:"IBM Plex Mono",monospace;font-size:.85em;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;overflow-x:auto}
+.hero-vis .row{display:flex;gap:6px;align-items:center;white-space:nowrap;padding:3px 0}
+.hero-vis .lbl{width:64px;color:var(--muted)}
+.hero-vis .cell{display:inline-block;width:26px;height:22px;border-radius:4px;background:var(--surface-2);text-align:center;line-height:22px;color:var(--ink-2);font-size:.85em}
+.hero-vis .cell.on{background:var(--tfidf);color:#fff}
+.hero-vis .cell.hot{background:var(--bm25);color:#fff}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h4{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:1em;margin:0 0 6px}
+.card p{margin:0;font-size:.92em;color:var(--ink-2)}
+.card .k{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--tfidf);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;align-items:start}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.vs .card{border-top:3px solid var(--tfidf)}
+.vs .card.b{border-top-color:var(--bm25)}
+
+/* callouts */
+.callout{border-left:3px solid var(--tfidf);background:var(--surface);padding:14px 18px;border-radius:0 var(--radius) var(--radius) 0;margin:20px 0}
+.callout.q{border-left-color:var(--violet)}
+.callout.q .qm{font-family:"Unbounded",sans-serif;color:var(--violet);font-size:.8em;letter-spacing:.04em;margin-bottom:6px}
+.callout.warn{border-left-color:var(--bm25);background:var(--bm25-soft)}
+.callout.warn .qm{font-family:"Unbounded",sans-serif;color:var(--bm25);font-size:.8em;margin-bottom:6px}
+.callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
+.term{border-bottom:1px dashed var(--muted);cursor:help}
+
+/* toggles / details */
+details.more{margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+details.more summary{cursor:pointer;padding:12px 16px;font-weight:500;list-style:none;display:flex;align-items:center;gap:10px}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--ink-2);border-bottom:2px solid var(--ink-2);transform:rotate(-45deg);transition:transform .15s;margin-left:4px}
+details.more[open] summary::before{transform:rotate(45deg)}
+details.more .body{padding:0 16px 16px;color:var(--ink-2)}
+details.more .body>*:first-child{margin-top:0}
+
+/* demo panels */
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:24px 0;box-shadow:var(--shadow)}
+.demo .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.demo .head h4{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:1em;margin:0}
+.demo .head .tag{font-family:"IBM Plex Mono",monospace;font-size:.7em;letter-spacing:.06em;text-transform:uppercase;color:var(--aqua);border:1px solid color-mix(in srgb,var(--aqua) 40%,transparent);padding:2px 8px;border-radius:999px}
+.demo .head .hint{font-size:.85em;color:var(--muted);flex-basis:100%}
+.ctl{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:end;margin-bottom:14px}
+.ctl label{display:flex;flex-direction:column;gap:4px;font-size:.82em;color:var(--ink-2);min-width:120px}
+.ctl label span.v{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-weight:500}
+.ctl input[type=text],.ctl input[type=number],.ctl select,.demo textarea{
+  font:inherit;font-size:.95em;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-width:0;
+}
+.ctl input[type=text]{width:100%}
+.ctl .grow{flex:1 1 260px}
+.demo textarea{width:100%;resize:vertical;font-family:"IBM Plex Sans",sans-serif;line-height:1.4}
+input[type=range]{accent-color:var(--tfidf);width:100%;max-width:260px}
+.bm input[type=range]{accent-color:var(--bm25)}
+.chk{display:flex;align-items:center;gap:8px;font-size:.88em;cursor:pointer;flex-direction:row!important;min-width:0!important}
+.chk input{accent-color:var(--tfidf);width:16px;height:16px;margin:0}
+.out{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--bg);border:1px solid var(--line-soft);border-radius:7px;padding:12px 14px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.result{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:8px}
+.result .big{font-family:"IBM Plex Mono",monospace;font-size:1.9em;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.result .big.b{color:var(--bm25)}.result .big.a{color:var(--tfidf)}
+.result .expl{font-size:.85em;color:var(--muted)}
+table.tbl{border-collapse:collapse;width:100%;font-size:.88em;font-variant-numeric:tabular-nums}
+table.tbl th,table.tbl td{padding:6px 10px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+table.tbl th{font-weight:500;color:var(--muted);font-size:.85em;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
+table.tbl td:first-child,table.tbl th:first-child{text-align:left}
+table.tbl td.tok{font-family:"IBM Plex Mono",monospace}
+table.tbl td.z{color:var(--muted)}
+table.tbl td.heat{position:relative}
+table.tbl td .bar{position:absolute;left:4px;right:4px;bottom:2px;height:3px;border-radius:2px;background:var(--tfidf);opacity:.7}
+.tblwrap{overflow-x:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);border-radius:6px;padding:3px 8px;display:inline-flex;gap:6px;align-items:center}
+.chip .i{color:var(--muted);font-size:.8em}
+.chip.stop{opacity:.35;text-decoration:line-through}
+.chip.punct{color:var(--muted)}
+.chip.diff{background:var(--hl);color:var(--hl-ink)}
+mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
+.byte{display:inline-block;background:var(--surface-2);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:"IBM Plex Mono",monospace}
+
+/* vectors visual */
+.vecstrip{display:grid;grid-template-columns:repeat(50,1fr);gap:2px;margin:8px 0}
+.vecstrip i{display:block;aspect-ratio:1;border-radius:2px;background:var(--surface-2)}
+.legendrow{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em;color:var(--ink-2);margin-top:6px}
+.legendrow .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+
+/* charts */
+.chart{width:100%;height:auto;display:block;font-family:"IBM Plex Sans",sans-serif}
+.chart text{fill:var(--muted);font-size:12px}
+.chart .grid line{stroke:var(--grid);stroke-width:1}
+.chart .axis{stroke:var(--axis);stroke-width:1}
+.chart .s1{stroke:var(--tfidf);stroke-width:2.5;fill:none}
+.chart .s2{stroke:var(--bm25);stroke-width:2.5;fill:none}
+.chart .s3{stroke:var(--aqua);stroke-width:2;fill:none;stroke-dasharray:5 4}
+.chart .lab{font-weight:500;fill:var(--ink-2)}
+.chart .marker{fill:var(--surface);stroke-width:2.5}
+.chart .cross{stroke:var(--muted);stroke-dasharray:3 3;display:none}
+.chartwrap{position:relative}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.78em;padding:6px 10px;border-radius:6px;display:none;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5}
+
+/* formulas */
+.formula{font-size:1.15em;margin:18px 0;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;line-height:1.3;display:block}
+.formula>*{vertical-align:middle}
+.formula.inline{display:inline-block;padding:2px 8px;font-size:1em;margin:0 .2em;border:0;background:var(--surface-2)}
+.formula var{font-style:italic;font-family:"IBM Plex Sans",sans-serif}
+.formula .fn{font-style:normal}
+.formula .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 .25em}
+.formula .frac>span{padding:0 .3em}
+.formula .frac>span:first-child{border-bottom:1.5px solid var(--ink)}
+.formula .fr{font-size:.9em}
+.formula sub{font-size:.7em}
+.formula .txt{font-size:.78em;color:var(--ink-2);font-style:normal}
+.formula .c1{color:var(--tfidf)}.formula .c2{color:var(--bm25)}.formula .c3{color:var(--aqua)}
+.formula .sum{font-size:1.6em;line-height:1;position:relative;top:.05em;display:inline-block;margin:0 .15em}
+.formula .sum small{font-size:.45em;position:absolute;left:50%;transform:translateX(-50%);bottom:-.7em;white-space:nowrap}
+
+/* code */
+pre.code{background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;font-size:.82em;line-height:1.55;margin:16px 0;position:relative}
+pre.code::before{content:attr(data-lang);position:absolute;right:14px;top:8px;font-size:.75em;color:var(--code-cm);letter-spacing:.08em;text-transform:uppercase}
+pre.code .kw{color:var(--code-kw)}pre.code .st{color:var(--code-str)}pre.code .cm{color:var(--code-cm);font-style:italic}pre.code .nu{color:var(--code-num)}pre.code .fn{color:var(--code-fn)}
+pre.code .o{color:var(--code-cm)}
+.codelabel{font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 -8px}
+
+/* search results */
+.results{display:flex;flex-direction:column;gap:8px}
+.res{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;font-size:.9em;align-items:start}
+.res .score{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-weight:500}
+.res .score small{display:block;color:var(--muted);font-weight:400;font-size:.75em}
+.res .txt{color:var(--ink-2)}
+.res .meta{font-size:.78em;color:var(--muted);margin-top:4px;font-family:"IBM Plex Mono",monospace}
+.res.moved{border-color:var(--bm25)}
+.rank-cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rank-cmp h5{margin:0 0 8px;font-family:"IBM Plex Mono",monospace;font-size:.75em;letter-spacing:.06em;text-transform:uppercase;font-weight:500}
+.rank-cmp h5.a{color:var(--tfidf)}.rank-cmp h5.b{color:var(--bm25)}
+.rank-cmp .res{grid-template-columns:56px minmax(0,1fr)}
+
+/* precision demo */
+.slots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.slot{width:52px;height:52px;border-radius:8px;border:1px solid var(--line);background:var(--bg);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:.8em;color:var(--muted);position:relative;transition:transform .1s}
+.slot:hover{transform:translateY(-2px)}
+.slot.rel{background:var(--aqua);color:#fff;border-color:var(--aqua)}
+.slot.outk{opacity:.35}
+.slot b{font-size:1.1em;font-weight:500}
+.slot::after{content:"";position:absolute;inset:auto 0 -10px;height:3px;border-radius:2px;background:transparent}
+.slot.ink::after{background:var(--tfidf)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px}
+.metric{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px}
+.metric .n{font-family:"IBM Plex Mono",monospace;font-size:1.6em;font-weight:500;font-variant-numeric:tabular-nums}
+.metric .l{font-size:.78em;color:var(--muted)}
+
+/* pipeline */
+.stage{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--line-soft);align-items:start}
+.stage:first-child{border-top:0}
+.stage .n{font-size:.82em;color:var(--ink-2)}
+.stage .n small{display:block;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:.85em}
+.stage.off{opacity:.4}
+
+/* keyword tags */
+.taglist{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px}
+.tagrow{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px;font-size:.88em;cursor:pointer}
+.tagrow:hover{border-color:var(--tfidf)}
+.tagrow .t{color:var(--ink-2)}
+.tagrow .tags{margin-top:4px;display:flex;gap:6px;flex-wrap:wrap}
+.tagrow .tags span{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--tfidf-soft);color:var(--tfidf);padding:1px 7px;border-radius:5px}
+.tagrow.b .tags span{background:var(--bm25-soft);color:var(--bm25)}
+
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin:14px 0}
+.quiz .q{font-weight:500}
+.quiz .opts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.quiz button.opt{font:inherit;font-size:.92em;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 12px;cursor:pointer;color:var(--ink)}
+.quiz button.opt:hover{border-color:var(--ink-2)}
+.quiz button.opt.ok{border-color:var(--aqua);background:color-mix(in srgb,var(--aqua) 15%,var(--bg))}
+.quiz button.opt.no{border-color:var(--bm25);opacity:.7}
+.quiz .ans{margin-top:10px;font-size:.9em;color:var(--ink-2);display:none}
+.quiz.done .ans{display:block}
+
+.kbd-hint{font-size:.78em;color:var(--muted);margin-top:40px;font-family:"IBM Plex Mono",monospace}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:.9em;background:var(--surface)}
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  nav.toc{display:none}
+  .hero-grid,.rank-cmp,.vs{grid-template-columns:minmax(0,1fr)}
+  .stage{grid-template-columns:minmax(0,1fr)}
+  h1{font-size:1.7em}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===================== BPE additions ===================== */
+.tokbox{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 7px;font-size:.82em;line-height:1.15;min-width:24px}
+.tokbox .b{font-size:.68em;color:var(--muted);letter-spacing:.02em}
+.tokbox.merged{background:var(--hl);color:var(--hl-ink);border-color:color-mix(in srgb,var(--hl-ink) 35%,transparent)}
+.tokbox.byte{background:var(--bm25-soft);color:var(--bm25);border-color:color-mix(in srgb,var(--bm25) 45%,transparent)}
+.tokbox.special{background:var(--violet);color:#fff;border-color:var(--violet)}
+.tokbox.unk{background:var(--bm25);color:#fff;border-color:var(--bm25)}
+.tokbox.changed{border-color:var(--bm25);border-width:2px;padding:2px 6px}
+.tokrow{display:flex;flex-wrap:wrap;gap:4px;align-items:flex-end}
+.wordgroup{display:inline-flex;flex-direction:column;gap:5px;padding:7px 9px;border:1px solid var(--line-soft);border-radius:9px;background:var(--surface);margin:0 6px 8px 0;vertical-align:top}
+.wordgroup .wg-toks{display:flex;gap:4px;flex-wrap:wrap}
+.wordgroup .wg-idx{font-family:"IBM Plex Mono",monospace;font-size:.68em;color:var(--muted)}
+.pairrow{display:grid;grid-template-columns:minmax(90px,auto) 1fr 46px;gap:10px;align-items:center;font-family:"IBM Plex Mono",monospace;font-size:.84em;padding:2px 6px;border-radius:6px}
+.pairrow .pbar{height:9px;border-radius:5px;background:var(--tfidf);opacity:.7;min-width:2px}
+.pairrow .pf{text-align:right;font-variant-numeric:tabular-nums}
+.pairrow.best{background:var(--hl)}
+.pairrow.best .pbar{background:var(--bm25);opacity:.95}
+.mergelist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;counter-reset:mg}
+.mergelist li{background:var(--surface-2);border-radius:6px;padding:3px 9px;font-family:"IBM Plex Mono",monospace;font-size:.83em;display:flex;gap:7px;align-items:center}
+.mergelist li::before{counter-increment:mg;content:counter(mg);color:var(--muted);font-size:.8em}
+.mergelist li b{color:var(--bm25);font-weight:500}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}
+.tcol{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;min-width:0}
+.tcol h5{margin:0 0 4px;font-family:"Unbounded",sans-serif;font-size:.82em;font-weight:500}
+.tcol .sub{font-size:.76em;color:var(--muted);font-family:"IBM Plex Mono",monospace;margin-bottom:10px}
+.tcol.a{border-top:3px solid var(--tfidf)}.tcol.b{border-top:3px solid var(--bm25)}.tcol.c{border-top:3px solid var(--aqua)}
+.barcomp{display:grid;grid-template-columns:118px 1fr 74px;gap:10px;align-items:center;font-size:.9em;margin:8px 0}
+.barcomp .track{background:var(--surface-2);border-radius:6px;height:20px;position:relative;overflow:hidden}
+.barcomp .fill{position:absolute;inset:0 auto 0 0;border-radius:6px}
+.barcomp .fill.a{background:var(--tfidf)}.barcomp .fill.b{background:var(--bm25)}.barcomp .fill.c{background:var(--aqua)}
+.barcomp .num{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.straw{font-family:"IBM Plex Mono",monospace;font-size:1.5em;letter-spacing:.04em;line-height:1.7}
+.straw .r{color:var(--bm25);font-weight:600}
+.straw .tk{background:var(--surface-2);border-radius:7px;padding:3px 8px;margin-right:5px;display:inline-block}
+.straw .tk .r{color:var(--bm25)}
+.legendnote{font-size:.8em;color:var(--muted);font-family:"IBM Plex Mono",monospace;margin:6px 0 0}
+.mono-big{font-family:"IBM Plex Mono",monospace;font-size:.9em;font-variant-numeric:tabular-nums}
+@media (max-width:900px){.three{grid-template-columns:minmax(0,1fr)}}
+
+/* ===================== tokens -> model (embedding matrix intro) ===================== */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:20px 0}
+.pipe .pstep{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:.88em;min-width:0}
+.pipe .pstep .l{font-size:.7em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:"IBM Plex Mono",monospace;margin-bottom:2px}
+.pipe .pstep .t{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-size:.92em;white-space:nowrap}
+.pipe .pstep.emb{border-color:var(--tfidf);box-shadow:0 0 0 3px var(--tfidf-soft)}
+.pipe .arrow{color:var(--muted);font-size:1.2em;font-family:"IBM Plex Mono",monospace}
+.embwrap{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;margin:10px 0;overflow-x:auto}
+.embmat{display:grid;grid-template-columns:auto repeat(8,30px);gap:2px;font-family:"IBM Plex Mono",monospace;font-size:.8em;flex:0 0 auto}
+.embmat .emhdr{color:var(--muted);font-size:.72em;text-align:center;align-self:end;padding-bottom:2px}
+.embmat .emlab{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 10px 0 0;color:var(--ink-2);cursor:pointer;border-radius:6px;white-space:nowrap;user-select:none}
+.embmat .emlab .idx{color:var(--muted);font-size:.78em;font-variant-numeric:tabular-nums}
+.embmat .emlab:hover{background:var(--surface-2)}
+.embmat .emlab.on{background:var(--hl);color:var(--hl-ink)}
+.embmat .emlab.on .idx{color:var(--hl-ink)}
+.embmat .emcell{width:30px;height:26px;border-radius:4px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:.72em;color:var(--ink);font-variant-numeric:tabular-nums}
+.embinfo{min-width:250px;flex:1 1 260px}
+.embinfo .vec{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0}
+.embinfo .vec i{width:34px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.74em;font-style:normal;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-soft);font-family:"IBM Plex Mono",monospace}
+.embinfo .vec i.pos{background:var(--bm25-soft);color:var(--bm25);border-color:color-mix(in srgb,var(--bm25) 35%,transparent)}
+.embinfo .vec i.neg{background:var(--tfidf-soft);color:var(--tfidf);border-color:color-mix(in srgb,var(--tfidf) 35%,transparent)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Лекція · BPE токенізатори</span>
+  <span class="spacer"></span>
+  <button class="btn" id="lectureBtn" aria-pressed="false" title="Збільшує шрифт і робить кожен розділ окремим слайдом"><span class="dot"></span>Режим лекції</button>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Зміст"><ol id="toc"></ol></nav>
+<main id="main">
+
+<!-- ============ 0. HERO ============ -->
+<section class="slide" id="s0" data-title="Вступ">
+  <div class="eyebrow">Обробка природної мови · <b>Токенізація</b></div>
+  <h1>BPE токенізатори: як моделі бачать текст</h1>
+  <div class="hero-grid">
+    <div>
+      <p class="lead">Проста токенізація на слова ламається, щойно з'являється незнайоме слово. Субслівні токенізатори — <strong>BPE</strong> і <strong>WordPiece</strong> — розв'язують це, розбиваючи слова на частини. Розберемо, як вони влаштовані, як навчаються і чому саме токенізація визначає ціну, швидкість та можливості сучасних LLM.</p>
+      <div class="vs">
+        <div class="card"><div class="k">Слова</div><h4>Проста токенізація</h4><p>Один токен = одне слово. Словник вибухає, а будь-яке невідоме слово стає <code>&lt;UNK&gt;</code> — модель його не бачить.</p></div>
+        <div class="card b"><div class="k">Субслова</div><h4>BPE / WordPiece</h4><p>Один токен = частина слова. Словник фіксований, а будь-яке слово збирається зі знайомих частин. Невідомих слів більше немає.</p></div>
+      </div>
+      <div class="hero-vis" id="heroVis" aria-hidden="true"></div>
+    </div>
+    <aside class="agenda">
+      <h3>Сьогодні</h3>
+      <ol>
+        <li>Від токенізації до мовної моделі</li>
+        <li>Проблема простої токенізації</li>
+        <li>Ідея субслів</li>
+        <li>WordPiece і <code>[UNK]</code> в BERT</li>
+        <li>BPE і byte-level fallback</li>
+        <li>Як BPE навчається (інтерактивно)</li>
+        <li>Тренування власного токенізатора</li>
+        <li>Порівняння реальних токенізаторів</li>
+        <li>Метрики: токени на слово</li>
+        <li>Мультимовність і ціна</li>
+        <li>Проблеми BPE</li>
+        <li>Підсумок і тест</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 0b. TOKENS -> MODEL ============ -->
+<section class="slide" id="s0b" data-title="Токенізація → модель">
+  <div class="eyebrow">Від токенізації до моделі</div>
+  <h2>Токенізація — це вхід до мовної моделі</h2>
+  <p class="lead">Токенізація потрібна не сама по собі. Вона — перший крок пайплайну, який перетворює сирий текст на числа, зрозумілі нейромережі. Без цього кроку модель просто не отримає текст.</p>
+
+  <div class="pipe">
+    <div class="pstep"><div class="l">1 · текст</div><div class="t">"the dog runs"</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep"><div class="l">2 · токени</div><div class="t">the Ġdog Ġruns</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep"><div class="l">3 · індекси</div><div class="t">464 · 3290 · 1100</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep emb"><div class="l">4 · матриця ембедінгів</div><div class="t">рядок за індексом</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep"><div class="l">5 · нейромережа</div><div class="t">вектори → результат</div></div>
+  </div>
+
+  <p>Ключове слово тут — <strong>індекс</strong>. Токенізатор не «розуміє» слова, він лише дає кожному токену ціле число — номер рядка у великій таблиці чисел, яку називають <strong>матрицею ембедінгів</strong>.</p>
+
+  <h3>Що таке матриця ембедінгів</h3>
+  <p>Матриця ембедінгів — це звичайна таблиця чисел. <strong>Кожен рядок — один токен словника, кожен стовпець — один вимір значення.</strong> Її розмір — це <em>розмір словника × d</em>, де d — розмірність вектора.</p>
+  <div class="formula"><var>матриця ембедінгів</var> <span class="txt">=</span> [ розмір словника × <var>d</var> ] <span class="txt">· d = 768 у BERT, 12288 у GPT-3</span></div>
+  <p>Вектор довжини d — це «значення» токена: набір чисел, який описує його положення у просторі значень відносно інших токенів. Саме ці вектори, а не текст, «бачить» нейромережа.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Матриця ембедінгів зсередини</h4><span class="tag">interactive</span><span class="hint">Натисніть на рядок, щоб побачити вектор токена. Тут лише d = 8 стовпців для наочності — у реальних моделей їх сотні чи тисячі. Колір клітинки — значення: помаранчевий — додатне, синій — від'ємне.</span></div>
+    <div class="embwrap">
+      <div class="embmat" id="embMat"></div>
+      <div class="embinfo" id="embInfo"></div>
+    </div>
+    <div class="legendrow"><span><span class="sw" style="background:var(--bm25)"></span>додатне значення</span><span><span class="sw" style="background:var(--tfidf)"></span>від'ємне значення</span><span><span class="sw" style="background:var(--surface-2);border:1px solid var(--line)"></span>близько до нуля</span></div>
+  </div>
+
+  <h3>Чому токенізація визначає все</h3>
+  <p>Раз у матриці рівно один рядок на кожен токен словника, звідси випливають три наслідки, які ми розгорнемо далі в лекції:</p>
+  <div class="cards">
+    <div class="card"><div class="k">Розмір</div><h4>Словник → матриця</h4><p>Чим більший словник, тим більша матриця, більше пам'яті й параметрів. Тому словник хочуть тримати компактним — саме для цього і придумали субслова.</p></div>
+    <div class="card"><div class="k">Невідоме</div><h4>Немає рядка — немає вектора</h4><p>Якщо токена немає у словнику, для нього немає рядка, отже й вектора. Це корінь проблеми <code>[UNK]</code>, з якої все починається.</p></div>
+    <div class="card"><div class="k">Ціна</div><h4>Більше токенів — дорожче</h4><p>Кількість токенів, на які розбивається текст, визначає ціну й швидкість моделі. Токенізація — це не дрібниця, а фундамент мовної моделі.</p></div>
+  </div>
+  <div class="callout q"><div class="qm">Від токенізації до моделі</div><p>Ось чому ми починаємо розмову про мовні моделі саме з токенізації: щоб збудувати модель, треба спершу визначити словник, а отже — і матрицю ембедінгів, з якої модель «читатиме» значення кожного токена. Далі розберемо, як зробити цей словник компактним і повним одночасно.</p></div>
+</section>
+
+<!-- ============ 1. SIMPLE TOKENIZATION ============ -->
+<section class="slide" id="s1" data-title="Проблема слів">
+  <div class="eyebrow">Розділ 1</div>
+  <h2>Проста токенізація і її межа</h2>
+  <p>З простою токенізацією ми вже стикалися в лекції про TF-IDF. Це поділ тексту на слова за пробілами з відділенням пунктуації у окремі токени. Далі кожне унікальне слово отримує свій стовпець у матриці — і розмірність вектора дорівнює розміру словника.</p>
+  <p>Проблема в тому, що <strong>словник скінченний, а мова — ні</strong>. Усе, чого не було в навчальному корпусі, для моделі просто не існує:</p>
+  <div class="cards">
+    <div class="card"><div class="k">Морфологія</div><h4>Форми одного слова</h4><p>Українська має відмінки, роди, числа. «Студент», «студента», «студентів» — це три різні токени з нульовим спільним сигналом.</p></div>
+    <div class="card"><div class="k">Нові слова</div><h4>Неологізми і сленг</h4><p>«LLM» чи «Jev» з'являються швидше, ніж оновлюється словник моделі.</p></div>
+    <div class="card"><div class="k">Помилки</div><h4>Друкарські помилки</h4><p>«універсетет» — це вже інший токен, хоча людина легко читає його як «університет».</p></div>
+    <div class="card"><div class="k">Імена і коди</div><h4>Власні назви, артикули</h4><p>«Ферстаппен», «PROJ-4821», «XR-2200-B» майже ніколи не потрапляють у словник повністю.</p></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Вибух словника</h4><span class="tag">interactive</span><span class="hint">Якщо кожна граматична форма — окремий токен, розмір словника множиться на кількість форм. Порівняйте з розміром субслівного словника (20–50 тисяч токенів).</span></div>
+    <div class="ctl">
+      <label>Лем у словнику <span class="v" id="vxLemV">10 000</span><input type="range" id="vxLem" min="100" max="200000" step="100" value="10000"></label>
+      <label>Форм на лему <span class="v" id="vxFormV">20</span><input type="range" id="vxForm" min="1" max="60" value="20"></label>
+    </div>
+    <div class="result"><span class="big a" id="vxOut">200 000</span><span class="expl">рядків у матриці ембедінгів, якщо кожна форма — окреме слово</span></div>
+    <div class="barcomp"><span>словниковий підхід</span><div class="track"><div class="fill b" id="vxBarW" style="width:100%"></div></div><span class="num" id="vxNumW">200K</span></div>
+    <div class="barcomp"><span>субслівний підхід</span><div class="track"><div class="fill c" style="width:10%"></div></div><span class="num">~32K</span></div>
+    <p style="font-size:.88em;color:var(--ink-2);margin-bottom:0">Навіть якщо прибрати стоп-слова і лематизувати текст, залишаються власні назви, абревіатури, запозичення, друкарські помилки — і кожна з них вимагає окремого рядка в матриці. Субслівний словник фіксований і не залежить від того, скільки різних форм є в мові.</p>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Що словник не знає — стає <code>&lt;UNK&gt;</code></h4><span class="tag">interactive</span><span class="hint">Уявний словник зібрано з крихітного англійського корпусу. Введіть речення і подивіться, які слова модель бачитиме як невідомі.</span></div>
+    <div class="ctl"><label class="grow">Речення<input type="text" id="oovIn" value="the dog runs and the foxes are unbelievable"></label></div>
+    <div class="chips" id="oovOut"></div>
+    <div class="result" id="oovSum"></div>
+  </div>
+
+  <h3>Те саме і з Word2Vec / GloVe</h3>
+  <p>Word2Vec і GloVe будують матрицю ембедінгів «токен → вектор». Якщо слова немає у словнику, то немає і рядка в матриці, отже немає і вектора. Модель не може ані описати невідоме слово, ані поділити його на щось: для неї це одна неподільна одиниця.</p>
+  <div class="callout"><p>Часткове полегшення дає <strong>fastText</strong>: він будує вектор слова як суму векторів його символьних N-грамів, тож може скласти вектор навіть для незнайомого слова. Це перший місток до субслівної ідеї, але справжні нейронні моделі пішли далі — до повноцінної субслівної токенізації.</p></div>
+  <details class="more"><summary>Код із ноутбука: Word2Vec і невідомі слова</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">from gensim.models import Word2Vec
+
+sentences = [
+    ["the", "dog", "barks"],
+    ["the", "cat", "meows"],
+    ["the", "dog", "runs"],
+    ["cats", "and", "dogs", "are", "animals"],
+]
+
+model = Word2Vec(sentences, vector_size=50, window=3, min_count=1, workers=2, sg=1)
+
+# словник знає лише слова з корпусу
+model.wv.key_to_index
+# {'the': 0, 'dog': 1, 'barks': 2, ...}
+
+# невідомого слова тут просто немає -> немає і вектора
+model.wv.key_to_index.get("unbelievable")   # None</code></pre>
+  </div></details>
+</section>
+
+<!-- ============ 2. SUBWORDS ============ -->
+<section class="slide" id="s2" data-title="Ідея субслів">
+  <div class="eyebrow">Розділ 2</div>
+  <h2>Ідея субслів: збираємо слова з частин</h2>
+  <p>Замість того щоб зберігати кожне слово окремо, збудуймо словник із <strong>субслів</strong> — менших одиниць, з яких далі можна зібрати переважну більшість слів. Навіть якщо модель ніколи не бачила слова «animals», вона може знати частини «ani», «mal», «s» і скласти слово з них.</p>
+  <p>Ключова властивість: субслова <strong>перевикористовуються</strong>. Один токен <code>ing</code> обслуговує тисячі дієслів, один токен <code>##ність</code> — сотні абстрактних іменників. Тому словник лишається скромним, а покриття тексту — повним.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Розбиття слова на субслова</h4><span class="tag">interactive</span><span class="hint">Оберіть слово й подивіться ілюстративний поділ на частини. Підкреслені частини — це ті самі субслова, які повторюються в багатьох інших словах.</span></div>
+    <div class="ctl"><label>Слово<select id="swWord">
+      <option>unbelievable</option><option>foxes</option><option>strawberry</option>
+      <option>непереможний</option><option>привітання</option><option>найоптимістичніші</option>
+    </select></label></div>
+    <div id="swOut" style="margin-top:6px"></div>
+    <div class="result"><span class="big a" id="swCount"></span><span class="expl">субслів у слові</span></div>
+  </div>
+
+  <div class="vs">
+    <div class="card"><div class="k">Плюси</div><h4>Що дають субслова</h4><p>Фіксований словник; жодних невідомих слів; спільні частини переносять значення на нові слова; компактніше для довгих текстів.</p></div>
+    <div class="card b"><div class="k">Мінуси</div><h4>Чим платимо</h4><p>Субслово не завжди має сенс; модель бачить не літери, а шматки; токенів більше, ніж слів; ефективність залежить від мови й домену.</p></div>
+  </div>
+  <div class="callout q"><div class="qm">Питання</div><p>Чому не взяти просто символи? Тоді словник — це алфавіт (десятки токенів), але тексти стають дуже довгими, і модель витрачає всю увагу на складання літер. Субслова — компроміс між словниковим підходом і символьним.</p></div>
+</section>
+
+<!-- ============ 3. WORDPIECE ============ -->
+<section class="slide" id="s3" data-title="WordPiece і [UNK]">
+  <div class="eyebrow">Розділ 3</div>
+  <h2>WordPiece: так робить BERT</h2>
+  <p>BERT — одна з перших трансформерів, що стали основою сучасних LLM, — використовує токенізатор <strong>WordPiece</strong>. Ідея схожа на BPE, але пару для злиття обирають не за частотою, а за тим, наскільки злиття <strong>підвищує правдоподібність</strong> тексту в простій мовній моделі.</p>
+  <div class="formula"><var>score</var>(<var>a</var>,<var>b</var>) = <span class="frac"><span class="txt">частота пари (a, b)</span><span>частота(a) · частота(b)</span></span> <span class="txt">— обираємо пару з найвищим score</span></div>
+  <p>Інтуїція: якщо <code>play</code> і <code>ing</code> зустрічаються разом набагато частіше, ніж передбачала б випадковість, то <code>ing</code> справді тягнеться до <code>play</code>, і злиття в <code>playing</code> корисне. А невигідне злиття на кшталт <code>pla</code> + <code>ying</code> високої оцінки не отримає.</p>
+  <p>Позначка <code>##</code> у WordPiece означає «це продовження слова, а не його початок». <code>fox</code> + <code>##es</code> — це одне слово, розбите на дві частини.</p>
+
+  <div class="demo">
+    <div class="head"><h4>BERT (cased): де з'являється <code>[UNK]</code></h4><span class="tag">interactive</span><span class="hint">Реальні результати токенізатора <code>google-bert/bert-base-cased</code>. Зверніть увагу на українські слова — і особливо на «Їжак».</span></div>
+    <div class="ctl"><label>Слово<select id="wpWord">
+      <option>їжак</option><option>Їжак</option><option>Привіт 🌍</option>
+      <option>привіт світ</option><option>strawberry</option><option>unbelievable</option><option>foxes are quick</option><option>hello world</option>
+    </select></label></div>
+    <div class="tokrow" id="wpOut" style="margin:10px 0"></div>
+    <div class="result" id="wpSum"></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Що сталося з «Їжак»</div><p>Токенізатор BERT бачить <code>їжак</code> (малу «ї») як <code>ї</code> + <code>##ж</code> + <code>##а</code> + <code>##к</code>, бо ці символи є у словнику. А от <strong>великої «Ї» у словнику немає</strong>, і слово не вдалося зібрати з наявних субслів — тому весь токен замінюється на <code>[UNK]</code>. Навіть якщо донавчити модель на українських текстах, токенізатор лишається зламаним для будь-якого слова з великою «Ї».</p></div>
+
+  <details class="more"><summary>Код із ноутбука: WordPiece у дії</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">from transformers import BertTokenizer
+
+tokenizer = BertTokenizer.from_pretrained("google-bert/bert-base-cased")
+
+tokenizer.tokenize("їжак")   # ['ї', '##ж', '##а', '##к']
+tokenizer.tokenize("Їжак")   # ['[UNK]']  ← великої «Ї» у словнику немає
+tokenizer.tokenize("Привіт 🌍")
+# ['П', '##р', '##и', '##в', '##і', '##т', '[UNK]']  ← емоджі теж поза словником</code></pre>
+  </div></details>
+  <div class="callout"><p>WordPiece все ще може видати <code>[UNK]</code>: якщо слово не вдається зібрати зі знайомих частин, токенізатор здається. Саме цю межу прибирає <strong>byte-level</strong> підхід у наступному розділі.</p></div>
+</section>
+
+<!-- ============ 4. BPE + BYTE FALLBACK ============ -->
+<section class="slide" id="s4" data-title="BPE і byte fallback">
+  <div class="eyebrow">Розділ 4</div>
+  <h2>BPE і byte-level fallback</h2>
+  <p><strong>BPE</strong> (Byte Pair Encoding) придумали для машинного перекладу (Sennrich та ін., 2016), а GPT-2 зробив його <strong>байтовим</strong>. Ідея byte-level: перед будь-якою роботою текст перетворюють на байти UTF-8. Оскільки всіх байтів рівно 256, <strong>усі вони є токенами словника</strong> — отже, будь-який текст, будь-який символ, будь-яке емоджі гарантовано кодуються. Це і називають <em class="term" title="якщо символ невідомий, використовуються його байти">byte fallback</em>.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Символи, код-поінти і байти</h4><span class="tag">interactive</span><span class="hint">Введіть будь-який текст. Латиниця — 1 байт на символ, кирилиця — 2, емоджі — до 4. Саме ці байти бачить byte-level токенізатор.</span></div>
+    <div class="ctl"><label class="grow">Текст<input type="text" id="uniIn" value="Привіт 🌍"></label></div>
+    <div class="tblwrap"><table class="tbl" id="uniTbl"></table></div>
+    <div class="result" id="uniSum"></div>
+    <h4 style="font-family:'IBM Plex Sans';font-size:.95em;font-weight:600;margin:18px 0 6px">Як це бачить byte-level токенізатор</h4>
+    <p style="font-size:.85em;color:var(--ink-2);margin:0 0 8px">Кожен байт — окремий токен. Ліворуч — символ, яким GPT-2 позначає цей байт, знизу — шістнадцятковий код. <span class="term" title="пробіл у GPT-2 позначається символом Ġ">Пробіли стають <code>Ġ</code></span>.</p>
+    <div class="tokrow" id="uniBytes"></div>
+    <div class="legendnote" id="uniByteSum"></div>
+  </div>
+
+  <div class="three">
+    <div class="tcol a"><h5>GPT-2 · «hello world»</h5><div class="sub">2 токени — англійські слова цілі</div><div class="tokrow" id="exHe"></div></div>
+    <div class="tcol b"><h5>GPT-2 · «strawberry»</h5><div class="sub">3 субслова</div><div class="tokrow" id="exSt"></div></div>
+    <div class="tcol c"><h5>GPT-2 · «їжак»</h5><div class="sub">6 байтових токенів</div><div class="tokrow" id="exUk"></div></div>
+  </div>
+  <p>Для англійської GPT-2 зберігає цілі слова як один токен. Для української кожен символ розсипається на 2 байти, і лише деякі пари байтів зливаються в один токен (як <code>Ð°</code> = байти <code>D0 B0</code> = «а»). Тому те саме за змістом слово українською займає у 2–5 разів більше токенів.</p>
+
+  <div class="callout"><p><strong>Уточнення до ноутбука.</strong> У прикладі з HuggingFace використовували <code>BPE(byte_fallback=True)</code> разом із <code>ByteLevel()</code>. Для GPT-2 окремий <code>byte_fallback</code> не потрібен: претокенізатор <code>ByteLevel</code> уже відображає всі 256 байтів у словник. Прапорець <code>byte_fallback</code> важливий тоді, коли претокенізатор <em>не</em> байтовий (наприклад, BERT-подібний) і треба гарантувати резервне кодування невідомих символів байтами.</p></div>
+
+  <details class="more"><summary>Код із ноутбука: GPT-2 як byte-level BPE</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">from transformers import GPT2Tokenizer
+
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+
+tokenizer.tokenize("hello world")   # ['hello', 'Ġworld']
+tokenizer.tokenize("strawberry")    # ['st', 'raw', 'berry']
+tokenizer.tokenize("їжак")          # ['Ñ', 'Ĺ', 'Ð', '¶', 'Ð°', 'Ðº'] — це байти
+# дивні символи на кшталт «Ñ», «Ĺ», «Ð» — це не текст,
+# а байти під байт-у-юнікод мапою GPT-2. «Ð°» = байти D0 B0 = літера «а».</code></pre>
+  </div></details>
+</section>
+
+<!-- ============ 5. BPE TRAINING ============ -->
+<section class="slide" id="s5" data-title="Як вчиться BPE">
+  <div class="eyebrow">Розділ 5</div>
+  <h2>Як навчається BPE</h2>
+  <p>BPE — це жадібний алгоритм. Почніть із найменших одиниць (символів або байтів) і на кожному кроці зливайте <strong>найчастішу пару</strong> сусідніх токенів у новий токен. Повторюйте, поки не досягнете цільового розміру словника або поки не залишиться пар, частіших за поріг.</p>
+  <div class="stage"><div class="n">Крок 1<small>ініціалізація</small></div><div>Розбити корпус на мінімальні одиниці. Усі унікальні символи (або всі 256 байтів) стають початковим словником.</div></div>
+  <div class="stage"><div class="n">Крок 2<small>підрахунок</small></div><div>Порахувати частоту кожної пари сусідніх токенів у корпусі.</div></div>
+  <div class="stage"><div class="n">Крок 3<small>мьорж</small></div><div>Злити найчастішу пару в новий токен, додати його у словник і запам'ятати правило злиття (мьорж).</div></div>
+  <div class="stage"><div class="n">Крок 4<small>повтор</small></div><div>Застосувати мьорж до корпусу і повернутися до кроку 2. Зупинка — за розміром словника або мінімальною частотою.</div></div>
+
+  <div class="demo">
+    <div class="head"><h4>Тренажер BPE</h4><span class="tag">interactive</span><span class="hint">Редагуйте корпус, задайте розмір словника і мінімальну частоту. Кнопка «Крок» робить один мьорж, «Авто» — докручує до кінця. «Ġ» позначає пробіл.</span></div>
+    <textarea id="bpeCorpus" rows="2">the dog sits on the log</textarea>
+    <div class="ctl" style="margin-top:12px">
+      <label>Цільовий розмір словника <span class="v" id="bpeVSizeV">32</span><input type="range" id="bpeVSize" min="8" max="120" value="32"></label>
+      <label>Мінімальна частота <span class="v" id="bpeMinV">2</span><input type="range" id="bpeMin" min="1" max="6" value="2"></label>
+      <button class="btn" id="bpeStep">Крок →</button>
+      <button class="btn" id="bpeAuto">▶ Авто</button>
+      <button class="btn" id="bpeReset">↻ Скинути</button>
+    </div>
+    <div class="ctl" style="margin-top:0">
+      <label>Приклад корпусу<select id="bpeSample"><option value="en">англійський</option><option value="uk">український</option></select></label>
+      <span style="font-size:.82em;color:var(--muted)">Крок <b id="bpeIter">0</b> · словник <b id="bpeVocabSize">0</b> токенів · <b id="bpeState">очікує</b></span>
+    </div>
+    <h4 style="font-family:'IBM Plex Sans';font-size:.92em;font-weight:600;margin:16px 0 6px">Токенізований корпус зараз</h4>
+    <div id="bpeWords"></div>
+    <div class="two" style="grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)">
+      <div>
+        <h4 style="font-family:'IBM Plex Sans';font-size:.92em;font-weight:600;margin:12px 0 6px">Найчастіші пари (топ-8)</h4>
+        <div id="bpePairs"></div>
+      </div>
+      <div>
+        <h4 style="font-family:'IBM Plex Sans';font-size:.92em;font-weight:600;margin:12px 0 6px">Вивчені мьоржі (у порядку навчання)</h4>
+        <ol class="mergelist" id="bpeMerges"></ol>
+      </div>
+    </div>
+  </div>
+
+  <h3>Що виходить у GPT-2</h3>
+  <p>Після навчання зберігаються дві речі: <strong>словник</strong> (токен → індекс) і <strong>впорядкований список мьоржів</strong>. Порядок критичний: при токенізації нового тексту мьоржі застосовуються саме в тому порядку, у якому вони були вивчені (від найраніших до найпізніших), інакше токенізатор не відтворить ті самі токени.</p>
+  <div class="two">
+    <div>
+      <div class="codelabel">Перші 20 мьоржів GPT-2</div>
+      <div class="out" id="gpt2Merges"></div>
+    </div>
+    <div>
+      <div class="codelabel">Фрагмент словника GPT-2 (позиції 650–671)</div>
+      <div class="out" id="gpt2Vocab"></div>
+    </div>
+  </div>
+  <p style="font-size:.88em;color:var(--ink-2)">Перші мьоржі — найпростіші: <code>Ġ t</code>, <code>Ġ a</code>, <code>h e</code>, <code>i n</code>. Тобто найперше GPT-2 вчиться зливати часті літери в часті біграми, і лише потім — у повноцінні слова. Словник — це звичайна хеш-таблиця «токен → індекс»; саме на ці індекси текст перетворюється перед подачею в нейронну мережу.</p>
+
+  <details class="more"><summary>Код із ноутбука: BPE з нуля на Python</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">from collections import defaultdict
+
+min_frequency = 2
+vocab_size = 32
+corpus = "the dog sits on the log"
+
+vocab = {}
+merges = []
+index = 0
+
+corpus = corpus.replace(" ", "Ġ")   # пробіл стає окремим символом
+tokens = list(corpus)               # токенізуємо у символи
+
+while len(vocab) &lt; vocab_size:
+    if not vocab:                   # перший обхід: усі унікальні символи
+        for token in set(tokens):
+            vocab[token] = index
+            index += 1
+        continue
+
+    pairs = defaultdict(int)        # частота сусідніх пар
+    for i in range(len(tokens) - 1):
+        pairs[(tokens[i], tokens[i + 1])] += 1
+
+    pair, max_freq = max(pairs.items(), key=lambda kv: kv[1])
+    if max_freq &lt; min_frequency:     # більше немає достатньо частих пар
+        break
+
+    new_token = pair[0] + pair[1]   # новий токен = конкатенація пари
+    vocab[new_token] = index
+    index += 1
+    merges.append((pair, new_token))
+
+    i = 0                           # застосовуємо мьорж до корпусу
+    while i &lt; len(tokens) - 1:
+        if tokens[i] == pair[0] and tokens[i + 1] == pair[1]:
+            tokens[i:i + 2] = [new_token]
+            i += 1
+        else:
+            i += 1</code></pre>
+  </div></details>
+</section>
+
+<!-- ============ 6. TRAIN YOUR OWN ============ -->
+<section class="slide" id="s6" data-title="Власний токенізатор">
+  <div class="eyebrow">Розділ 6</div>
+  <h2>Тренування власного токенізатора</h2>
+  <p>Для реальних задач токенізатори вчать через бібліотеку <code>tokenizers</code> від HuggingFace — вона дає оптимізований пайплайн для BPE. Розглянемо процес із ноутбука покроково.</p>
+  <div class="stage"><div class="n">1 · Імпорти<small>tokenizers</small></div><div>Модель <code>BPE</code>, тренер <code>BpeTrainer</code>, претокенізатор <code>ByteLevel</code>, декодер.</div></div>
+  <div class="stage"><div class="n">2 · Корпус<small>файл .txt</small></div><div>Тренування приймає список файлів. Можна передати цілу папку — бібліотека обробить усе, якщо вистачить ресурсів.</div></div>
+  <div class="stage"><div class="n">3 · Порожній токенізатор<small>BPE(byte_fallback=True)</small></div><div>Ще не навчений об'єкт, у який підключимо байтовий претокенізатор і декодер.</div></div>
+  <div class="stage"><div class="n">4 · Тренер<small>BpeTrainer</small></div><div>Цільовий розмір словника, мінімальна частота, спеціальні токени й початковий алфавіт байтів.</div></div>
+  <div class="stage"><div class="n">5 · Навчання і збереження<small>train → save</small></div><div><code>train()</code> приймає шляхи до файлів, <code>train_from_iterator()</code> — ітератор текстів. Результат — <code>tokenizer.json</code>.</div></div>
+
+  <div class="callout q"><div class="qm">Навіщо спеціальні токени</div><p>Список <code>[UNK]</code>, <code>[CLS]</code>, <code>[SEP]</code>, <code>[PAD]</code>, <code>[MASK]</code> задають заздалегідь. Вони <strong>ніколи не мьоржаться</strong> з іншими токенами й не змінюються під час навчання. Їхня роль — розмічати структуру: <code>[CLS]</code>/<code>[SEP]</code> ділять контекстне вікно на ділянки, <code>[MASK]</code> потрібен BERT для маскованого навчання (модель відгадує приховані 15% токенів). Так само для мультимодальних моделей існують токени <code>&lt;start-of-image&gt;</code> / <code>&lt;end-of-image&gt;</code>.</p></div>
+
+  <details class="more" open><summary>Код із ноутбука: повний цикл тренування</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">from pathlib import Path
+from tokenizers import Tokenizer, decoders
+from tokenizers.models import BPE
+from tokenizers.trainers import BpeTrainer
+from tokenizers.pre_tokenizers import ByteLevel
+
+corpus_text = """
+The quick brown fox jumps over the lazy dog.
+A quick brown dog jumps over the lazy fox.
+Quick, lazy dogs and foxes jump.
+"""
+Path("sample_corpus.txt").write_text(corpus_text)
+
+tokenizer = Tokenizer(BPE(byte_fallback=True))
+tokenizer.pre_tokenizer = ByteLevel()
+tokenizer.decoder = decoders.ByteLevel()
+
+trainer = BpeTrainer(
+    vocab_size=350,
+    min_frequency=2,
+    show_progress=True,
+    special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"],
+    initial_alphabet=tokenizer.pre_tokenizer.alphabet(),
+)
+
+tokenizer.train(["sample_corpus.txt"], trainer)
+tokenizer.save("tokenizer.json")
+
+# завантаження і використання
+loaded = Tokenizer.from_file("tokenizer.json")
+encoded = loaded.encode("brown fox")
+print(encoded.tokens)        # ['Ġbrown', 'Ġfox']
+print(loaded.decode(encoded.ids))   # 'brown fox'</code></pre>
+  </div></details>
+</section>
+
+<!-- ============ 7. COMPARE ============ -->
+<section class="slide" id="s7" data-title="Порівняння токенізаторів">
+  <div class="eyebrow">Розділ 7</div>
+  <h2>Три токенізатори на одному слові</h2>
+  <p>Порівняймо реальні результати трьох відомих токенізаторів. Однакова <em>ідея</em> субслів дає дуже різні результати залежно від мови навчального корпусу та алгоритму.</p>
+  <div class="demo">
+    <div class="head"><h4>GPT-2 · BERT · XLM-R</h4><span class="tag">live</span><span class="hint">Реальні результати: <code>gpt2</code> (byte-level BPE), <code>google-bert/bert-base-cased</code> (WordPiece), <code>FacebookAI/xlm-roberta-base</code> (SentencePiece/BPE, багатомовний).</span></div>
+    <div class="ctl"><label>Текст<select id="cmpText"></select></label></div>
+    <div class="three">
+      <div class="tcol a"><h5>GPT-2</h5><div class="sub" id="cmpN0"></div><div class="tokrow" id="cmp0"></div></div>
+      <div class="tcol b"><h5>BERT cased</h5><div class="sub" id="cmpN1"></div><div class="tokrow" id="cmp1"></div></div>
+      <div class="tcol c"><h5>XLM-R</h5><div class="sub" id="cmpN2"></div><div class="tokrow" id="cmp2"></div></div>
+    </div>
+    <p style="font-size:.88em;color:var(--ink-2);margin-bottom:0" id="cmpNote"></p>
+  </div>
+
+  <div class="callout"><p>Зверніть увагу: багатомовний XLM-R, навчений на 100 мовах, розбиває українські слова значно ефективніше за GPT-2, який майже не бачив кирилиці. А BERT іноді взагалі не може закодувати слово — і видає <code>[UNK]</code>. Один алгоритм, три різні наслідки.</p></div>
+
+  <h3>Пісочниця: наш власний токенізатор</h3>
+  <p>Тепер застосуємо BPE, навчений у розділі 5, до довільного тексту. Перемкніть режим на byte-level, щоб побачити гарантоване кодування будь-яких символів байтами.</p>
+  <div class="demo">
+    <div class="head"><h4>Токенізувати довільний текст</h4><span class="tag">interactive</span><span class="hint">«Наш BPE» використовує мьоржі, вивчені в розділі 5 над поточним корпусом. Byte-level завжди дає 1 токен на байт.</span></div>
+    <div class="ctl">
+      <label class="grow">Текст<input type="text" id="pgIn" value="the dog runs"></label>
+      <label>Токенізатор<select id="pgMode"><option value="bpe">наш BPE (розділ 5)</option><option value="byte">byte-level (усі 256 байтів)</option></select></label>
+    </div>
+    <div id="pgOut"></div>
+    <div class="result" id="pgSum"></div>
+    <p style="font-size:.85em;color:var(--muted);margin-bottom:0" id="pgNote"></p>
+  </div>
+</section>
+
+<!-- ============ 8. METRICS ============ -->
+<section class="slide" id="s8" data-title="Метрики токенізації">
+  <div class="eyebrow">Розділ 8</div>
+  <h2>Наскільки ефективна токенізація?</h2>
+  <p>Ефективність токенізації найчастіше міряють метрикою <strong>«токени на слово»</strong> (tokens per word). Вона показує, скільки токенів припадає на одне слово. Чим менше — тим ефективніше: коротший вхід, швидша генерація, дешевша ціна.</p>
+  <div class="formula"><var>токени на слово</var> = <span class="frac"><span class="txt">кількість токенів</span><span class="txt">кількість слів і знаків пунктуації</span></span>
+    <span style="display:inline-block;width:26px"></span>
+    <var>символів на токен</var> = <span class="frac"><span class="txt">кількість символів</span><span class="txt">кількість токенів</span></span>
+    <span style="display:inline-block;width:26px"></span>
+    <var>байтів на токен</var> = <span class="frac"><span class="txt">кількість байтів UTF-8</span><span class="txt">кількість токенів</span></span>
+  </div>
+  <div class="callout"><p>Для розрахунку <strong>не треба чистити текст</strong>. Достатньо поділити його на слова (за пробілами), а потім поділити кількість токенів на кількість слів. Це дає швидку оцінку, скільки коштуватиме текст і скільки місця займе в контекстному вікні.</p></div>
+
+  <div class="demo">
+    <div class="head"><h4>Метрики на живому тексті</h4><span class="tag">interactive</span><span class="hint">Введіть текст і виберіть токенізатор. «Наш BPE» — мьоржі з розділу 5; byte-level — 1 токен на байт. Український текст на англійському словнику дасть високе «токени на слово».</span></div>
+    <div class="ctl">
+      <label class="grow">Текст<textarea id="mtIn" rows="2">Після двох перемог Макс Ферстаппен пожвавився і заговорив про камбек.</textarea></label>
+    </div>
+    <div class="ctl">
+      <label>Токенізатор<select id="mtMode"><option value="bpe">наш BPE</option><option value="byte">byte-level</option></select></label>
+      <label>Приклад<select id="mtPreset"><option value="">— обери —</option><option value="uk">український</option><option value="en">англійський</option></select></label>
+    </div>
+    <div class="metrics" id="mtOut"></div>
+    <p style="font-size:.88em;color:var(--ink-2)" id="mtNote"></p>
+  </div>
+
+  <h3>Реальний замір на XLM-R</h3>
+  <p>Один і той самий текст (новина про перемоги Ферстаппена) українською та англійською, токенізатор <code>FacebookAI/xlm-roberta-base</code>:</p>
+  <div class="tblwrap"><table class="tbl" id="metricTbl"></table></div>
+  <p style="font-size:.88em;color:var(--ink-2)">XLM-R — багатомовна модель, тому різниця між мовами невелика (2.22 проти 1.81 токена на слово). Але англійська все одно виграє, хоч український текст навіть коротший за кількістю символів. А GPT-2, який майже не бачив кирилиці, на цьому ж тексті дає <strong>8.3</strong> токена на слово проти <strong>1.62</strong> для англійської — різниця у понад 5 разів.</p>
+
+  <details class="more"><summary>Код із ноутбука: метрики токенізації</summary><div class="body">
+<pre class="code" data-lang="python"><code class="py">from nltk import word_tokenize
+
+def tokens_to_words_ratio(text, tokenizer):
+    num_words = len(word_tokenize(text))
+    num_tokens = len(tokenizer.encode(text).tokens)
+    return num_tokens / num_words
+
+def chars_per_token(text, tokenizer):
+    return len(text) / len(tokenizer.encode(text).tokens)
+
+def bytes_per_token(text, tokenizer):
+    return len(text.encode("utf-8")) / len(tokenizer.encode(text).tokens)
+
+from tokenizers import Tokenizer
+tokenizer_xlmr = Tokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
+
+tokens_to_words_ratio(ukr_text, tokenizer_xlmr)   # ≈ 2.22
+tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
+  </div></details>
+</section>
+
+<!-- ============ 9. MULTILINGUAL COST ============ -->
+<section class="slide" id="s9" data-title="Мова і ціна">
+  <div class="eyebrow">Розділ 9</div>
+  <h2>Мова, контекст і гроші</h2>
+  <p>BPE-токенізатори <strong>не однаково ефективні для всіх мов і доменів</strong>. Вони надають пріоритет тій мові й тим темам, яких було найбільше в навчальному корпусі. Наслідок практичний: коли ви платите за API за токенами, генерація не англійською (особливо не латиницею) майже завжди коштує дорожче — навіть якщо текст однаковий за кількістю слів чи символів.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Калькулятор вартості токенізації</h4><span class="tag">interactive</span><span class="hint">Порівняйте вартість однакового за змістом тексту англійською та українською. Значення «токенів на слово» взяті з реальних замірів — обережіть пресет, а потім спробуйте XLM-R.</span></div>
+    <div class="ctl">
+      <label>Токенізатор<select id="costPreset"><option value="gpt2">GPT-2 (1.6 / 8.3)</option><option value="xlmr">XLM-R (1.8 / 2.2)</option></select></label>
+      <label>Символів у тексті <span class="v" id="costCharsV">10 000</span><input type="range" id="costChars" min="500" max="500000" step="500" value="10000"></label>
+      <label>Ціна за 1M токенів, $ <input type="number" id="costPrice" value="0.15" min="0" step="0.01" style="width:100px"></label>
+    </div>
+    <div class="barcomp"><span>англійська 🇬🇧</span><div class="track"><div class="fill a" id="costBarEn"></div></div><span class="num" id="costNumEn">—</span></div>
+    <div class="barcomp"><span>українська 🇺🇦</span><div class="track"><div class="fill b" id="costBarUk"></div></div><span class="num" id="costNumUk">—</span></div>
+    <div class="result"><span class="big b" id="costRatio">—</span><span class="expl" id="costExpl"></span></div>
+    <p style="font-size:.85em;color:var(--muted);margin-bottom:0">Приблизна оцінка: середнє слово ≈ 6 символів. Точні числа залежать від конкретного тексту.</p>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Контекстне вікно</div><h4>Менше тексту влізе</h4><p>Якщо українська кодується у 5 разів більше токенів, то в те саме вікно влізе у 5 разів менше змісту. Це прямо обмежує, скільки документів можна подати моделі.</p></div>
+    <div class="card"><div class="k">Швидкість</div><h4>Довший вхід — повільніше</h4><p>Увага трансформера росте квадратично від довжини. Більше токенів — суттєво повільніша генерація.</p></div>
+    <div class="card"><div class="k">Рішення</div><h4>Обирайте під домен</h4><p>Підбирайте модель і токенізатор під свою цільову мову й домен. Це спрощує навчання, зменшує витрати й лишає більше місця в контексті.</p></div>
+  </div>
+</section>
+
+<!-- ============ 10. PROBLEMS ============ -->
+<section class="slide" id="s10" data-title="Проблеми BPE">
+  <div class="eyebrow">Розділ 10</div>
+  <h2>Проблеми BPE токенізації</h2>
+  <p>Субслова вирішили проблему невідомих слів, але створили нові. Найвідоміша — модель бачить текст <strong>не як літери</strong>, а як токени, які далеко не завжди є змістовними.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Проблема «strawberry»</h4><span class="tag">interactive</span><span class="hint">Перемкніть між літерним і токенним поглядом. Питання незмінне: скільки літер «r» у слові?</span></div>
+    <div class="ctl"><label class="chk"><input type="checkbox" id="strawTok"> дивитися як модель (токенами)</label></div>
+    <div id="strawOut" class="straw"></div>
+    <div class="result" id="strawSum"></div>
+    <p style="font-size:.88em;color:var(--ink-2)" id="strawNote"></p>
+  </div>
+
+  <div class="cards">
+    <div class="card"><h4>Незмістовні токени</h4><p>Токен <code>raw</code> у «strawberry» не має сенсу «сирий» — це просто шматок. Модель має вчитися переплітати літери через межі токенів, що для неї неприродно.</p></div>
+    <div class="card"><h4>Цифри і код</h4><p>Число <code>1234</code> може розбитися як <code>12</code>+<code>34</code> або <code>1</code>+<code>234</code> залежно від контексту. Через це арифметика й форматування страждають.</p></div>
+    <div class="card"><h4>Мовний перекіс</h4><p>Словник відображає корпус. Мови й теми, яких було мало, кодуються дорожче і гірше. Особливо постраждали мови без пробілів і ті, що не використовують латиницю.</p></div>
+    <div class="card"><h4>«Глітч»-токени</h4><p>Окремі токени з навчання так рідко з'являються, що модель майже не має для них значення. Через них часом виникає дивна поведінка.</p></div>
+  </div>
+  <div class="callout q"><div class="qm">Чому зараз стало краще</div><p>Сучасні моделі частково компенсують це «роздумом» (chain-of-thought): вони розписують слово по літерах перед підрахунком, ніби обходять токенізацію текстом. Але корінь проблеми саме в токенізації: модель сприймає текст як субслова, а не як послідовність літер, що складаються у склади, слова й речення.</p></div>
+</section>
+
+<!-- ============ 11. SUMMARY + QUIZ ============ -->
+<section class="slide" id="s11" data-title="Підсумок і тест">
+  <div class="eyebrow">Розділ 11</div>
+  <h2>Підсумок</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Проблема</div><h4>Скінченний словник</h4><p>Слова не покривають мову: форми, неологізми, помилки, імена. Word2Vec/GloVe не мають векторів для невідомих слів.</p></div>
+    <div class="card"><div class="k">Рішення</div><h4>Субслова</h4><p>Словник із частин, з яких збирається будь-яке слово. BPE зливає найчастіші пари; WordPiece — пари з найвищим підвищенням правдоподібності.</p></div>
+    <div class="card"><div class="k">Byte-level</div><h4>Жодного [UNK]</h4><p>Усі 256 байтів — токени словника. Будь-який символ, мова чи емоджі кодуються. GPT-2 використовує саме це.</p></div>
+    <div class="card"><div class="k">Метрики</div><h4>Токени на слово</h4><p>Ефективність токенізації: менше токенів на слово — дешевше, швидше, більше місця в контексті. Залежить від мови й домену.</p></div>
+  </div>
+
+  <h3>Перевірте себе</h3>
+  <div class="quiz" data-ans="1">
+    <div class="q">BERT (cased) токенізує слово «Їжак» як:</div>
+    <div class="opts"><button class="opt">['Ї', '##ж', '##а', '##к']</button><button class="opt">['[UNK]']</button><button class="opt">['Ð', 'ĩ', 'Ð', '¶', 'Ð°', 'Ðº']</button></div>
+    <div class="ans">Великої «Ї» немає у словнику BERT, і слово не вдається зібрати зі знайомих субслів — токенізатор замінює його на [UNK]. Малу «їжак» він кодує як ['ї','##ж','##а','##к'].</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Головна ідея субслівної токенізації:</div>
+    <div class="opts"><button class="opt">Словник із частин слів, з яких збираються будь-які слова</button><button class="opt">Замінити всі слова на емоджі</button><button class="opt">Зберігати лише перші 5 літер кожного слова</button></div>
+    <div class="ans">Замість повних слів тримаємо багаторазово вживані частини. Будь-яке слово, навіть незнайоме, збирається з цих частин.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Скільки токенів гарантує byte-level словник, щоб закодувати будь-який текст?</div>
+    <div class="opts"><button class="opt">26 — літери латиниці</button><button class="opt">1024 — символи Unicode</button><button class="opt">256 — усі можливі байти</button></div>
+    <div class="ans">Усіх байтів рівно 256, і кожен є токеном словника. Тому будь-який символ завжди можна закодувати його байтами.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">У якому порядку застосовуються мьоржі BPE до нового тексту?</div>
+    <div class="opts"><button class="opt">За частотою в новому тексті</button><button class="opt">У тому порядку, у якому вони були вивчені під час навчання</button><button class="opt">У випадковому порядку</button></div>
+    <div class="ans">Список мьоржів зберігається строго у порядку навчання (rank). Інакше токенізатор не відтворить ті самі токени, що бачила модель.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Метрика «токени на слово» показує:</div>
+    <div class="opts"><button class="opt">Скільки токенів припадає на одне слово — ефективність токенізації</button><button class="opt">Скільки слів у словнику</button><button class="opt">Середню довжину слова в літерах</button></div>
+    <div class="ans">Це відношення кількості токенів до кількості слів. Чим менше — тим ефективніше токенізатор для цього тексту.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Чому той самий за змістом текст українською в API коштує дорожче за англійський?</div>
+    <div class="opts"><button class="opt">Бо українська граматично складніша</button><button class="opt">Бо сервери в Україні дорожчі</button><button class="opt">Бо токенізатор навчений переважно на англійській і кодує українські символи багатьма байтовими токенами</button></div>
+    <div class="ans">Токенізатор відображає навчальний корпус. Для малознайомої мови слів у словнику мало, тому текст розсипається на багато дрібних токенів.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">GPT-2 ділить «strawberry» на ['st','raw','berry']. Чому модель часто помиляється, рахуючи літеру «r»?</div>
+    <div class="opts"><button class="opt">Бо не бачила цього слова в навчанні</button><button class="opt">Бо бачить токени, а не окремі літери</button><button class="opt">Бо «r» — рідкісна літера</button></div>
+    <div class="ans">Літера «r» «розмазана» між токенами raw і berry. Модель сприймає цілі шматки, і перелічити літери всередині них для неї неприродно.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Що роблять спеціальні токени ([CLS], [SEP], [MASK])?</div>
+    <div class="opts"><button class="opt">Розмічають структуру тексту й використовуються для маскування; вони не мьоржаться</button><button class="opt">Додають емоджі в текст</button><button class="opt">Зменшують розмір словника</button></div>
+    <div class="ans">Вони задаються заздалегідь, ніколи не зливаються з іншими токенами й не змінюються під час навчання. [CLS]/[SEP] ділять контекст, [MASK] потрібен для маскованого навчання.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">Чим WordPiece відрізняється від BPE?</div>
+    <div class="opts"><button class="opt">WordPiece працює лише з кирилицею</button><button class="opt">WordPiece обирає мьорж, що найбільше підвищує правдоподібність, а не просто найчастішу пару</button><button class="opt">WordPiece взагалі не використовує субслова</button></div>
+    <div class="ans">BPE жадібно зливає найчастішу пару. WordPiece оцінює пару відношенням частоти пари до добутку частот окремих токенів.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Що станеться під час токенізації, якщо символ відсутній у словнику BPE з byte fallback?</div>
+    <div class="opts"><button class="opt">Буде помилка</button><button class="opt">Символ безслідно зникне</button><button class="opt">Символ закодується своїми байтами</button></div>
+    <div class="ans">Саме для цього потрібен byte fallback: невідомий символ подається як послідовність байтів, кожен з яких є у словнику.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Перший крок навчання BPE:</div>
+    <div class="opts"><button class="opt">Розбити корпус на мінімальні одиниці (символи/байти) і скласти з них початковий словник</button><button class="opt">Одразу злити всі пари слів</button><button class="opt">Взяти готовий словник із 50 000 токенів</button></div>
+    <div class="ans">BPE завжди починає з найменших одиниць і поступово збільшує їх, зливаючи часті пари.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Чому XLM-R токенізує «привіт світ» двома токенами, а GPT-2 — чотирнадцятьма?</div>
+    <div class="opts"><button class="opt">Бо XLM-R не вміє читати кирилицю</button><button class="opt">Бо GPT-2 старіший за XLM-R</button><button class="opt">Бо XLM-R навчений на багатьох мовах і має українські субслова у словнику, а GPT-2 майже не бачив кирилиці</button></div>
+    <div class="ans">Ефективність токенізації прямо залежить від мов навчального корпусу. Багатомовний XLM-R має цілі українські субслова, GPT-2 змушений добирати байти.</div>
+  </div>
+
+  <p class="kbd-hint">Навігація: <kbd>←</kbd> <kbd>→</kbd> між розділами у режимі лекції · <kbd>L</kbd> режим лекції · <kbd>T</kbd> тема</p>
+</section>
+
+</main>
+</div>
+
+<script>
+/* ===================== helpers ===================== */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(x,d=2)=>Number.isFinite(x)?x.toFixed(d):'—';
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const enc=new TextEncoder();
+const SPACE="\u0120";                     // Ġ — маркер пробілу
+const disp=t=>String(t).replace(/\u0120/g,"Ġ");
+const redrawAll=()=>{};                    // сумісність із shell
+
+/* ===================== shell ===================== */
+const sections=$$('section.slide');
+$('#toc').innerHTML=sections.map((s,i)=>`<li><a href="#${s.id}"><span class="num">${String(i).padStart(2,'0')}</span>${esc(s.dataset.title)}</a></li>`).join('');
+const tocLinks=$$('#toc a');
+function updateShell(){
+  const h=document.documentElement,max=h.scrollHeight-h.clientHeight;
+  $('#progress').style.width=(max>0?window.scrollY/max*100:0)+'%';
+  let cur=0;for(const [i,s] of sections.entries()){if(s.getBoundingClientRect().top<=140)cur=i}
+  tocLinks.forEach((a,i)=>a.classList.toggle('active',i===cur));
+}
+addEventListener('scroll',updateShell,{passive:true});addEventListener('resize',updateShell);
+const root=document.documentElement;
+function setLecture(on){root.classList.toggle('lecture',on);$('#lectureBtn').setAttribute('aria-pressed',String(on));store.set('lecture',on?'1':'0');setTimeout(updateShell,50)}
+$('#lectureBtn').onclick=()=>setLecture(!root.classList.contains('lecture'));
+if(store.get('lecture')==='1')setLecture(true);
+const themes=['','dark','light'];
+function setTheme(t){if(t)root.setAttribute('data-theme',t);else root.removeAttribute('data-theme');store.set('theme',t);$('#themeBtn').textContent='◐ Тема'+(t?': '+(t==='dark'?'темна':'світла'):'')}
+$('#themeBtn').onclick=()=>setTheme(themes[(themes.indexOf(root.getAttribute('data-theme')||'')+1)%3]);
+setTheme(store.get('theme')||'');
+addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;
+  const cur=sections.findIndex((s,i)=>tocLinks[i].classList.contains('active'));
+  if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();sections[Math.min(cur+1,sections.length-1)].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();sections[Math.max(cur-1,0)].scrollIntoView({behavior:'smooth'})}
+  else if(e.key==='l'||e.key==='L')setLecture(!root.classList.contains('lecture'));
+  else if(e.key==='t'||e.key==='T')$('#themeBtn').click();
+});
+
+/* ===================== hero visual ===================== */
+(function(){
+  const text="The quick brown fox";
+  const toks=["The","Ġquick","Ġbrown","Ġfox"];
+  const ids=[464,2068,7586,21831];
+  const cell=(x,w,cls)=>`<span class="cell ${cls||''}" style="width:${w}px">${esc(x)}</span>`;
+  $('#heroVis').innerHTML=
+    `<div class="row"><span class="lbl">текст</span><span>"${esc(text)}"</span></div>`+
+    `<div class="row"><span class="lbl">токени</span>${toks.map(t=>cell(disp(t),t.length*7+14,'on')).join('')}</div>`+
+    `<div class="row"><span class="lbl">індекси</span>${ids.map(i=>cell(i,String(i).length*9+14)).join('')}</div>`+
+    `<div class="row"><span class="lbl">ембедінги</span>${toks.map(()=>`<span class="cell" style="width:46px">···</span>`).join('')}<span style="color:var(--muted);margin-left:8px">→ нейромережа</span></div>`;
+})();
+
+/* ===================== 0b. embedding matrix intro ===================== */
+(function(){
+  const D=8;
+  const EMB=[
+    {t:"the", id:464},
+    {t:"Ġdog", id:3290},
+    {t:"Ġruns", id:1100},
+    {t:"fox", id:4290},
+    {t:"es", id:73},
+    {t:"ing", id:281},
+    {t:"[UNK]", id:100}
+  ];
+  const mulberry32=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const vecs=EMB.map(tok=>{const r=mulberry32(tok.id*2654435761+7);return Array.from({length:D},()=>Math.round((r()*2-1)*10)/10)});
+  function color(v){const a=Math.min(1,Math.abs(v));if(v>0)return `rgba(235,104,52,${(0.12+a*0.75).toFixed(2)})`;if(v<0)return `rgba(42,120,214,${(0.12+a*0.75).toFixed(2)})`;return 'var(--surface-2)'}
+  const mat=$('#embMat'),info=$('#embInfo');
+  function render(sel){
+    let h='<span></span>';
+    for(let j=0;j<D;j++)h+=`<span class="emhdr">d${j+1}</span>`;
+    EMB.forEach((tok,i)=>{
+      h+=`<span class="emlab ${i===sel?'on':''}" data-i="${i}">${esc(disp(tok.t))}<span class="idx">${tok.id}</span></span>`;
+      vecs[i].forEach(v=>{h+=`<span class="emcell" style="background:${color(v)}">${i===sel?(v>=0?'+':'')+v.toFixed(1):''}</span>`});
+    });
+    mat.innerHTML=h;
+    $$('.emlab',mat).forEach(el=>el.addEventListener('click',()=>render(+el.dataset.i)));
+    const v=vecs[sel],tok=EMB[sel];
+    info.innerHTML=`
+      <div class="codelabel">Токен «${esc(disp(tok.t))}» · індекс ${tok.id}</div>
+      <div class="vec">${v.map(x=>`<i class="${x>0?'pos':x<0?'neg':''}">${x>=0?'+':''}${x.toFixed(1)}</i>`).join('')}</div>
+      <p style="font-size:.85em;color:var(--ink-2)">Індекс ${tok.id} — це номер рядка. Вектор довжини ${D} — це те, що модель отримує замість слова «${esc(disp(tok.t))}». У реальній моделі замість ${D} чисел буде 768 (BERT) або 12288 (GPT-3).</p>`;
+  }
+  render(1);
+})();
+
+/* ===================== 1. vocab explosion ===================== */
+(function(){
+  const L=$('#vxLem'),F=$('#vxForm');
+  const nf=n=>n.toLocaleString('uk-UA');
+  function run(){
+    const lem=+L.value,forms=+F.value,total=lem*forms;
+    $('#vxLemV').textContent=nf(lem);$('#vxFormV').textContent=forms;
+    $('#vxOut').textContent=nf(total);
+    $('#vxNumW').textContent=total>=1000000?(total/1000000).toFixed(1)+'M':Math.round(total/1000)+'K';
+  }
+  [L,F].forEach(e=>e.addEventListener('input',run));run();
+})();
+
+/* OOV demo */
+(function(){
+  const VOCAB=new Set(["the","dog","sits","on","log","cat","meows","runs","cats","and","dogs","are","animals","a","quick","brown","fox","jumps","over","lazy"]);
+  const inp=$('#oovIn'),out=$('#oovOut'),sum=$('#oovSum');
+  function run(){
+    const words=inp.value.toLowerCase().match(/[\p{L}]+/gu)||[];
+    let unk=0;
+    out.innerHTML=words.map(w=>{const known=VOCAB.has(w);if(!known)unk++;return `<span class="chip ${known?'':'diff'}" style="${known?'':'background:var(--bm25);color:#fff'}"><span class="i">${known?'✓':'?'}</span>${esc(w)}</span>`}).join('');
+    sum.innerHTML=`<span class="big a">${words.length}</span><span class="expl">слів</span><span class="big b" style="color:var(--bm25)">${unk}</span><span class="expl">стануть &lt;UNK&gt; і модель їх не побачить</span>`;
+  }
+  inp.addEventListener('input',run);run();
+})();
+
+/* ===================== 2. subword split ===================== */
+(function(){
+  const DECOMP={
+    "unbelievable":["un","believ","able"],
+    "foxes":["fox","es"],
+    "strawberry":["straw","berry"],
+    "непереможний":["не","перемож","ний"],
+    "привітання":["привіт","ання"],
+    "найоптимістичніші":["най","оптиміст","ичн","іш","і"]
+  };
+  const sel=$('#swWord'),out=$('#swOut'),cnt=$('#swCount');
+  function run(){
+    const parts=DECOMP[sel.value]||[sel.value];
+    out.innerHTML=`<div class="tokrow">${parts.map(p=>`<span class="tokbox merged" style="font-size:1em">${esc(p)}</span>`).join('<span style="color:var(--muted);padding:0 2px">+</span>')}</div><div class="legendnote">${esc(sel.value)} = ${parts.map(esc).join(" + ")}</div>`;
+    cnt.textContent=parts.length;
+  }
+  sel.addEventListener('change',run);run();
+})();
+
+/* ===================== REAL tokenizer data ===================== */
+const REAL={
+ gpt2:{
+  "їжак":{n:6,toks:[{"u":"Ñ","h":"D1"},{"u":"Ĺ","h":"97"},{"u":"Ð","h":"D0"},{"u":"¶","h":"B6"},{"u":"Ð°","h":"D0 B0"},{"u":"Ðº","h":"D0 BA"}]},
+  "Їжак":{n:6,toks:[{"u":"Ð","h":"D0"},{"u":"ĩ","h":"87"},{"u":"Ð","h":"D0"},{"u":"¶","h":"B6"},{"u":"Ð°","h":"D0 B0"},{"u":"Ðº","h":"D0 BA"}]},
+  "Привіт 🌍":{n:11,toks:[{"u":"Ð","h":"D0"},{"u":"Ł","h":"9F"},{"u":"ÑĢ","h":"D1 80"},{"u":"Ð¸","h":"D0 B8"},{"u":"Ð²","h":"D0 B2"},{"u":"Ñ","h":"D1"},{"u":"ĸ","h":"96"},{"u":"ÑĤ","h":"D1 82"},{"u":"ĠðŁ","h":"20 F0 9F"},{"u":"Į","h":"8C"},{"u":"į","h":"8D"}]},
+  "strawberry":{n:3,toks:[{"u":"st","h":"73 74"},{"u":"raw","h":"72 61 77"},{"u":"berry","h":"62 65 72 72 79"}]},
+  "foxes are quick":{n:4,toks:[{"u":"fox","h":"66 6F 78"},{"u":"es","h":"65 73"},{"u":"Ġare","h":"20 61 72 65"},{"u":"Ġquick","h":"20 71 75 69 63 6B"}]},
+  "hello world":{n:2,toks:[{"u":"hello","h":"68 65 6C 6C 6F"},{"u":"Ġworld","h":"20 77 6F 72 6C 64"}]},
+  "привіт світ":{n:14,toks:[{"u":"Ð","h":"D0"},{"u":"¿","h":"BF"},{"u":"ÑĢ","h":"D1 80"},{"u":"Ð¸","h":"D0 B8"},{"u":"Ð²","h":"D0 B2"},{"u":"Ñ","h":"D1"},{"u":"ĸ","h":"96"},{"u":"ÑĤ","h":"D1 82"},{"u":"Ġ","h":"20"},{"u":"Ñģ","h":"D1 81"},{"u":"Ð²","h":"D0 B2"},{"u":"Ñ","h":"D1"},{"u":"ĸ","h":"96"},{"u":"ÑĤ","h":"D1 82"}]},
+  "unbelievable":{n:4,toks:[{"u":"un","h":"75 6E"},{"u":"bel","h":"62 65 6C"},{"u":"iev","h":"69 65 76"},{"u":"able","h":"61 62 6C 65"}]}
+ },
+ bert:{
+  "їжак":{n:6,toks:["[CLS]","ї","##ж","##а","##к","[SEP]"]},
+  "Їжак":{n:3,toks:["[CLS]","[UNK]","[SEP]"]},
+  "Привіт 🌍":{n:9,toks:["[CLS]","П","##р","##и","##в","##і","##т","[UNK]","[SEP]"]},
+  "strawberry":{n:4,toks:["[CLS]","straw","##berry","[SEP]"]},
+  "foxes are quick":{n:6,toks:["[CLS]","fox","##es","are","quick","[SEP]"]},
+  "hello world":{n:4,toks:["[CLS]","hello","world","[SEP]"]},
+  "привіт світ":{n:12,toks:["[CLS]","п","##р","##и","##в","##і","##т","с","##в","##і","##т","[SEP]"]},
+  "unbelievable":{n:4,toks:["[CLS]","un","##believable","[SEP]"]}
+ },
+ xlmr:{
+  "їжак":{n:5,toks:["<s>","▁","ї","жак","</s>"]},
+  "Їжак":{n:5,toks:["<s>","▁","Ї","жак","</s>"]},
+  "Привіт 🌍":{n:6,toks:["<s>","▁При","віт","▁","🌍","</s>"]},
+  "strawberry":{n:5,toks:["<s>","▁stra","w","berry","</s>"]},
+  "foxes are quick":{n:6,toks:["<s>","▁fo","xes","▁are","▁quick","</s>"]},
+  "hello world":{n:5,toks:["<s>","▁hell","o","▁world","</s>"]},
+  "привіт світ":{n:4,toks:["<s>","▁привіт","▁світ","</s>"]},
+  "unbelievable":{n:6,toks:["<s>","▁un","beli","ev","able","</s>"]}
+ }
+};
+const SPECIAL=/^(\[CLS\]|\[SEP\]|\[PAD\]|\[MASK\]|\[UNK\]|<s>|<\/s>)$/;
+
+/* ===================== 3. WordPiece explorer ===================== */
+(function(){
+  const sel=$('#wpWord'),out=$('#wpOut'),sum=$('#wpSum');
+  function run(){
+    const d=REAL.bert[sel.value];if(!d)return;
+    out.innerHTML=d.toks.map(t=>{
+      const cls=t==="[UNK]"?"unk":(SPECIAL.test(t)?"special":"");
+      return `<span class="tokbox ${cls}">${esc(t.replace("##","↳"))}</span>`;
+    }).join('');
+    const unknown=d.toks.filter(t=>t==="[UNK]").length;
+    sum.innerHTML=`<span class="big a">${d.n}</span><span class="expl">токенів усього (разом зі службовими [CLS]/[SEP])</span>`+
+      (unknown?`<span class="big b" style="color:var(--bm25)">${unknown}</span><span class="expl">[UNK] — цю частину модель не бачить</span>`:`<span class="big" style="color:var(--aqua)">0</span><span class="expl">[UNK] — усе закодовано</span>`);
+  }
+  sel.addEventListener('change',run);run();
+})();
+
+/* ===================== 4. unicode + byte-level ===================== */
+const GPT2B2U=(()=>{
+  const bs=[];for(let i=33;i<=126;i++)bs.push(i);for(let i=161;i<=172;i++)bs.push(i);for(let i=174;i<=255;i++)bs.push(i);
+  const cs=bs.slice();const inSet=new Set(bs);let n=0;
+  for(let b=0;b<256;b++){if(!inSet.has(b)){bs.push(b);cs.push(256+n);n++;}}
+  const m={};for(let i=0;i<bs.length;i++)m[bs[i]]=String.fromCharCode(cs[i]);return m;
+})();
+function byteBoxes(text){
+  const bytes=enc.encode(text);
+  return [...bytes].map(b=>`<span class="tokbox byte">${esc(GPT2B2U[b])}<span class="b">${b.toString(16).toUpperCase().padStart(2,"0")}</span></span>`).join('');
+}
+(function(){
+  const inp=$('#uniIn'),tbl=$('#uniTbl'),sum=$('#uniSum'),bb=$('#uniBytes'),bs=$('#uniByteSum');
+  function run(){
+    const chars=[...inp.value];let total=0;
+    let rows=chars.map(ch=>{const b=enc.encode(ch);total+=b.length;
+      return `<tr><td style="font-size:1.2em">${ch===' '?'<span style="color:var(--muted)">␣</span>':esc(ch)}</td><td class="tok">U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')}</td><td class="tok" style="text-align:left">${[...b].map(x=>`<span class="byte">0x${x.toString(16).toUpperCase().padStart(2,'0')}</span>`).join('')}</td><td>${b.length}</td></tr>`}).join('');
+    tbl.innerHTML=`<thead><tr><th>Символ</th><th>Unicode</th><th style="text-align:left">UTF-8 байти</th><th>Байтів</th></tr></thead><tbody>${rows}</tbody>`;
+    sum.innerHTML=`<span class="big a">${chars.length}</span><span class="expl">символів</span><span class="big">${total}</span><span class="expl">байтів — і для byte-level токенізатора це ${total} токенів (ще до мьоржів)</span>`;
+    bb.innerHTML=byteBoxes(inp.value);
+    bs.textContent=`${total} байтових токенів. У справжнього GPT-2 частина сусідніх байтів додатково зливається мьоржами, тому токенів буде менше.`;
+  }
+  inp.addEventListener('input',run);run();
+  const map={exHe:"hello world",exSt:"strawberry",exUk:"їжак"};
+  for(const id in map){
+    const d=REAL.gpt2[map[id]];
+    $('#'+id).innerHTML=d.toks.map(t=>`<span class="tokbox">${esc(t.u)}<span class="b">${t.h}</span></span>`).join('');
+  }
+})();
+
+/* ===================== 5. BPE trainer ===================== */
+function preTokenize(text){
+  return text.trim().split(/\s+/).filter(Boolean).map(w=>[SPACE,...w.split("")]);
+}
+class BPE{
+  constructor(){this.words=[];this.merges=[];this.ranks=new Map();this.done=true;}
+  init(text,vocabSize,minFreq){
+    this.words=preTokenize(text);this.vocabSize=vocabSize;this.minFreq=minFreq;
+    this.merges=[];this.ranks=new Map();this.iteration=0;this.done=false;
+    this.lastMerged=null;this.lastFreq=0;
+    this.vocab=new Set();this.words.flat().forEach(s=>this.vocab.add(s));
+    if(this.vocab.size>=vocabSize){this.done=true;}
+    this.best=this.findBest();
+  }
+  pairCounts(){
+    const m=new Map();
+    for(const w of this.words)for(let i=0;i<w.length-1;i++){const a=w[i],b=w[i+1],k=a+"\u0000"+b;m.set(k,(m.get(k)||0)+1);}
+    return m;
+  }
+  findBest(){
+    const m=this.pairCounts();let best=null,bf=0;
+    for(const [k,f] of m){const [a,b]=k.split("\u0000");if(f>bf||(f===bf&&best&&(a+""+b)<(best.a+best.b))){bf=f;best={a,b,k};}}
+    return {pair:best,freq:bf,all:m};
+  }
+  step(){
+    if(this.done)return false;
+    if(this.vocab.size>=this.vocabSize){this.done=true;return false;}
+    const {pair,freq}=this.best;
+    if(!pair||freq<this.minFreq){this.done=true;return false;}
+    const merged=pair.a+pair.b;
+    this.merges.push([pair.a,pair.b]);this.ranks.set(pair.k,this.merges.length-1);
+    this.vocab.add(merged);
+    for(const w of this.words){for(let i=0;i<w.length-1;i++){if(w[i]===pair.a&&w[i+1]===pair.b){w.splice(i,2,merged);i--;}}}
+    this.iteration++;this.lastMerged=merged;this.lastFreq=freq;
+    this.best=this.findBest();
+    if(this.vocab.size>=this.vocabSize||this.best.freq<this.minFreq)this.done=true;
+    return true;
+  }
+  apply(w){
+    const toks=w.slice();
+    while(true){let br=Infinity,bi=-1;
+      for(let i=0;i<toks.length-1;i++){const r=this.ranks.get(toks[i]+"\u0000"+toks[i+1]);if(r!==undefined&&r<br){br=r;bi=i;}}
+      if(bi<0)break;toks.splice(bi,2,toks[bi]+toks[bi+1]);
+    }
+    return toks;
+  }
+  tokenize(text){return preTokenize(text).map(w=>this.apply(w));}
+}
+const BPE_SAMPLES={
+  en:"the dog sits on the log",
+  uk:"дім дім дім дим сад сад сади садок"
+};
+const TRAINER=new BPE();
+(function(){
+  const corpus=$('#bpeCorpus'),vs=$('#bpeVSize'),mf=$('#bpeMin'),sample=$('#bpeSample');
+  let timer=null;
+  function reset(){stopAuto();TRAINER.init(corpus.value,+vs.value,+mf.value);render();}
+  function render(){
+    $('#bpeVSizeV').textContent=vs.value;$('#bpeMinV').textContent=mf.value;
+    $('#bpeIter').textContent=TRAINER.iteration;
+    $('#bpeVocabSize').textContent=TRAINER.vocab.size;
+    $('#bpeState').textContent=TRAINER.done?(TRAINER.merges.length?"завершено":"одразу завершено"):"триває…";
+    // words
+    $('#bpeWords').innerHTML=TRAINER.words.map((w,wi)=>`<span class="wordgroup"><span class="wg-toks">${w.map(t=>{
+      const isNew=TRAINER.lastMerged&&t===TRAINER.lastMerged;
+      return `<span class="tokbox ${isNew?'merged':''}">${esc(disp(t))}</span>`}).join('')}</span><span class="wg-idx">слово ${wi+1}</span></span>`).join('');
+    // pairs
+    const entries=[...TRAINER.best.all.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const max=entries.length?entries[0][1]:1;
+    $('#bpePairs').innerHTML=entries.length?entries.map(([k,f])=>{
+      const [a,b]=k.split("\u0000");const best=TRAINER.best.pair&&TRAINER.best.pair.k===k;
+      return `<div class="pairrow ${best?'best':''}"><span>${esc(disp(a))} + ${esc(disp(b))}</span><span class="pbar" style="width:${Math.max(3,f/max*100)}%"></span><span class="pf">${f}</span></div>`;
+    }).join(''):'<p style="color:var(--muted);font-size:.85em;margin:0">Пар немає — корпус порожній.</p>';
+    // merges
+    $('#bpeMerges').innerHTML=TRAINER.merges.map(m=>`<li>${esc(disp(m[0]))} + ${esc(disp(m[1]))} → <b>${esc(disp(m[0]+m[1]))}</b></li>`).join('');
+    // playground bridge
+    pgRefresh();
+  }
+  function stopAuto(){if(timer){clearInterval(timer);timer=null;$('#bpeAuto').textContent='▶ Авто';}}
+  function doStep(){const ok=TRAINER.step();render();if(!ok)stopAuto();}
+  $('#bpeStep').onclick=()=>{if(TRAINER.done)return;doStep();};
+  $('#bpeAuto').onclick=()=>{if(timer){stopAuto();return}$('#bpeAuto').textContent='⏸ Пауза';timer=setInterval(()=>{if(TRAINER.done){stopAuto();return}doStep();},650);};
+  $('#bpeReset').onclick=reset;
+  corpus.addEventListener('input',reset);
+  vs.addEventListener('input',reset);
+  mf.addEventListener('input',reset);
+  sample.addEventListener('change',()=>{corpus.value=BPE_SAMPLES[sample.value];reset();});
+  reset();
+  // playground wire-up needs TRAINER + render; expose
+  window.__bpeRefresh=render;
+})();
+
+/* GPT-2 merges + vocab fragments */
+(function(){
+  const merges=['Ġ t','Ġ a','h e','i n','r e','o n','Ġt he','e r','Ġ s','a t','Ġ w','Ġ o','e n','Ġ c','i t','i s','a n','o r','e s','Ġ b'];
+  $('#gpt2Merges').innerHTML=merges.map((m,i)=>`<div>${String(i).padStart(3,' ')}  ${esc(m.replace(' ', '  +  '))}</div>`).join('');
+  const vocab=[["----",650],["Ġget",651],["ory",652],["ition",653],["ings",654],["Ġjust",655],["Ġinto",656],["Ġ0",657],["ents",658],["ove",659],["te",660],["Ġpeople",661],["Ġpre",662],["Ġits",663],["Ġrec",664],["Ġtw",665],["ian",666],["irst",667],["ark",668],["ors",669],["Ġwork",670],["ade",671]];
+  $('#gpt2Vocab').innerHTML=vocab.map(([t,i])=>`<div>${String(i).padStart(5,' ')}  ${esc(t)}</div>`).join('');
+})();
+
+/* ===================== 7a. comparison ===================== */
+(function(){
+  const sel=$('#cmpText'),keys=Object.keys(REAL.gpt2);
+  sel.innerHTML=keys.map(k=>`<option>${esc(k)}</option>`).join('');
+  sel.value="їжак";
+  function run(){
+    const s=sel.value;
+    // gpt2 with u + hex
+    const g=REAL.gpt2[s];
+    $('#cmp0').innerHTML=g.toks.map(t=>`<span class="tokbox">${esc(disp(t.u))}<span class="b">${t.h}</span></span>`).join('');
+    $('#cmpN0').textContent=g.n+" токенів";
+    // bert
+    const b=REAL.bert[s];
+    $('#cmp1').innerHTML=b.toks.map(t=>{const cls=t==="[UNK]"?"unk":(SPECIAL.test(t)?"special":"");return `<span class="tokbox ${cls}">${esc(t.replace("##","↳"))}</span>`}).join('');
+    $('#cmpN1').textContent=b.n+" токенів"+(b.toks.includes("[UNK]")?" · є [UNK]":"");
+    // xlmr
+    const x=REAL.xlmr[s];
+    $('#cmp2').innerHTML=x.toks.map(t=>{const cls=SPECIAL.test(t)?"special":"";return `<span class="tokbox ${cls}">${esc(t.replace("▁","␣"))}</span>`}).join('');
+    $('#cmpN2').textContent=x.n+" токенів";
+    let note="";
+    if(s==="Їжак")note="Однакова ідея субслів, але BERT не має великої «Ї» у словнику — і втрачає слово повністю, тоді як байтові токенізатори кодують його без проблем.";
+    else if(s==="їжак"||s==="привіт світ"||s==="Привіт 🌍")note="Порівняйте: GPT-2 розсипає кирилицю на байти, BERT часто не має кириличних субслів, а XLM-R має цілі українські субслова.";
+    else note="Для англійських слів усі троє справляються добре — різниця проявляється саме на «чужих» для словника мовах.";
+    $('#cmpNote').textContent=note;
+  }
+  sel.addEventListener('change',run);run();
+})();
+
+/* ===================== 7b. playground ===================== */
+function tokBoxes(tokens){
+  return tokens.map(t=>`<span class="tokbox">${esc(disp(t))}</span>`).join('');
+}
+function pgRefresh(){
+  const inp=$('#pgIn'),mode=$('#pgMode'),out=$('#pgOut'),sum=$('#pgSum'),note=$('#pgNote');
+  if(!inp)return;
+  const text=inp.value;
+  if(mode.value==='byte'){
+    const bytes=enc.encode(text);
+    out.innerHTML=`<div class="tokrow">${byteBoxes(text)}</div>`;
+    sum.innerHTML=`<span class="big b" style="color:var(--bm25)">${bytes.length}</span><span class="expl">байтових токенів · ${[...text].length} символів</span>`;
+    note.textContent="Кожен байт — гарантовано у словнику. Жодного невідомого символу за визначенням.";
+  }else{
+    const groups=TRAINER.tokenize(text);
+    out.innerHTML=groups.map(g=>`<span class="wordgroup"><span class="wg-toks">${tokBoxes(g)}</span></span>`).join('');
+    const n=groups.reduce((a,g)=>a+g.length,0);
+    const unseen=groups.flat().filter(t=>!TRAINER.vocab.has(t)).length;
+    sum.innerHTML=`<span class="big a">${n}</span><span class="expl">токенів · словник розділу 5</span>`+
+      (unseen?`<span class="big">${unseen}</span><span class="expl">символів поза словником (мьоржів для них немає)</span>`:'');
+    note.textContent=unseen?"Зверніть увагу: символи, яких не було в корпусі розділу 5, лишаються одинарними токенами — у справжнього byte-level токенізатора їх підхопив би byte fallback.":"Усі токени побудовані вивченими мьоржами.";
+  }
+}
+(function(){
+  const inp=$('#pgIn'),mode=$('#pgMode');
+  if(!inp)return;
+  inp.addEventListener('input',pgRefresh);mode.addEventListener('change',pgRefresh);
+  pgRefresh();
+})();
+
+/* ===================== 8. metrics ===================== */
+(function(){
+  const inp=$('#mtIn'),mode=$('#mtMode'),preset=$('#mtPreset'),out=$('#mtOut'),note=$('#mtNote');
+  const PRESETS={
+    uk:"Після двох упевнених перемог поспіль Макса Ферстаппена в Монці та Баку чимало фанатів нідерландця, які пережили довгу депресію в середині сезону, помітно пожвавилися.",
+    en:"After two confident back-to-back victories by Max Verstappen in Monza and Baku, many of the Dutchman's fans became noticeably more upbeat."
+  };
+  function run(){
+    const text=inp.value;
+    const words=(text.trim().match(/[\p{L}\p{N}]+/gu)||[]).length;
+    const chars=[...text].length;
+    const bytes=enc.encode(text).length;
+    let tokens;
+    if(mode.value==='byte')tokens=bytes;
+    else tokens=TRAINER.tokenize(text).reduce((a,g)=>a+g.length,0);
+    const tpw=tokens/words, cpt=chars/tokens, bpt=bytes/tokens;
+    out.innerHTML=`
+      <div class="metric"><div class="n" style="color:var(--tfidf)">${fmt(tpw,2)}</div><div class="l">токени на слово</div></div>
+      <div class="metric"><div class="n">${tokens}</div><div class="l">токенів</div></div>
+      <div class="metric"><div class="n">${words}</div><div class="l">слів</div></div>
+      <div class="metric"><div class="n">${fmt(cpt,2)}</div><div class="l">символів на токен</div></div>
+      <div class="metric"><div class="n">${fmt(bpt,2)}</div><div class="l">байтів на токен</div></div>`;
+    note.textContent=mode.value==='byte'
+      ? "Byte-level — це межа: 1 токен на байт, тому «токени на слово» просто дорівнює байтах на слово. Справжній BPE мав би мьоржі й давав менше токенів."
+      : "Наш BPE навчений на крихітному корпусі з розділу 5, тому для невідомих слів він дає майже 1 токен на символ. Замініть корпус у розділі 5 на більший — і метрика покращиться.";
+  }
+  inp.addEventListener('input',run);mode.addEventListener('change',run);
+  preset.addEventListener('change',()=>{if(PRESETS[preset.value]){inp.value=PRESETS[preset.value];run();}});
+  run();
+  // real metrics table
+  const rows=[
+    ["українською","51","23","2.22","3.25","6.02"],
+    ["англійською","38","21","1.81","3.63","3.63"]
+  ];
+  $('#metricTbl').innerHTML=`<thead><tr><th>Текст</th><th>Токенів</th><th>Слів</th><th>Токени/слово</th><th>Символів/токен</th><th>Байтів/токен</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td style="color:var(--tfidf);font-weight:500">${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('')+`</tbody>`;
+})();
+
+/* ===================== 9. cost ===================== */
+(function(){
+  const preset=$('#costPreset'),chars=$('#costChars'),price=$('#costPrice');
+  const PRESETS={gpt2:{en:1.6,uk:8.3},xlmr:{en:1.8,uk:2.2}};
+  const nf=n=>Math.round(n).toLocaleString('uk-UA');
+  function run(){
+    const tpw=PRESETS[preset.value]||PRESETS.gpt2;
+    const C=+chars.value, p=Math.max(0,+price.value||0);
+    $('#costCharsV').textContent=nf(C);
+    const words=C/6;
+    const tEn=words*tpw.en, tUk=words*tpw.uk;
+    const cEn=tEn/1e6*p, cUk=tUk/1e6*p;
+    const max=Math.max(cEn,cUk,1e-9);
+    $('#costBarEn').style.width=(cEn/max*100)+'%';
+    $('#costBarUk').style.width=(cUk/max*100)+'%';
+    $('#costNumEn').textContent=`${nf(tEn)} т. · $${cEn.toFixed(3)}`;
+    $('#costNumUk').textContent=`${nf(tUk)} т. · $${cUk.toFixed(3)}`;
+    const ratio=cUk/Math.max(cEn,1e-9);
+    $('#costRatio').textContent=(ratio>=1?'×':'×')+fmt(ratio,2);
+    $('#costExpl').textContent=ratio>=1.02
+      ? `українська дорожча у ${fmt(ratio,2)} раза: ${nf(tUk-cEn>=0?tUk-tEn:0)} зайвих токенів`
+      : (ratio<=0.98?`англійська дорожча у ${fmt(1/ratio,2)} раза`:"вартість приблизно однакова");
+  }
+  [preset,chars,price].forEach(e=>e.addEventListener('input',run));run();
+})();
+
+/* ===================== 10. strawberry ===================== */
+(function(){
+  const chk=$('#strawTok'),out=$('#strawOut'),sum=$('#strawSum'),note=$('#strawNote');
+  const word="strawberry";
+  function letters(){return `<div>${[...word].map(c=>`<span class="${c==='r'?'r':''}">${c}</span>`).join('')}</div>`}
+  function tokensView(){return `<div><span class="tk">st</span><span class="tk">raw</span><span class="tk">berry</span></div>`}
+  function run(){
+    if(chk.checked){
+      out.innerHTML=tokensView();
+      sum.innerHTML=`<span class="big b" style="color:var(--bm25)">3</span><span class="expl">токени. Літера «r» «розмазана» всередині токенів raw і berry — її не видно окремо.</span>`;
+      note.textContent="Модель бачить саме цей рядок. Щоб порахувати «r», їй треба подумки розібрати кожен токен на літери — на це і спотикаються старші моделі.";
+    }else{
+      out.innerHTML=letters();
+      sum.innerHTML=`<span class="big a">3</span><span class="expl">літери «r» (позиції 3, 8, 9). Для людини це тривіально.</span>`;
+      note.textContent="Людина бачить послідовність літер. Перемкніть прапорець, щоб побачити те саме слово очима моделі.";
+    }
+  }
+  chk.addEventListener('change',run);run();
+})();
+
+/* ===================== 11. quiz ===================== */
+$$('.quiz').forEach(qz=>{const ans=+qz.dataset.ans;$$('.opt',qz).forEach((b,i)=>b.addEventListener('click',()=>{if(qz.classList.contains('done'))return;qz.classList.add('done');b.classList.add(i===ans?'ok':'no');$$('.opt',qz)[ans].classList.add('ok')}))});
+
+/* ===================== python highlighter ===================== */
+$$('code.py').forEach(el=>{
+  const src=el.textContent;
+  const re=/(#.*$)|(f?"(?:[^"\\]|\\.)*"|f?'(?:[^'\\]|\\.)*')|\b(def|class|import|from|for|in|if|else|elif|return|lambda|not|and|or|as|with|None|True|False|continue|break|pass|while|yield|print|set|len|sum|sorted|range|list|dict|max|min)\b|\b(\d+\.?\d*)\b/gm;
+  let out='',last=0,m;
+  while((m=re.exec(src))){out+=esc(src.slice(last,m.index));
+    if(m[1])out+=`<span class="cm">${esc(m[1])}</span>`;else if(m[2])out+=`<span class="st">${esc(m[2])}</span>`;else if(m[3])out+=`<span class="kw">${m[3]}</span>`;else out+=`<span class="nu">${m[4]}</span>`;last=re.lastIndex}
+  out+=esc(src.slice(last));
+  el.innerHTML=out.replace(/(<span class="kw">(?:def|class)<\/span> )([A-Za-z_]\w*)/g,'$1<span class="fn">$2</span>');
+});
+updateShell();
+</script>
+</body>
+</html>

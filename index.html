@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Лекції з NLP — без deep learning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#e9edf2; --ink:#141922; --ink-2:#4a5566; --muted:#7d8795;
+  --line:#d6dce4; --line-soft:#e6eaf0;
+  --tfidf:#2a78d6; --tfidf-soft:#dce9f9; --bm25:#eb6834; --bm25-soft:#fbe3d8;
+  --aqua:#1baf7a; --violet:#4a3aa7;
+  --hl:#fff1b8; --hl-ink:#5a4300;
+  --shadow:0 1px 2px rgba(20,25,34,.06),0 8px 24px rgba(20,25,34,.06);
+  --fs:17px; --radius:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+    --line:#2c3341; --line-soft:#232a36;
+    --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+    --aqua:#25c48b; --violet:#9085e9;
+    --hl:#4a3b0c; --hl-ink:#ffe9a3;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:var(--fs);line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:64px 24px 96px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.eyebrow b{color:var(--tfidf);font-weight:500}
+h1{font-family:"Unbounded",sans-serif;font-weight:700;font-size:clamp(1.7em,4vw,2.4em);line-height:1.15;margin:0 0 16px}
+.lead{font-size:1.15em;color:var(--ink-2);max-width:60ch;margin:0 0 48px}
+.list{display:grid;gap:20px}
+.card{
+  display:block;text-decoration:none;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;
+  box-shadow:var(--shadow);transition:transform .15s,border-color .15s,box-shadow .15s;
+}
+.card:hover{transform:translateY(-2px);border-color:var(--tfidf);box-shadow:0 2px 4px rgba(20,25,34,.08),0 16px 40px rgba(20,25,34,.10)}
+.card .num{font-family:"IBM Plex Mono",monospace;font-size:.78em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.card h2{font-family:"Unbounded",sans-serif;font-weight:500;font-size:1.15em;margin:6px 0 8px;color:var(--ink)}
+.card p{margin:0;color:var(--ink-2);font-size:.95em}
+.card .go{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:.85em;font-weight:500;color:var(--tfidf)}
+.card:nth-child(2) .go{color:var(--bm25)}
+.card:nth-child(2):hover{border-color:var(--bm25)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Обробка природної мови · <b>Без deep learning</b></div>
+  <h1>Лекції з NLP</h1>
+  <p class="lead">Як комп'ютер бачить текст, як перетворити його на числа і як будувати системи, що працюють у production без жодної нейронної мережі.</p>
+
+  <div class="list">
+    <a class="card" href="./02-tfidf-bm25.html">
+      <span class="num">Лекція 02</span>
+      <h2>Від тексту до TF-IDF і BM25</h2>
+      <p>Як зробити з тексту числа і побудувати пошук, який досі працює у production. Статистика над токенами: TF-IDF і BM25.</p>
+      <span class="go">Відкрити лекцію →</span>
+    </a>
+
+    <a class="card" href="./03-bpe-tokenizers.html">
+      <span class="num">Лекція 03</span>
+      <h2>BPE токенізатори: як моделі бачать текст</h2>
+      <p>Чому токенізація на слова ламається і як субслівні токенізатори BPE та WordPiece визначають ціну, швидкість і можливості сучасних LLM.</p>
+      <span class="go">Відкрити лекцію →</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>
