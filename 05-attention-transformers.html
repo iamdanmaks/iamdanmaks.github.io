@@ -1,0 +1,2102 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Увага і трансформери: від RNN до BERT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#e9edf2; --ink:#141922; --ink-2:#4a5566; --muted:#7d8795;
+  --line:#d6dce4; --line-soft:#e6eaf0;
+  --tfidf:#2a78d6; --tfidf-soft:#dce9f9; --bm25:#eb6834; --bm25-soft:#fbe3d8;
+  --aqua:#1baf7a; --violet:#4a3aa7;
+  --hl:#fff1b8; --hl-ink:#5a4300;
+  --code-bg:#1b2130; --code-ink:#e6ebf3; --code-kw:#8fb7ff; --code-str:#9fe0b2; --code-cm:#7d8795; --code-num:#ffc46b; --code-fn:#e8b6ff;
+  --grid:#e1e4ea; --axis:#c3c8d1;
+  --shadow:0 1px 2px rgba(20,25,34,.06),0 8px 24px rgba(20,25,34,.06);
+  --fs:17px; --radius:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+    --line:#2c3341; --line-soft:#232a36;
+    --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+    --aqua:#25c48b; --violet:#9085e9;
+    --hl:#4a3b0c; --hl-ink:#ffe9a3;
+    --code-bg:#0b0e14; --code-ink:#e6ebf3;
+    --grid:#262c37; --axis:#3a4250;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#171b23; --surface-2:#1f242e; --ink:#eef1f5; --ink-2:#b7bfcb; --muted:#8a939f;
+  --line:#2c3341; --line-soft:#232a36;
+  --tfidf:#3987e5; --tfidf-soft:#1c2f4a; --bm25:#f0774a; --bm25-soft:#4a2a1c;
+  --aqua:#25c48b; --violet:#9085e9;
+  --hl:#4a3b0c; --hl-ink:#ffe9a3;
+  --code-bg:#0b0e14; --code-ink:#e6ebf3;
+  --grid:#262c37; --axis:#3a4250;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+:root.lecture{ --fs:21px; }
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:var(--fs); line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--tfidf)}
+h1,h2,h3,h4{font-family:"Unbounded","IBM Plex Sans",system-ui,sans-serif;line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:2.3em;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.55em;font-weight:700}
+h3{font-size:1.1em;font-weight:500;margin-top:1.6em}
+p{margin:.75em 0}
+strong{font-weight:600}
+code,kbd,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:.9em;background:var(--surface-2);padding:.1em .35em;border-radius:5px}
+pre code{background:none;padding:0;font-size:inherit}
+
+/* top bar */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  display:flex;align-items:center;gap:14px;padding:10px 20px;
+  background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.topbar .brand{font-family:"Unbounded",sans-serif;font-weight:500;font-size:.8em;letter-spacing:.02em;color:var(--ink-2);white-space:nowrap}
+.topbar .spacer{flex:1}
+.progress{position:absolute;left:0;bottom:-1px;height:2px;background:var(--tfidf);width:0%;transition:width .15s linear}
+.btn{
+  font:inherit;font-size:.8em;font-weight:500;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;transition:background .15s,border-color .15s;
+}
+.btn:hover{border-color:var(--ink-2)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,.card-toggle:focus-visible{outline:2px solid var(--tfidf);outline-offset:2px}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn .dot{width:8px;height:8px;border-radius:50%;background:var(--bm25)}
+.btn[aria-pressed="true"] .dot{background:var(--aqua)}
+
+/* layout */
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1240px;margin:0 auto;padding-block:32px 96px;padding-inline:24px}
+.lecture .wrap{grid-template-columns:minmax(0,1fr);max-width:1080px}
+nav.toc{position:sticky;top:76px;align-self:start;font-size:.82em;max-height:calc(100vh - 100px);overflow:auto}
+.lecture nav.toc{display:none}
+nav.toc ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--line)}
+nav.toc li a{display:block;padding:6px 14px;color:var(--ink-2);text-decoration:none;border-left:2px solid transparent;margin-left:-1px}
+nav.toc li a:hover{color:var(--ink)}
+nav.toc li a.active{color:var(--ink);border-left-color:var(--tfidf);font-weight:500}
+nav.toc .num{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px;font-family:"IBM Plex Mono",monospace;font-size:.85em}
+main{min-width:0}
+section.slide{padding-block:48px;border-top:1px solid var(--line)}
+section.slide:first-child{border-top:0;padding-top:8px}
+.lecture section.slide{min-height:calc(100vh - 60px);scroll-margin-top:60px}
+section.slide>*{max-width:72ch}
+section.slide>.wide,section.slide>.demo,section.slide>.cards,section.slide>.two,section.slide>.hero-grid,section.slide>pre,section.slide>.vs,section.slide>.formula,section.slide>.quiz,section.slide>.pipe,section.slide>.arch{max-width:none}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.eyebrow b{color:var(--tfidf);font-weight:500}
+.lead{font-size:1.15em;color:var(--ink-2)}
+
+/* hero */
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:40px;align-items:start;margin-top:24px}
+.agenda{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow)}
+.agenda h3{margin-top:0;font-size:.85em;color:var(--muted);font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;font-weight:400}
+.agenda ol{margin:12px 0 0;padding-left:0;list-style:none;counter-reset:ag}
+.agenda li{counter-increment:ag;padding:8px 0;border-top:1px solid var(--line-soft);display:flex;gap:14px}
+.agenda li::before{content:counter(ag,decimal-leading-zero);font-family:"IBM Plex Mono",monospace;color:var(--tfidf);font-size:.85em;padding-top:2px}
+.agenda li:first-child{border-top:0}
+.hero-vis{margin-top:28px;font-family:"IBM Plex Mono",monospace;font-size:.85em;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;overflow-x:auto}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h4{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:1em;margin:0 0 6px}
+.card p{margin:0;font-size:.92em;color:var(--ink-2)}
+.card .k{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--tfidf);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;align-items:start}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.vs .card{border-top:3px solid var(--tfidf)}
+.vs .card.b{border-top-color:var(--bm25)}
+
+/* callouts */
+.callout{border-left:3px solid var(--tfidf);background:var(--surface);padding:14px 18px;border-radius:0 var(--radius) var(--radius) 0;margin:20px 0}
+.callout.q{border-left-color:var(--violet)}
+.callout.q .qm{font-family:"Unbounded",sans-serif;color:var(--violet);font-size:.8em;letter-spacing:.04em;margin-bottom:6px}
+.callout.warn{border-left-color:var(--bm25);background:var(--bm25-soft)}
+.callout.warn .qm{font-family:"Unbounded",sans-serif;color:var(--bm25);font-size:.8em;margin-bottom:6px}
+.callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
+.term{border-bottom:1px dashed var(--muted);cursor:help}
+
+/* toggles / details */
+details.more{margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+details.more summary{cursor:pointer;padding:12px 16px;font-weight:500;list-style:none;display:flex;align-items:center;gap:10px}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--ink-2);border-bottom:2px solid var(--ink-2);transform:rotate(-45deg);transition:transform .15s;margin-left:4px}
+details.more[open] summary::before{transform:rotate(45deg)}
+details.more .body{padding:0 16px 16px;color:var(--ink-2)}
+details.more .body>*:first-child{margin-top:0}
+
+/* demo panels */
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:24px 0;box-shadow:var(--shadow)}
+.demo .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.demo .head h4{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:1em;margin:0}
+.demo .head .tag{font-family:"IBM Plex Mono",monospace;font-size:.7em;letter-spacing:.06em;text-transform:uppercase;color:var(--aqua);border:1px solid color-mix(in srgb,var(--aqua) 40%,transparent);padding:2px 8px;border-radius:999px}
+.demo .head .hint{font-size:.85em;color:var(--muted);flex-basis:100%}
+.ctl{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:end;margin-bottom:14px}
+.ctl label{display:flex;flex-direction:column;gap:4px;font-size:.82em;color:var(--ink-2);min-width:120px}
+.ctl label span.v{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-weight:500}
+.ctl input[type=text],.ctl input[type=number],.ctl select,.demo textarea{
+  font:inherit;font-size:.95em;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-width:0;
+}
+.ctl input[type=text]{width:100%}
+.ctl .grow{flex:1 1 260px}
+.demo textarea{width:100%;resize:vertical;font-family:"IBM Plex Sans",sans-serif;line-height:1.4}
+input[type=range]{accent-color:var(--tfidf);width:100%;max-width:260px}
+.chk{display:flex;align-items:center;gap:8px;font-size:.88em;cursor:pointer;flex-direction:row!important;min-width:0!important}
+.chk input{accent-color:var(--tfidf);width:16px;height:16px;margin:0}
+.out{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--bg);border:1px solid var(--line-soft);border-radius:7px;padding:12px 14px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.result{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:8px}
+.result .big{font-family:"IBM Plex Mono",monospace;font-size:1.9em;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.result .big.b{color:var(--bm25)}.result .big.a{color:var(--tfidf)}
+.result .expl{font-size:.85em;color:var(--muted)}
+.legendrow{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em;color:var(--ink-2);margin-top:6px}
+.legendrow .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+
+/* charts */
+.chart{width:100%;height:auto;display:block;font-family:"IBM Plex Sans",sans-serif}
+.chart text{fill:var(--muted);font-size:12px}
+.chart .grid line{stroke:var(--grid);stroke-width:1}
+.chart .axis{stroke:var(--axis);stroke-width:1}
+.chart .s1{stroke:var(--tfidf);stroke-width:2.5;fill:none}
+.chart .s2{stroke:var(--bm25);stroke-width:2.5;fill:none}
+.chart .s3{stroke:var(--aqua);stroke-width:2;fill:none;stroke-dasharray:5 4}
+.chart .s4{stroke:var(--violet);stroke-width:2;fill:none;stroke-dasharray:2 4}
+.chart .lab{font-weight:500;fill:var(--ink-2)}
+.chart .marker{fill:var(--surface);stroke-width:2.5}
+.chart .cross{stroke:var(--muted);stroke-dasharray:3 3;display:none}
+.chartwrap{position:relative}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.78em;padding:6px 10px;border-radius:6px;display:none;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5}
+
+/* formulas */
+.formula{font-size:1.15em;margin:18px 0;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;line-height:1.3;display:block}
+.formula>*{vertical-align:middle}
+.formula.inline{display:inline-block;padding:2px 8px;font-size:1em;margin:0 .2em;border:0;background:var(--surface-2)}
+.formula var{font-style:italic;font-family:"IBM Plex Sans",sans-serif}
+.formula .fn{font-style:normal}
+.formula .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 .25em}
+.formula .frac>span{padding:0 .3em}
+.formula .frac>span:first-child{border-bottom:1.5px solid var(--ink)}
+.formula .fr{font-size:.9em}
+.formula sub{font-size:.7em}
+.formula .txt{font-size:.78em;color:var(--ink-2);font-style:normal}
+.formula .c1{color:var(--tfidf)}.formula .c2{color:var(--bm25)}.formula .c3{color:var(--aqua)}
+.formula .sum{font-size:1.6em;line-height:1;position:relative;top:.05em;display:inline-block;margin:0 .15em}
+.formula .sum small{font-size:.45em;position:absolute;left:50%;transform:translateX(-50%);bottom:-.7em;white-space:nowrap}
+
+/* code */
+pre.code{background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;font-size:.82em;line-height:1.55;margin:16px 0;position:relative}
+pre.code::before{content:attr(data-lang);position:absolute;right:14px;top:8px;font-size:.75em;color:var(--code-cm);letter-spacing:.08em;text-transform:uppercase}
+pre.code .kw{color:var(--code-kw)}pre.code .st{color:var(--code-str)}pre.code .cm{color:var(--code-cm);font-style:italic}pre.code .nu{color:var(--code-num)}pre.code .fn{color:var(--code-fn)}
+pre.code .o{color:var(--code-cm)}
+.codelabel{font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 -8px}
+
+/* pipeline */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:20px 0}
+.pipe .pstep{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:.88em;min-width:0}
+.pipe .pstep .l{font-size:.7em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:"IBM Plex Mono",monospace;margin-bottom:2px}
+.pipe .pstep .t{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-size:.92em;white-space:nowrap}
+.pipe .pstep.hot{border-color:var(--bm25);box-shadow:0 0 0 3px var(--bm25-soft)}
+.pipe .pstep.emb{border-color:var(--tfidf);box-shadow:0 0 0 3px var(--tfidf-soft)}
+.pipe .arrow{color:var(--muted);font-size:1.2em;font-family:"IBM Plex Mono",monospace}
+
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin:14px 0}
+.quiz .q{font-weight:500}
+.quiz .opts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.quiz button.opt{font:inherit;font-size:.92em;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 12px;cursor:pointer;color:var(--ink)}
+.quiz button.opt:hover{border-color:var(--ink-2)}
+.quiz button.opt.ok{border-color:var(--aqua);background:color-mix(in srgb,var(--aqua) 15%,var(--bg))}
+.quiz button.opt.no{border-color:var(--bm25);opacity:.7}
+.quiz .ans{margin-top:10px;font-size:.9em;color:var(--ink-2);display:none}
+.quiz.done .ans{display:block}
+
+.kbd-hint{font-size:.78em;color:var(--muted);margin-top:40px;font-family:"IBM Plex Mono",monospace}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:.9em;background:var(--surface)}
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  nav.toc{display:none}
+  .hero-grid,.rank-cmp,.vs{grid-template-columns:minmax(0,1fr)}
+  .stage{grid-template-columns:minmax(0,1fr)}
+  h1{font-size:1.7em}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===================== attention additions ===================== */
+/* hero attention arrow */
+.att-sent{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;font-family:"IBM Plex Mono",monospace;font-size:.88em}
+.att-sent .w{background:var(--surface-2);border-radius:6px;padding:2px 8px;border:1px solid var(--line-soft)}
+.att-sent .w.q{background:var(--tfidf-soft);color:var(--tfidf);border-color:color-mix(in srgb,var(--tfidf) 40%,transparent)}
+.att-sent .w.k{background:var(--bm25-soft);color:var(--bm25);border-color:color-mix(in srgb,var(--bm25) 40%,transparent)}
+.att-sent .w.sel{box-shadow:0 0 0 2px var(--ink)}
+.att-arrow{color:var(--bm25);font-family:"IBM Plex Mono",monospace;font-size:1.1em;text-align:center;padding:2px 0}
+
+/* attention heatmap */
+.att-wrap{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.att-grid{overflow-x:auto;max-width:100%;padding-bottom:4px}
+.att-matrix{display:grid;font-family:"IBM Plex Mono",monospace;font-size:.7em;gap:1px}
+.att-cell{width:30px;height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:transparent;transition:transform .06s;position:relative}
+.att-cell:hover{transform:scale(1.25);z-index:2;color:var(--ink)}
+.att-cell:hover .v{display:block}
+.att-cell .v{display:none;position:absolute;font-size:.8em;color:var(--ink)}
+.att-lbl{display:flex;align-items:center;padding:0 6px;font-size:.72em;color:var(--muted);white-space:nowrap;cursor:pointer}
+.att-lbl.row{justify-content:flex-end}
+.att-lbl:hover{color:var(--ink)}
+.att-lbl.sel{color:var(--ink);font-weight:600}
+.att-lbl.col{justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);height:auto}
+.att-cell.sel{box-shadow:inset 0 0 0 2px var(--ink)}
+.att-cell.max{box-shadow:inset 0 0 0 2px var(--bm25)}
+.att-sel-info{flex:1 1 280px;min-width:260px}
+.att-sel-sent{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.att-sel-sent .w{padding:3px 8px;border-radius:6px;font-family:"IBM Plex Mono",monospace;font-size:.84em;border:1px solid var(--line-soft);position:relative;text-align:center}
+.att-sel-sent .w small{display:block;font-size:.66em;color:var(--ink);opacity:.85}
+.att-sel-sent .w.self{outline:2px solid var(--violet)}
+.att-bars{margin-top:12px}
+.att-bar{display:grid;grid-template-columns:110px 1fr 48px;gap:10px;align-items:center;font-size:.85em;margin:6px 0}
+.att-bar .tr{height:16px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+.att-bar .fl{height:100%;background:var(--bm25);border-radius:5px}
+.att-bar .n{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
+
+/* qkv diagram */
+.qkv{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:16px 0}
+.qkv .box{flex:1 1 120px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;text-align:center}
+.qkv .box .h{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1.1em}
+.qkv .box .h.q{color:var(--tfidf)}.qkv .box .h.k{color:var(--bm25)}.qkv .box .h.v{color:var(--aqua)}
+.qkv .box .s{font-size:.82em;color:var(--ink-2);margin-top:4px}
+
+/* softmax bars */
+.softbars{margin:14px 0}
+.softbar{display:grid;grid-template-columns:130px 1fr 64px;gap:10px;align-items:center;font-size:.88em;margin:7px 0}
+.softbar .tr{height:22px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.softbar .fl{height:100%;border-radius:6px;transition:width .1s}
+.softbar .n{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
+
+
+/* bert input embeddings */
+.bert-seq{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.bert-seq .tok{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;text-align:center;position:relative}
+.bert-seq .tok small{display:block;font-size:.62em;color:var(--muted)}
+.bert-seq .tok.cls{background:var(--tfidf);color:#fff;border-color:var(--tfidf)}
+.bert-seq .tok.sep{background:var(--bm25);color:#fff;border-color:var(--bm25)}
+.bert-seq .tok.cls small,.bert-seq .tok.sep small{color:rgba(255,255,255,.85)}
+.emb3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.emb3 .col{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.emb3 .col h5{margin:0 0 8px;font-family:"Unbounded",sans-serif;font-size:.8em;font-weight:500}
+.emb3 .col.a h5{color:var(--tfidf)}.emb3 .col.b h5{color:var(--bm25)}.emb3 .col.c h5{color:var(--aqua)}
+.emb3 .col .row{font-family:"IBM Plex Mono",monospace;font-size:.74em;color:var(--ink-2);display:flex;justify-content:space-between;border-top:1px solid var(--line-soft);padding:3px 0}
+.emb3 .col .row:first-of-type{border-top:0}
+
+/* model timeline table */
+table.tbl{border-collapse:collapse;width:100%;font-size:.88em;font-variant-numeric:tabular-nums}
+table.tbl th,table.tbl td{padding:6px 10px;border-bottom:1px solid var(--line-soft);text-align:left}
+table.tbl th{font-weight:500;color:var(--muted);font-size:.85em;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
+table.tbl td.mono{font-family:"IBM Plex Mono",monospace;font-size:.9em}
+.tblwrap{overflow-x:auto}
+
+/* hub browser mock */
+.hub{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.hub .m{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:border-color .15s}
+.hub .m:hover{border-color:var(--tfidf)}
+.hub .m .n{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:.9em}
+.hub .m .d{font-size:.8em;color:var(--ink-2);margin-top:4px}
+.hub .m .tag{display:inline-block;font-size:.68em;font-family:"IBM Plex Mono",monospace;color:var(--aqua);border:1px solid color-mix(in srgb,var(--aqua) 40%,transparent);border-radius:999px;padding:1px 8px;margin-top:8px}
+.hub-info{margin-top:12px;font-size:.85em;color:var(--ink-2)}
+
+/* ===================== lecture 05 additions ===================== */
+:root{--q:var(--tfidf);--k:var(--bm25);--v:var(--aqua)}
+section.slide>.tblwrap,section.slide>.xref{max-width:none}
+
+/* cross-reference to other lectures */
+.xref{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:12px 16px;margin:18px 0;font-size:.92em;color:var(--ink-2)}
+.xref .chip{flex:none;font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.06em;text-transform:uppercase;color:var(--violet);border:1px solid color-mix(in srgb,var(--violet) 45%,transparent);border-radius:999px;padding:2px 9px;margin-top:2px;text-decoration:none;white-space:nowrap}
+.xref .chip:hover{background:color-mix(in srgb,var(--violet) 12%,transparent)}
+.xref p{margin:0}
+
+/* player controls */
+.pctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 14px}
+.pctl .btn{font-size:.78em}
+.pctl .stepinfo{font-family:"IBM Plex Mono",monospace;font-size:.78em;color:var(--muted);margin-left:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:inherit;font-size:.78em;background:var(--surface);color:var(--ink-2);border:0;padding:6px 12px;cursor:pointer;border-right:1px solid var(--line-soft)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.explain{font-size:.9em;color:var(--ink-2);background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;margin-top:12px;min-height:3.2em}
+.explain b{color:var(--ink)}
+
+/* generic svg viz */
+svg.viz{width:100%;height:auto;display:block;font-family:"IBM Plex Mono",monospace;overflow:visible}
+svg.viz text{fill:var(--ink);font-size:13px}
+svg.viz text.mut{fill:var(--muted);font-size:11px}
+svg.viz .tokbox{fill:var(--surface-2);stroke:var(--line);stroke-width:1;transition:fill .25s,stroke .25s}
+svg.viz .tokbox.on{fill:var(--bm25-soft);stroke:var(--bm25);stroke-width:2}
+svg.viz .tokbox.q{fill:var(--tfidf-soft);stroke:var(--tfidf);stroke-width:2}
+svg.viz .tokbox.done{fill:color-mix(in srgb,var(--aqua) 18%,var(--surface));stroke:var(--aqua)}
+svg.viz .edge{stroke:var(--bm25);fill:none;stroke-linecap:round;transition:opacity .3s,stroke-width .3s}
+svg.viz .edge.b{stroke:var(--tfidf)}
+svg.viz .arr{stroke:var(--muted);stroke-width:1.5;fill:none}
+svg.viz .hcell{fill:var(--surface);stroke:var(--violet);stroke-width:1.5;transition:fill .25s,opacity .25s}
+svg.viz .ctx{fill:var(--bm25-soft);stroke:var(--bm25);stroke-width:2}
+.vizbox{overflow-x:auto}
+
+/* RNN vs Transformer race */
+.race{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.race .pane{border:1px solid var(--line-soft);border-radius:var(--radius);padding:12px 14px;background:var(--bg)}
+.race .pane h5{margin:0 0 4px;font-family:"Unbounded",sans-serif;font-weight:500;font-size:.82em}
+.race .pane .cnt{font-family:"IBM Plex Mono",monospace;font-size:.8em;color:var(--muted)}
+.race .pane .cnt b{color:var(--ink);font-weight:500}
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+.stat{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px}
+.stat .l{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:"IBM Plex Mono",monospace}
+.stat .v{font-family:"IBM Plex Mono",monospace;font-size:1.25em;font-weight:500;font-variant-numeric:tabular-nums}
+.stat .v.a{color:var(--tfidf)}.stat .v.b{color:var(--bm25)}.stat .v.c{color:var(--aqua)}
+
+/* matrices (step-by-step calculator) */
+.mxrow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:8px 0}
+.mxop{font-family:"IBM Plex Mono",monospace;font-size:1.3em;color:var(--muted)}
+.mx{display:inline-block}
+.mx .nm{font-family:"IBM Plex Mono",monospace;font-size:.8em;margin-bottom:4px;font-weight:500}
+.mx .nm small{color:var(--muted);font-weight:400}
+.mx table{border-collapse:separate;border-spacing:2px;font-family:"IBM Plex Mono",monospace;font-size:.72em;font-variant-numeric:tabular-nums}
+.mx td{min-width:44px;height:28px;text-align:center;border-radius:4px;padding:0 4px;transition:background .2s,opacity .2s,box-shadow .15s;cursor:default}
+.mx td.rl,.mx th{background:none!important;color:var(--muted);font-weight:400;text-align:right;padding-right:6px;min-width:0;font-size:.95em}
+.mx th{text-align:center;padding:0 2px}
+.mx td.hid{opacity:0}
+.mx td.hl{box-shadow:inset 0 0 0 2px var(--ink)}
+.mx td.src{box-shadow:inset 0 0 0 2px var(--violet)}
+.mx td.sum{background:none!important;color:var(--muted)}
+.calc-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.calc-steps button{font:inherit;font-size:.74em;font-family:"IBM Plex Mono",monospace;background:var(--surface);color:var(--ink-2);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer}
+.calc-steps button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.calc-steps button.past{border-color:var(--aqua);color:var(--ink)}
+.dotexp{font-family:"IBM Plex Mono",monospace;font-size:.8em;color:var(--ink-2);margin-top:10px;min-height:1.6em;overflow-x:auto;white-space:nowrap}
+
+/* soft lookup */
+.lookup{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+svg.viz .kpt{stroke:var(--surface);stroke-width:2}
+svg.viz .qpt{fill:var(--tfidf);stroke:var(--surface);stroke-width:3;cursor:grab}
+svg.viz .opt{fill:var(--aqua);stroke:var(--surface);stroke-width:2}
+svg.viz .axisl{stroke:var(--grid);stroke-width:1}
+.dictcmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+
+/* mask toggle for heatmap */
+.att-cell.masked{background:repeating-linear-gradient(45deg,var(--surface-2) 0 4px,var(--bg) 4px 8px)!important;cursor:not-allowed}
+
+/* multi-head */
+.heads{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.heads button{font:inherit;font-size:.76em;background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;color:var(--ink);display:flex;gap:7px;align-items:center}
+.heads button .sw{width:10px;height:10px;border-radius:3px}
+.heads button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px color-mix(in srgb,var(--ink) 15%,transparent)}
+.mh-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+.thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.thumb{cursor:pointer;border:1.5px solid var(--line-soft);border-radius:8px;padding:6px;background:var(--bg)}
+.thumb.on{border-color:var(--ink)}
+.thumb canvas{width:100%;aspect-ratio:1;display:block;border-radius:4px;image-rendering:pixelated}
+.thumb .t{font-size:.68em;color:var(--ink-2);margin-top:4px;font-family:"IBM Plex Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.split{display:flex;height:34px;border-radius:7px;overflow:hidden;border:1px solid var(--line);margin:8px 0}
+.split div{flex:1;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:.66em;color:#fff;border-right:1px solid rgba(255,255,255,.5);transition:flex .3s;overflow:hidden}
+
+/* positional heatmap */
+canvas.pe{width:100%;max-width:100%;height:auto;display:block;border-radius:6px;image-rendering:pixelated;cursor:crosshair}
+
+/* encoder flow */
+.enc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;align-items:start}
+.flowcol{display:flex;flex-direction:column;align-items:stretch;gap:0;position:relative;padding-right:46px}
+.fb{border:1.5px solid var(--line);border-radius:9px;background:var(--surface);padding:8px 12px;text-align:center;font-size:.86em;cursor:pointer;transition:box-shadow .25s,border-color .25s,background .25s;position:relative}
+.fb .s{font-size:.75em;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+.fb.att{border-color:var(--bm25)}.fb.ff{border-color:var(--tfidf)}.fb.nrm{border-color:var(--aqua);background:var(--surface-2)}.fb.io{border-style:dashed}
+.fb.on{box-shadow:0 0 0 4px color-mix(in srgb,var(--violet) 35%,transparent);border-color:var(--violet)}
+.fa{text-align:center;color:var(--muted);font-family:"IBM Plex Mono",monospace;line-height:1.2;font-size:.9em}
+.resid{position:absolute;right:6px;width:28px;border:2px solid var(--aqua);border-left:0;border-radius:0 12px 12px 0}
+.resid span{position:absolute;right:-4px;top:50%;transform:translate(100%,-50%);font-family:"IBM Plex Mono",monospace;font-size:.62em;color:var(--aqua);writing-mode:vertical-rl}
+.nx{border:1.5px dashed var(--violet);border-radius:12px;padding:16px 10px 10px;position:relative;margin:4px 0}
+.nx .cap{position:absolute;top:-10px;left:12px;background:var(--surface);color:var(--violet);font-family:"IBM Plex Mono",monospace;font-size:.7em;padding:0 6px}
+.tensor{display:grid;gap:2px;margin:8px 0}
+.tensor div{aspect-ratio:1;border-radius:3px;transition:background .6s}
+.tensor-l{display:grid;grid-template-columns:70px 1fr;gap:8px;align-items:center}
+.tensor-l .rl{display:flex;flex-direction:column;gap:2px;font-family:"IBM Plex Mono",monospace;font-size:.7em;color:var(--muted)}
+.archs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+.archs .card canvas{width:110px;height:110px;image-rendering:pixelated;display:block;margin:8px 0;border-radius:4px}
+
+/* BERT */
+.mlm{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.mlm .w{font-family:"IBM Plex Mono",monospace;font-size:.88em;border:1px solid var(--line);border-radius:6px;padding:4px 9px;background:var(--surface-2);transition:background .2s}
+.mlm .w.can{cursor:pointer;border-color:color-mix(in srgb,var(--tfidf) 50%,var(--line));background:var(--tfidf-soft)}
+.mlm .w.can:hover{border-color:var(--tfidf)}
+.mlm .w.m{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mlm .w.r{background:var(--bm25-soft);border-color:var(--bm25)}
+.mlm .w.k{background:color-mix(in srgb,var(--aqua) 18%,var(--surface));border-color:var(--aqua)}
+.mlm .w small{display:block;font-size:.62em;opacity:.8;text-align:center}
+.vecs{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+.vecs .tk{display:flex;flex-direction:column;align-items:center;gap:3px;font-family:"IBM Plex Mono",monospace;font-size:.7em}
+.vecs .tk .nm{font-size:1.1em;margin-bottom:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vecs .vv{display:grid;grid-template-columns:repeat(6,8px);gap:1px;padding:2px;border-radius:3px}
+.vecs .vv i{width:8px;height:8px;border-radius:2px;display:block}
+.vecs .vv.a{outline:1.5px solid var(--tfidf)}.vecs .vv.b{outline:1.5px solid var(--bm25)}.vecs .vv.c{outline:1.5px solid var(--aqua)}.vecs .vv.s{outline:1.5px solid var(--ink)}
+.vecs .op{color:var(--muted);line-height:1}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ftrow{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.ftrow .t{font-family:"IBM Plex Mono",monospace;font-size:.8em;border:1px solid var(--line);border-radius:6px;padding:3px 8px;background:var(--surface-2);text-align:center;min-width:36px}
+.ftrow .t.hot{border-color:var(--bm25);background:var(--bm25-soft)}
+.ftrow .t.cls{background:var(--tfidf);color:#fff;border-color:var(--tfidf)}
+.ftrow .t small{display:block;font-size:.72em;color:var(--muted)}
+.ftrow .lab{font-family:"IBM Plex Mono",monospace;font-size:.72em;text-align:center;min-width:36px;padding:3px 8px;color:var(--bm25);font-weight:500}
+
+/* HF pipeline + repo */
+.pipe .pstep{cursor:pointer;transition:box-shadow .25s,border-color .25s}
+.pipe .pstep.cur{border-color:var(--violet);box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 25%,transparent)}
+.repo{display:grid;grid-template-columns:minmax(0,240px) minmax(0,1fr);gap:16px;align-items:start}
+.files{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:"IBM Plex Mono",monospace;font-size:.78em}
+.files button{display:flex;justify-content:space-between;gap:8px;width:100%;font:inherit;text-align:left;background:var(--surface);color:var(--ink);border:0;border-bottom:1px solid var(--line-soft);padding:7px 10px;cursor:pointer}
+.files button:last-child{border-bottom:0}
+.files button span:last-child{color:var(--muted)}
+.files button[aria-pressed="true"]{background:var(--tfidf-soft)}
+.repo .view pre.code{margin-top:0;max-height:330px;overflow:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+
+/* shape tracker */
+.tracker{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.tracker ol{list-style:none;margin:0;padding:10px 0;background:var(--code-bg);border-radius:var(--radius);font-family:"IBM Plex Mono",monospace;font-size:.76em;color:var(--code-ink);overflow-x:auto}
+.tracker li{padding:3px 14px;white-space:pre;cursor:pointer;border-left:3px solid transparent}
+.tracker li:hover{background:rgba(255,255,255,.04)}
+.tracker li.on{background:rgba(143,183,255,.14);border-left-color:var(--code-kw)}
+.dims{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin:12px 0}
+.dims .d{display:flex;flex-direction:column;align-items:center;gap:4px;font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--ink-2)}
+.dims .d .bar{width:46px;border-radius:5px;transition:height .35s,background .35s}
+.shape-big{font-family:"IBM Plex Mono",monospace;font-size:1.35em;font-weight:500}
+
+@media (max-width:900px){
+  .race,.lookup,.mh-wrap,.enc,.repo,.tracker,.dictcmp{grid-template-columns:minmax(0,1fr)}
+  .flowcol{padding-right:40px}
+}
+
+
+
+/* simple one-word attention calculator */
+.formula-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:-6px 0 20px}
+.formula-map div{background:var(--surface);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px;font-size:.88em}
+.formula-map b{font-family:"IBM Plex Mono",monospace;font-weight:600;margin-right:2px}
+.formula-map b.c1{color:var(--tfidf)}.formula-map b.c2{color:var(--bm25)}.formula-map b.c3{color:var(--aqua)}
+.formula-map span{display:block;color:var(--ink-2);margin-top:2px}
+section.slide>.formula-map{max-width:none}
+.sc-rows{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.sc-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:7px 12px;border-radius:9px;border:1px solid transparent;transition:opacity .35s,background .35s,border-color .35s}
+.sc-row.me{background:var(--bg);border-color:var(--line)}
+.sc-row.hid{opacity:.12}
+.sc-row.cur{border-color:var(--violet);box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 18%,transparent)}
+.sc-row.total{border-top:2px solid var(--line);border-radius:0;padding-top:12px;margin-top:4px}
+.sc-w{font-family:"IBM Plex Mono",monospace;font-weight:600;width:76px;flex:none}
+.sc-w small{display:block;font-weight:400;font-size:.68em;color:var(--muted)}
+.vec{display:inline-flex;gap:2px;padding:2px;border-radius:6px;font-family:"IBM Plex Mono",monospace;font-size:.74em;vertical-align:middle;font-variant-numeric:tabular-nums}
+.vec i{font-style:normal;min-width:44px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:opacity .35s}
+.vec.q{outline:2px solid var(--tfidf)}.vec.k{outline:2px solid var(--bm25)}.vec.v{outline:2px solid var(--aqua)}.vec.z{outline:2.5px solid var(--violet)}
+.vec.faint{opacity:.3}
+.vl{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--muted)}
+.vl.q{color:var(--tfidf)}.vl.k{color:var(--bm25)}.vl.v{color:var(--aqua)}.vl.z{color:var(--violet)}
+.sc-op{font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+.sc-bar{flex:1 1 160px;min-width:120px;height:24px;background:var(--surface-2);border-radius:6px;overflow:hidden;position:relative}
+.sc-bar .fl{height:100%;width:0;border-radius:6px;transition:width .7s ease}
+.sc-bar span{position:absolute;right:8px;top:3px;font-family:"IBM Plex Mono",monospace;font-size:.78em;font-weight:500}
+.sc-num{font-family:"IBM Plex Mono",monospace;font-size:.95em;font-weight:500;min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
+.sc-calc{flex-basis:100%;font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--ink-2);padding-left:90px;overflow-x:auto;white-space:nowrap}
+.sc-q{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--tfidf-soft);border-radius:9px;font-size:.9em}
+@media (max-width:640px){.sc-calc{padding-left:0}.vec i{min-width:38px}}
+/* fixes: slider labels, tracker code, mobile topbar, PE similarity line */
+.ctl label:not(.chk){display:block}
+.ctl label:not(.chk)>input[type=range]{display:block;margin-top:6px}
+.tracker code{background:none;padding:0;color:inherit;font-size:inherit}
+.chart .s5{stroke:var(--violet);stroke-width:2.5;fill:none}
+@media (max-width:640px){.topbar .brand{display:none}.topbar{gap:8px;padding:8px 12px}.topbar .btn{padding:6px 10px}}
+/* head colours + draw-on animation + mask minis */
+:root{--rose:#c2417d;--olive:#8a7612}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--rose:#e26aa0;--olive:#c9b04a}}
+:root[data-theme="dark"]{--rose:#e26aa0;--olive:#c9b04a}
+@keyframes drawon{to{stroke-dashoffset:0}}
+svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon .9s ease forwards}
+@media (prefers-reduced-motion:reduce){svg.viz .edge.draw{stroke-dasharray:none;stroke-dashoffset:0}}
+.mini{display:grid;grid-template-columns:repeat(6,14px);gap:2px;margin:10px 0}
+.mini i{width:14px;height:14px;border-radius:2px;background:var(--surface-2);display:block}
+.mini i.on{background:var(--bm25)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Лекція 05 · Увага і трансформери</span>
+  <span class="spacer"></span>
+  <button class="btn" id="lectureBtn" aria-pressed="false" title="Збільшує шрифт і робить кожен розділ окремим слайдом"><span class="dot"></span>Режим лекції</button>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Зміст"><ol id="toc"></ol></nav>
+<main id="main">
+
+<!-- ============ 0. HERO ============ -->
+<section class="slide" id="s0" data-title="Вступ">
+  <div class="eyebrow">Обробка природної мови · Лекція 05 · <b>Увага</b></div>
+  <h1>Увага і трансформери: від RNN до BERT</h1>
+  <div class="hero-grid">
+    <div>
+      <p class="lead">Одна ідея — <em>«нехай модель сама вирішує, на які слова дивитися»</em> — дала архітектуру <strong>Transformer</strong>. Вона замінила рекурентні мережі й стала основою BERT, XLM-R, GPT і всіх сучасних мовних моделей.</p>
+      <p>У 2017 році стаття <strong>«Attention Is All You Need»</strong> показала, що послідовність можна обробляти без RNN і LSTM, лише за допомогою <span class="term" title="self-attention">самоуваги</span>. Нижче показано, як кожне слово «дивиться» на інші, щоб зрозуміти себе в контексті.</p>
+      <div class="demo" style="margin-top:18px">
+        <div class="head"><h4>Самоувага в одному реченні</h4><span class="tag">animation</span><span class="hint">Дуги показують, куди «дивиться» виділене слово. Товща дуга означає більшу вагу уваги. Слово змінюється автоматично. Можна клацнути будь-яке слово, щоб зафіксувати його.</span></div>
+        <div class="vizbox"><svg class="viz" id="heroSvg" viewBox="0 0 760 190" role="img" aria-label="Дуги уваги між словами речення"></svg></div>
+      </div>
+    </div>
+    <aside class="agenda">
+      <h3>Сьогодні</h3>
+      <ol>
+        <li>Від токенів до трансформера</li>
+        <li>Чому RNN/LSTM не впоралися</li>
+        <li>Seq2seq і перша увага</li>
+        <li>Q, K, V: увага як м'який пошук</li>
+        <li>Формула крок за кроком</li>
+        <li>Multi-head attention</li>
+        <li>Позиційне кодування</li>
+        <li>Блок трансформера зсередини</li>
+        <li>Енкодер, декодер і маски</li>
+        <li>BERT: навчання, вхід і виходи</li>
+        <li>XLM-R і мультимовність</li>
+        <li>Hugging Face Hub і transformers</li>
+        <li>Код: PyTorch і transformers</li>
+        <li>Підсумок і тест</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 1. FROM TOKENS ============ -->
+<section class="slide" id="s1" data-title="Від токенів до трансформера">
+  <div class="eyebrow">Розділ 1 · <b>місток з лекції 03</b></div>
+  <h2>Від токенів до трансформера</h2>
+  <p class="lead">У лекції 03 ми розібрали, як текст перетворюється на <strong>токени</strong> та їхні id. Сьогодні подивимося, що відбувається з цими id далі, тобто як модель збирає з них <em>розуміння</em>.</p>
+
+  <div class="pipe" id="bridgePipe">
+    <div class="pstep" data-i="0"><div class="l">текст</div><div class="t">"Кіт п'є молоко"</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep emb" data-i="1"><div class="l">токенізатор · лекція 03</div><div class="t">▁Кіт ▁п 'є ▁молоко</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep emb" data-i="2"><div class="l">id · лекція 03</div><div class="t">[0, …, 2]</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep" data-i="3"><div class="l">матриця ембедінгів</div><div class="t">id → вектор d=768</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep hot" data-i="4"><div class="l">сьогодні</div><div class="t">N шарів трансформера</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep" data-i="5"><div class="l">голова задачі</div><div class="t">клас · мітки · наступний токен</div></div>
+  </div>
+  <div class="explain" id="bridgeExpl">Клацніть по кроку, щоб побачити, що він робить.</div>
+
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s0b">↩ Лекція 03</a><p>Розділ «Токенізація → модель» закінчувався на матриці ембедінгів: кожен id стає рядком цієї матриці. Але такий вектор <strong>однаковий для слова в будь-якому контексті</strong>. Наприклад, «коса» в «заплела косу» і «наточив косу» отримає той самий вектор. Трансформер розв'язує саме цю проблему: він перетворює статичні вектори токенів на <strong>контекстуальні</strong>.</p></div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Токенізатор</div><h4>Задає «алфавіт» моделі</h4><p>BPE, WordPiece і SentencePiece визначають, які одиниці бачить модель і скільки їх у тексті. Від цього залежать довжина послідовності, а отже, ціна й швидкість уваги (вона квадратична!).</p></div>
+    <div class="card"><div class="k">Трансформер</div><h4>Змішує токени між собою</h4><p>Кожен шар дає кожному токену змогу «подивитися» на інші й оновити свій вектор. Після 12 шарів вектор «косу» вже знає, про зачіску йдеться чи про сінокіс.</p></div>
+    <div class="card"><div class="k">Разом → LLM</div><h4>Субслова + увага + масштаб</h4><p>Субслівний словник без [UNK], паралельна увага і великі дані разом дали BERT (2018), GPT-3 (2020) і сучасні LLM. Тому токенізатор і модель завжди йдуть у парі.</p></div>
+  </div>
+</section>
+
+<!-- ============ 2. WHY NOT RNN ============ -->
+<section class="slide" id="s2" data-title="Чому RNN не впоралися">
+  <div class="eyebrow">Розділ 2</div>
+  <h2>Чому рекурентні мережі стали пляшковим горлечком</h2>
+  <p class="lead">До трансформерів мову обробляли рекурентно: <strong>RNN</strong>, а згодом її покращена версія <strong>LSTM</strong>. Вони читали послідовність токен за токеном і передавали прихований стан <var>h</var> від слова до слова.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Перегони: RNN проти самоуваги</h4><span class="tag">animation</span><span class="hint">Натисніть «Запустити». RNN обробляє слова по черзі, і кожен крок чекає на попередній. Трансформер обробляє всі слова одночасно за один крок. Слабшає фіолетова смужка у стані <var>h</var>: це «слід» першого слова, який RNN поступово забуває.</span></div>
+    <div class="pctl"><button class="btn" id="raceGo">▶ Запустити</button><button class="btn" id="raceReset">↺ Скинути</button></div>
+    <div class="race">
+      <div class="pane"><h5>RNN / LSTM</h5><div class="cnt">крок <b id="rnnStep">0</b> / 7 · послідовно</div><svg class="viz" id="rnnSvg" viewBox="0 0 420 200"></svg></div>
+      <div class="pane"><h5>Transformer (самоувага)</h5><div class="cnt">крок <b id="trStep">0</b> / 1 · паралельно</div><svg class="viz" id="trSvg" viewBox="0 0 420 200"></svg></div>
+    </div>
+    <div class="ctl" style="margin-top:16px"><label class="grow">Довжина тексту <var>n</var>, токенів <span class="v" id="seqNV">512</span><input type="range" id="seqN" min="3" max="13" value="9" step="1"></label></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">RNN: послідовних кроків</div><div class="v b" id="stRnn">512</div></div>
+      <div class="stat"><div class="l">Увага: послідовних кроків</div><div class="v a">1</div></div>
+      <div class="stat"><div class="l">шлях слово₁ → словоₙ</div><div class="v" id="stPath">511 vs 1</div></div>
+      <div class="stat"><div class="l">ціна уваги: пар токенів</div><div class="v c" id="stPairs">262 144</div></div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">01 · Послідовність</div><h4>Не можна розпаралелити</h4><p>Крок <var>i</var> можна обчислити лише після кроку <var>i−1</var>. Тому GPU простоює, і навчання на великих корпусах триває тижнями.</p></div>
+    <div class="card"><div class="k">02 · Забування</div><h4>Зникаючі градієнти</h4><p>Поки сигнал першого слова дійде до останнього, він «затирається». LSTM додала комірки пам'яті й допомогла, але проблему не прибрала.</p></div>
+    <div class="card"><div class="k">03 · Шлях сигналу</div><h4>O(n) кроків між словами</h4><p>Щоб слово 1 вплинуло на слово 500, інформація має пройти 499 кроків. На кожному з них частину можна втратити.</p></div>
+    <div class="card"><div class="k">04 · Пляшкове горлечко</div><h4>Весь контекст в одному векторі</h4><p>Стан <var>h<sub>n</sub></var> має вмістити сенс усього речення. У вектор фіксованого розміру довгий текст без втрат не влазить.</p></div>
+  </div>
+  <div class="callout warn"><div class="qm">Чесна ціна уваги</div><p>Увага не безкоштовна: кожен токен порівнюється з кожним, тому пам'ять і обчислення ростуть як <strong>n²</strong>. Через це у BERT контекст обмежено 512 токенами. Тут знову важить токенізатор з лекції 03: якщо українська дає в 2–3 рази більше токенів, ніж англійська, увага коштує в 4–9 разів дорожче.</p></div>
+</section>
+
+<!-- ============ 3. SEQ2SEQ ============ -->
+<section class="slide" id="s3" data-title="Seq2seq і перша увага">
+  <div class="eyebrow">Розділ 3 · <b>2014–2015</b></div>
+  <h2>Переклад і народження уваги</h2>
+  <p class="lead">Класична архітектура машинного перекладу називається <strong>seq2seq</strong>. Енкодер читає речення і стискає його в один вектор <var>c</var>, а декодер розгортає з нього переклад. Bahdanau et al. (2015) запропонували давати декодеру <strong>свій контекст на кожному кроці</strong>, тобто зважену суму всіх станів енкодера.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Як декодер «дивиться» на вхід</h4><span class="tag">animation</span><span class="hint">Перемкніть режим і запустіть переклад. Без уваги все речення проходить через одну точку <var>c</var>. З увагою кожне українське слово бере інформацію з тих англійських слів, які йому потрібні. Зверніть увагу, що лінії перехрещуються: «black cat» перекладається як «чорний кіт», порядок слів інший.</span></div>
+    <div class="pctl">
+      <div class="seg" id="s2sMode"><button aria-pressed="false" data-m="0">без уваги</button><button aria-pressed="true" data-m="1">з увагою</button></div>
+      <button class="btn" id="s2sPlay">▶ Перекласти</button><button class="btn" id="s2sStep">Крок →</button><button class="btn" id="s2sReset">↺</button>
+      <span class="stepinfo" id="s2sInfo"></span>
+    </div>
+    <div class="vizbox"><svg class="viz" id="s2sSvg" viewBox="0 0 760 250"></svg></div>
+    <div class="explain" id="s2sExpl"></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Інтуїція уваги</div><p>Увага відповідає на питання: <em>«генеруючи ось це слово, на які слова входу варто подивитися і з якою силою?»</em> Модель не тримає все в одному векторі, а щоразу обирає, що читати. Ваги ніхто не задає вручну, модель вчиться їх сама.</p></div>
+</section>
+
+<!-- ============ 4. QKV ============ -->
+<section class="slide" id="s4" data-title="Q, K, V: м'який пошук">
+  <div class="eyebrow">Розділ 4 · <b>2017</b></div>
+  <h2>«Attention Is All You Need»: Q, K, V</h2>
+  <p class="lead">Vaswani et al. зробили радикальний крок: <strong>повністю викинули рекурентність</strong>. Увагу застосовують до самої послідовності (<strong>self-attention</strong>), тобто кожен токен дивиться на всі токени того самого речення.</p>
+  <p>З ембедінга кожного токена трьома різними лінійними шарами отримуємо три вектори:</p>
+  <div class="qkv">
+    <div class="box"><div class="h q">Query (Q)</div><div class="s">«Що я шукаю?»</div></div>
+    <div class="box"><div class="h k">Key (K)</div><div class="s">«За чим мене можна знайти?»</div></div>
+    <div class="box"><div class="h v">Value (V)</div><div class="s">«Що я віддам, якщо мене знайдуть?»</div></div>
+  </div>
+
+  <div class="dictcmp">
+    <div class="card"><div class="k">Python dict · жорсткий пошук</div><pre class="code" data-lang="python" style="margin:6px 0 0"><code class="py">d = {"кіт": v1, "авто": v2}
+d["кіт"]     # → v1 (точний збіг)
+d["кошеня"]  # → KeyError</code></pre></div>
+    <div class="card b" style="border-top:3px solid var(--bm25)"><div class="k">Увага · м'який пошук</div><p style="margin-top:6px">Запит порівнюється з <em>усіма</em> ключами. Схожість стає вагою, і результат дорівнює <strong>зваженій сумі всіх значень</strong>. «Кошеня» отримає здебільшого значення «кіт», а не помилку.</p></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Увага як м'який пошук у просторі</h4><span class="tag">interactive</span><span class="hint">Перетягніть синю точку-запит <b>Q</b>. Скор дорівнює скалярному добутку Q·K, далі softmax перетворює скори на ваги. Зелений ромб — результат Σ wᵢ·Vᵢ (тут для наочності Vᵢ = Kᵢ). Повзунок «різкість» множить скори: що він більший, то ближче увага до жорсткого пошуку.</span></div>
+    <div class="lookup">
+      <div><svg class="viz" id="lkSvg" viewBox="0 0 360 360" style="touch-action:none;max-width:420px;margin:0 auto"></svg></div>
+      <div>
+        <div class="ctl"><label class="grow">Різкість (1/τ) <span class="v" id="lkTV">1.0</span><input type="range" id="lkT" min="0.2" max="6" step="0.1" value="1"></label></div>
+        <div class="pctl" id="lkPresets"><button class="btn" data-p="0">Q = «кошеня»</button><button class="btn" data-p="1">Q = «транспорт»</button><button class="btn" data-p="2">Q = посередині</button></div>
+        <div class="softbars" id="lkBars"></div>
+        <div class="explain" id="lkExpl"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout"><p><strong>Чому це прибрало RNN:</strong> кожен токен напряму пов'язаний з кожним, тож шлях між будь-якими двома позиціями займає <strong>один крок</strong>. Усі пари обчислюються <strong>паралельно</strong> як добуток матриць, а саме це GPU робить найкраще.</p></div>
+</section>
+
+<!-- ============ 5. FORMULA STEP BY STEP ============ -->
+<section class="slide" id="s5" data-title="Формула крок за кроком">
+  <div class="eyebrow">Розділ 5</div>
+  <h2>Scaled dot-product attention крок за кроком</h2>
+  <div class="formula" style="text-align:center">
+    <var>Attention</var>(<var class="c1">Q</var>,<var class="c2">K</var>,<var class="c3">V</var>) =
+    <var>softmax</var><span style="font-size:1.5em">(</span>
+    <span class="frac"><span><var class="c1">Q</var><var class="c2">K</var><sup>T</sup></span><span>√<var>d<sub>k</sub></var></span></span>
+    <span style="font-size:1.5em">)</span> <var class="c3">V</var>
+  </div>
+
+  <div class="formula-map">
+    <div><b class="c1">Q</b><b class="c2">K</b><sup>T</sup><span>крок 2 · <em>порівняти</em> питання з ключами</span></div>
+    <div><b>÷√d<sub>k</sub>, softmax</b><span>крок 3 · <em>перетворити</em> оцінки на відсотки</span></div>
+    <div><b class="c3">· V</b><span>крок 4 · <em>змішати</em> зміст слів за цими відсотками</span></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Звідки беруться Q, K, V</div>
+    <p>Усі три вектори отримують з <strong>того самого вектора токена</strong> <var>x</var>, але через <strong>три різні навчені матриці</strong>: <code>q = x·W<sub>Q</sub></code>, <code>k = x·W<sub>K</sub></code>, <code>v = x·W<sub>V</sub></code>. Матриці спочатку випадкові, а потім налаштовуються під час навчання, як будь-які інші ваги.</p>
+    <p><strong>Рядок i у Q, K і V завжди належить токену i</strong>, тобто тому самому слову, що й рядок i в X: кожен токен множиться на ті самі матриці незалежно від інших. Токени «зустрічаються» лише далі, у <code>Q·Kᵀ</code> (хто на кого дивиться) і в <code>A·V</code> (змішування змісту).</p>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Увага для одного слова: 4 простих кроки</h4><span class="tag">animation</span><span class="hint">Речення «кіт п'є тепле молоко». Оберіть слово і натискайте «Далі →». Ми стежимо, як <b>одне</b> слово дивиться на всі інші і отримує новий вектор. Числа справжні, по 3 на вектор (у BERT їх 64 на голову).</span></div>
+    <div class="pctl"><span class="stepinfo" style="margin:0">слово:</span><div class="seg" id="scWord"></div></div>
+    <div class="calc-steps" id="scSteps"></div>
+    <div class="pctl"><button class="btn" id="scPrev">← Назад</button><button class="btn" id="scNext">Далі →</button><button class="btn" id="scReplay">↻ Повторити</button></div>
+    <div id="scStage"></div>
+    <div class="explain" id="scExpl"></div>
+  </div>
+
+  <details class="more">
+    <summary>Для тих, хто хоче глибше: те саме матрицями, для всіх слів одразу</summary>
+    <div class="body">
+  <div class="demo" style="margin-top:0">
+    <div class="head"><h4>Матричний калькулятор</h4><span class="tag">animation</span><span class="hint">Ті самі числа, але для всіх 4 слів одночасно: саме так це рахує GPU. Рядок кожної матриці — одне слово. Пройдіть кроки. Кожна клітинка результату з'являється анімовано, а фіолетовим підсвічено рядок і стовпчик, які перемножуються. Наведіть мишу на клітинку, щоб побачити повне обчислення.</span></div>
+    <div class="calc-steps" id="calcSteps"></div>
+    <div class="pctl"><button class="btn" id="calcPrev">← Назад</button><button class="btn" id="calcNext">Далі →</button><button class="btn" id="calcReplay">↻ Повторити анімацію</button></div>
+    <div class="vizbox"><div class="mxrow" id="calcMx"></div></div>
+    <div class="dotexp" id="calcDot">&nbsp;</div>
+    <div class="explain" id="calcExpl"></div>
+  </div>
+    </div>
+  </details>
+
+  <div class="demo">
+    <div class="head"><h4>Карта уваги для речення</h4><span class="tag">interactive</span><span class="hint">Рядок — токен-запит, стовпчик — токен-ключ, яскравість — вага після softmax. Наведіть на рядок або клацніть його, щоб побачити, куди «дивиться» слово, наприклад «it». Перемкніть маску, щоб побачити, як змінюється увага в GPT-подібних моделях. Ваги ілюстративні.</span></div>
+    <div class="pctl"><div class="seg" id="maskMode"><button aria-pressed="true" data-m="bi">двонаправлена (BERT)</button><button aria-pressed="false" data-m="causal">каузальна (GPT)</button></div></div>
+    <div class="att-wrap">
+      <div class="att-grid"><div class="att-matrix" id="attMatrix"></div></div>
+      <div class="att-sel-info">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.75em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Обраний запит</div>
+        <div class="att-sel-sent" id="attSelSent"></div>
+        <div class="att-bars" id="attBars"></div>
+        <div class="legendrow" style="margin-top:14px">
+          <span><span class="sw" style="background:var(--bm25)"></span>сильна увага</span>
+          <span><span class="sw" style="background:var(--surface-2);border:1px solid var(--line-soft)"></span>слабка</span>
+          <span><span class="sw" style="background:repeating-linear-gradient(45deg,var(--surface-2) 0 3px,var(--bg) 3px 6px);border:1px solid var(--line-soft)"></span>заборонено маскою</span>
+        </div>
+        <p style="font-size:.85em;color:var(--ink-2)" id="maskNote"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. SQRT DK ============ -->
+<section class="slide" id="s6" data-title="Навіщо ділити на √dₖ">
+  <div class="eyebrow">Розділ 5½</div>
+  <h2>Навіщо ділити на √d<sub>k</sub></h2>
+  <p><strong>d — це розмірність</strong>, тобто скільки чисел у векторі. У формулах трансформера трапляється кілька таких «d»:</p>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Позначення</th><th>Що це</th><th>BERT-base</th><th>Наш калькулятор</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">d<sub>model</sub> (або просто d)</td><td>довжина вектора токена <var>x</var>, тобто одного рядка X</td><td>768</td><td>4</td></tr>
+      <tr><td class="mono">d<sub>k</sub></td><td>довжина векторів <var>q</var> і <var>k</var> в одній голові уваги</td><td>64</td><td>3</td></tr>
+      <tr><td class="mono">h</td><td>кількість голів: d<sub>k</sub> = d<sub>model</sub> / h</td><td>12</td><td>1</td></tr>
+    </tbody>
+  </table></div>
+  <p>Матриця W<sub>Q</sub> має форму d<sub>model</sub> × d<sub>k</sub>: вона перетворює вектор токена з 768 чисел на запит з 64 чисел. Скалярний добуток <var>q</var>·<var>k</var> — це сума d<sub>k</sub> добутків, тому від d<sub>k</sub> залежить, наскільки великими виходять скори.</p>
+  <p>Якщо компоненти <var>q</var> і <var>k</var> мають середнє 0 і дисперсію 1, то їхній скалярний добуток — сума <var>d<sub>k</sub></var> доданків, і його стандартне відхилення дорівнює <strong>√d<sub>k</sub></strong>. Що більша розмірність, то більший розкид скорів, і softmax «насичується»: майже вся вага йде одному ключу, а градієнти для решти зникають.</p>
+  <div class="demo">
+    <div class="head"><h4>Випадкові Q і K різної розмірності</h4><span class="tag">interactive</span><span class="hint">Один запит і 8 ключів з N(0, 1). Змінюйте d<sub>k</sub> і вмикайте або вимикайте масштабування. Зі шкалою розподіл залишається «живим» за будь-якої розмірності, без неї він стає one-hot.</span></div>
+    <div class="ctl">
+      <label class="grow">Розмірність <var>d<sub>k</sub></var> <span class="v" id="dkV">64</span><input type="range" id="dk" min="0" max="8" step="1" value="4"></label>
+      <label class="chk"><input type="checkbox" id="dkScale" checked> ділити на √d<sub>k</sub></label>
+      <button class="btn" id="dkNew">↻ нові вектори</button>
+    </div>
+    <div class="softbars" id="softbars"></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">std скорів</div><div class="v" id="dkStd">—</div></div>
+      <div class="stat"><div class="l">макс. вага</div><div class="v b" id="dkMax">—</div></div>
+      <div class="stat"><div class="l">ентропія (макс ln 8 = 2.08)</div><div class="v a" id="dkEnt">—</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. MULTI-HEAD ============ -->
+<section class="slide" id="s7" data-title="Multi-head attention">
+  <div class="eyebrow">Розділ 6</div>
+  <h2>Multi-head: кілька поглядів одночасно</h2>
+  <p class="lead">Одна голова уваги дає одну гіпотезу про зв'язки між словами. У мові ж їх багато: синтаксис, кореференція, сусідство, тема. Тому трансформер запускає <strong>h голів паралельно</strong>, і в кожної свої <var>W<sup>Q</sup></var>, <var>W<sup>K</sup></var>, <var>W<sup>V</sup></var>.</p>
+
+  <div class="formula">
+    <var>head<sub>i</sub></var> = <var>Attention</var>(<var>XW</var><sup>Q</sup><sub><var>i</var></sub>, <var>XW</var><sup>K</sup><sub><var>i</var></sub>, <var>XW</var><sup>V</sup><sub><var>i</var></sub>)
+    <span style="display:inline-block;width:20px"></span>
+    <var>MultiHead</var>(<var>X</var>) = <var>Concat</var>(<var>head</var><sub>1</sub>, …, <var>head</var><sub><var>h</var></sub>)<var>W</var><sup>O</sup>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Голови уваги: вигляд «лініями»</h4><span class="tag">interactive</span><span class="hint">Ліворуч токени-запити, праворуч токени-ключі. Товщина лінії відповідає вазі уваги. Оберіть голову або мініатюру. Наведіть на слово ліворуч, щоб залишити тільки його лінії. Візерунки змодельовано за типовими головами, які дослідники знаходять у BERT (Clark et al., 2019).</span></div>
+    <div class="heads" id="mhHeads"></div>
+    <div class="mh-wrap">
+      <div class="vizbox"><svg class="viz" id="mhSvg" viewBox="0 0 420 430"></svg></div>
+      <div>
+        <div class="thumbs" id="mhThumbs"></div>
+        <div class="explain" id="mhExpl"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Як 768 вимірів ріжуться на голови</h4><span class="tag">interactive</span><span class="hint">Голови не додають параметрів: вектор d<sub>model</sub> просто розрізають на h шматків по d<sub>k</sub> = d<sub>model</sub>/h, кожна голова працює зі своїм шматком, а потім результати склеюють.</span></div>
+    <div class="ctl"><label class="grow">Кількість голів <var>h</var> <span class="v" id="hV">12</span><input type="range" id="hR" min="0" max="7" step="1" value="5"></label></div>
+    <div class="split" id="splitBar"></div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.85em;color:var(--ink-2)" id="splitTxt"></div>
+  </div>
+</section>
+
+<!-- ============ 8. POSITIONAL ENCODING ============ -->
+<section class="slide" id="s8" data-title="Позиційне кодування">
+  <div class="eyebrow">Розділ 7</div>
+  <h2>Увага не бачить порядку слів</h2>
+  <p class="lead">Self-attention працює з <strong>множиною</strong> токенів. Якщо переставити слова, кожен токен отримає той самий вихід, тільки на іншому місці. «Dog bites man» і «man bites dog» для чистої уваги однакові.</p>
+  <p>Тому до ембедінга токена <strong>додають</strong> вектор позиції. В оригінальному Transformer це фіксовані синусоїди:</p>
+  <div class="formula">
+    <var>PE</var>(<var>pos</var>, 2<var>i</var>) = sin<span style="font-size:1.4em">(</span><span class="frac"><span><var>pos</var></span><span>10000<sup>2<var>i</var>/<var>d</var></sup></span></span><span style="font-size:1.4em">)</span>
+    <span style="display:inline-block;width:24px"></span>
+    <var>PE</var>(<var>pos</var>, 2<var>i</var>+1) = cos<span style="font-size:1.4em">(</span><span class="frac"><span><var>pos</var></span><span>10000<sup>2<var>i</var>/<var>d</var></sup></span></span><span style="font-size:1.4em">)</span>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Карта позиційного кодування</h4><span class="tag">interactive</span><span class="hint">Рядок відповідає позиції (0–63). Ліва половина — усі sin-виміри (i = 0…63), права — усі cos-виміри. Помаранчевий означає +1, синій −1. Малі i коливаються швидко, великі повільно, як секундна і годинна стрілки: кожна позиція отримує унікальний «штрихкод». Наведіть на карту, щоб побачити значення.</span></div>
+    <canvas class="pe" id="peHeat" width="512" height="256"></canvas>
+    <div class="dotexp" id="peHeatInfo">&nbsp;</div>
+  </div>
+
+  <div class="two">
+    <div class="demo" style="margin:0">
+      <div class="head"><h4>Хвилі окремих вимірів</h4><span class="tag">interactive</span></div>
+      <div class="ctl"><label class="grow">Пара вимірів <var>i</var> <span class="v" id="peIV">0</span><input type="range" id="peI" min="0" max="31" value="0"></label></div>
+      <div class="chartwrap"><svg class="chart" id="peChart" viewBox="0 0 640 260"></svg><div class="tip"></div></div>
+      <div class="legendrow"><span><span class="sw" style="background:var(--tfidf)"></span>sin (вимір 2i)</span><span><span class="sw" style="background:var(--bm25)"></span>cos (вимір 2i+1)</span></div>
+    </div>
+    <div class="demo" style="margin:0">
+      <div class="head"><h4>Схожість позицій</h4><span class="tag">interactive</span></div>
+      <div class="ctl"><label class="grow">Позиція <var>p</var> <span class="v" id="peSimV">30</span><input type="range" id="peSim" min="0" max="100" value="30"></label></div>
+      <div class="chartwrap"><svg class="chart" id="peSimChart" viewBox="0 0 640 260"></svg><div class="tip"></div></div>
+      <p style="font-size:.82em;color:var(--muted);margin:6px 0 0">Скалярний добуток PE(p)·PE(x). Сусідні позиції мають схожі вектори, а з відстанню схожість спадає. Так модель отримує відчуття <em>відносної</em> відстані.</p>
+    </div>
+  </div>
+
+  <div class="callout"><p><strong>Що використовують на практиці:</strong> BERT і XLM-R мають <strong>навчені</strong> позиційні ембедінги, тобто окрему матрицю 512 × 768, яка вчиться разом з моделлю. Звідси й ліміт у 512 токенів. Сучасні LLM (Llama, Qwen, Mistral) і новіші енкодери на кшталт ModernBERT використовують <strong>RoPE</strong>: замість додавання вектора вони повертають Q і K на кут, що залежить від позиції.</p></div>
+</section>
+
+<!-- ============ 9. TRANSFORMER BLOCK ============ -->
+<section class="slide" id="s9" data-title="Блок трансформера">
+  <div class="eyebrow">Розділ 8</div>
+  <h2>Блок трансформера зсередини</h2>
+  <p class="lead">Трансформер — це стопка <strong>однакових блоків</strong>. У кожному блоці є два підшари: <strong>multi-head attention</strong> змішує інформацію <em>між токенами</em>, а <strong>feed-forward</strong> обробляє <em>кожен токен окремо</em>. Навколо кожного підшару є residual-зв'язок і LayerNorm.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Тензор проходить через блок</h4><span class="tag">animation</span><span class="hint">Сітка праворуч — це тензор [T × d]: рядок відповідає токену, клітинка — одному виміру його вектора. Слідкуйте, що змінюється. Після уваги <b>рядки змішуються між собою</b>, бо токени обмінюються інформацією. Після FFN кожен рядок змінюється <b>сам по собі</b>. Можна клацати по блоках.</span></div>
+    <div class="pctl"><button class="btn" id="encPlay">▶ Програти</button><button class="btn" id="encStep">Крок →</button><button class="btn" id="encReset">↺</button><span class="stepinfo" id="encInfo"></span></div>
+    <div class="enc">
+      <div class="flowcol" id="encFlow">
+        <div class="fb io" data-s="0"><div>Ембедінги токенів + позицій</div><div class="s">[B, T, 768]</div></div>
+        <div class="fa">↓</div>
+        <div class="nx"><span class="cap">× N шарів (BERT-base: 12)</span>
+          <div class="fb att" data-s="1"><div><b>Multi-Head Self-Attention</b></div><div class="s">токени дивляться один на одного</div></div>
+          <div class="fa">↓</div>
+          <div class="fb nrm" data-s="2"><div>Add &amp; LayerNorm</div><div class="s">x + Attn(x) → норм.</div></div>
+          <div class="fa">↓</div>
+          <div class="fb ff" data-s="3"><div><b>Feed-Forward</b></div><div class="s">768 → 3072 → GELU → 768</div></div>
+          <div class="fa">↓</div>
+          <div class="fb nrm" data-s="4"><div>Add &amp; LayerNorm</div><div class="s">x + FFN(x) → норм.</div></div>
+        </div>
+        <div class="fa">↓</div>
+        <div class="fb io" data-s="5"><div>Контекстуальні вектори</div><div class="s">[B, T, 768] → у наступний шар / голову</div></div>
+        <div class="resid" id="res1"><span>residual</span></div>
+        <div class="resid" id="res2"><span>residual</span></div>
+      </div>
+      <div>
+        <div class="tensor-l"><div class="rl" id="tensorRows"></div><div class="tensor" id="tensor"></div></div>
+        <div class="explain" id="encExpl"></div>
+        <div class="statrow" id="encStats"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card"><div class="k">Residual · «+ x»</div><h4>Шлях для градієнта</h4><p>Вихід підшару <em>додається</em> до його входу. Градієнт тече напряму крізь усі 12–24 шари, а кожен шар може «нічого не міняти», якщо нема чого додати.</p></div>
+    <div class="card"><div class="k">LayerNorm</div><h4>Стабілізація</h4><p>Нормалізує кожен вектор токена до середнього 0 і дисперсії 1, а потім масштабує навченими параметрами. BERT ставить її <em>після</em> додавання (Post-LN). Сучасні LLM ставлять її <em>перед</em> підшаром (Pre-LN), бо так навчання стабільніше.</p></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Енкодер чи декодер? Блок той самий</div><p>І BERT (енкодер), і GPT чи Llama (декодер) складаються з цього самого блоку: увага → Add &amp; Norm → FFN → Add &amp; Norm. Різниця лише в <strong>масці уваги</strong>: в енкодері токен бачить усі слова, а в декодері тільки себе і попередні (як у карті уваги з розділу 5, режим «каузальна»). Окремий випадок — декодер у класичній схемі encoder-decoder (переклад, T5). Там у блоці є третій підшар, <strong>cross-attention</strong>, який дивиться на вихід енкодера (розділ 9).</p></div>
+
+  <h3>Що дає стопка блоків</h3>
+  <p>Один блок дає кожному токену трохи інформації про сусідів. Після 12 блоків вектор слова вже визначається <strong>контекстом</strong>, а не лише самим словом. Найкраще це видно на багатозначних словах.</p>
+  <div class="demo">
+    <div class="head"><h4>Контекстуальні ембедінги: «коса»</h4><span class="tag">animation</span><span class="hint">На вході першого блоку «коса» — це рядок матриці ембедінгів: одне слово, одна точка для всіх речень. Після 12 блоків (вихід BERT) вектор залежить від контексту, і «коса» розходиться на три значення. Проєкція у 2D ілюстративна.</span></div>
+    <div class="pctl"><div class="seg" id="kosaMode"><button aria-pressed="true" data-m="0">вхід: статичний ембедінг</button><button aria-pressed="false" data-m="1">після 12 блоків (BERT)</button></div></div>
+    <div class="vizbox"><svg class="viz" id="kosaSvg" viewBox="0 0 760 325"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 10. ARCH FAMILIES ============ -->
+<section class="slide" id="s10" data-title="Енкодер, декодер і маски">
+  <div class="eyebrow">Розділ 9</div>
+  <h2>Три родини трансформерів</h2>
+  <p class="lead">Оригінальний Transformer для перекладу мав і енкодер, і декодер. Згодом їх почали використовувати окремо. Головна різниця між родинами — <strong>маска уваги</strong>: які токени дозволено бачити.</p>
+  <div class="archs" id="archs"></div>
+  <div class="callout q"><div class="qm">Звідси і «розуміє» vs «генерує»</div><p>Енкодер бачить контекст з обох боків, тому добре підходить для класифікації, NER і пошуку. Декодер бачить лише минуле і передбачає наступний токен, тобто генерує текст. Сьогодні ми детально розбираємо <strong>енкодер</strong> на прикладі BERT. Декодерні LLM влаштовані так само, тільки з каузальною маскою.</p></div>
+</section>
+
+<!-- ============ 11. BERT PRETRAINING ============ -->
+<section class="slide" id="s11" data-title="BERT: попереднє навчання">
+  <div class="eyebrow">Розділ 10 · <b>2018</b></div>
+  <h2>BERT: як навчити енкодер розуміти мову</h2>
+  <p class="lead"><strong>BERT</strong> (Bidirectional Encoder Representations from Transformers, Devlin et al., 2018) — це стопка енкодер-блоків, попередньо навчена на BooksCorpus і англійській Вікіпедії (~3.3 млрд слів) <strong>без ручної розмітки</strong>.</p>
+
+  <div class="vs">
+    <div class="card"><div class="k">Завдання 1</div><h4>Masked Language Modeling</h4><p>Ховаємо 15% токенів і просимо модель відновити їх за контекстом <strong>з обох боків</strong>. Саме це робить BERT двонаправленим.</p></div>
+    <div class="card b"><div class="k">Завдання 2</div><h4>Next Sentence Prediction</h4><p>Чи йде речення B одразу після A? Задача бінарна, відповідь беруть з вектора [CLS]. RoBERTa (2019) показала, що NSP майже нічого не дає, тому від нього відмовилися.</p></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Вгадай замасковане слово</h4><span class="tag">interactive</span><span class="hint">Клацніть по виділеному слову, щоб замаскувати його, і подивіться топ-5 прогнозів BERT. Ймовірності ілюстративні. Справжні можна отримати кодом з розділу 13 (<code>pipeline("fill-mask")</code>).</span></div>
+    <div class="seg chips" id="mlmPresets"></div>
+    <div class="mlm" id="mlmSent"></div>
+    <div class="softbars" id="mlmBars"></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Правило 15% → 80 / 10 / 10</h4><span class="tag">animation</span><span class="hint">З обраних 15% токенів 80% замінюють на [MASK], 10% на випадковий токен, а 10% лишають як є. Так модель не може покладатися на те, що [MASK] завжди позначає «те, що треба вгадати», адже під час реального використання [MASK] у тексті немає.</span></div>
+    <div class="pctl"><button class="btn" id="maskRoll">↻ Замаскувати ще раз</button></div>
+    <div class="mlm" id="maskSent"></div>
+    <div class="legendrow"><span><span class="sw" style="background:var(--ink)"></span>[MASK] (80%)</span><span><span class="sw" style="background:var(--bm25-soft);border:1px solid var(--bm25)"></span>випадковий токен (10%)</span><span><span class="sw" style="background:color-mix(in srgb,var(--aqua) 18%,var(--surface));border:1px solid var(--aqua)"></span>без змін, але треба передбачити (10%)</span></div>
+  </div>
+</section>
+
+<!-- ============ 12. BERT IO ============ -->
+<section class="slide" id="s12" data-title="BERT: вхід і виходи">
+  <div class="eyebrow">Розділ 10 · продовження</div>
+  <h2>Що BERT бачить на вході і що віддає</h2>
+
+  <div class="demo">
+    <div class="head"><h4>Вхідний ембедінг = token + position + segment</h4><span class="tag">interactive</span><span class="hint">Введіть два речення. BERT додає [CLS] на початку і [SEP] після кожного речення. Для кожного токена три навчені вектори <b>додаються</b> поелементно (тут показано 6 вимірів із 768).</span></div>
+    <div class="two" style="gap:12px">
+      <label style="font-size:.85em;color:var(--ink-2)">Речення A<input type="text" id="bertA" value="the cat drinks milk" style="font:inherit;width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px"></label>
+      <label style="font-size:.85em;color:var(--ink-2)">Речення B<input type="text" id="bertB" value="it was warm" style="font:inherit;width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px"></label>
+    </div>
+    <div class="bert-seq" id="bertSeq"></div>
+    <div class="vecs" id="bertVecs"></div>
+    <div class="legendrow"><span><span class="sw" style="outline:1.5px solid var(--tfidf)"></span>token</span><span><span class="sw" style="outline:1.5px solid var(--bm25)"></span>position</span><span><span class="sw" style="outline:1.5px solid var(--aqua)"></span>segment (A=0, B=1)</span><span><span class="sw" style="outline:1.5px solid var(--ink)"></span>сума → у перший шар</span></div>
+  </div>
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s3">↩ Лекція 03</a><p>Тут слова розбито спрощено. Справжній BERT ріже текст токенізатором <strong>WordPiece</strong> зі словником 30 522 токени, тому «unbelievable» стане <code>un ##bel ##ie ##vable</code>. [CLS], [SEP], [MASK] і [PAD] — це спеціальні токени того самого словника з id 101, 102, 103 і 0.</p></div>
+
+  <div class="demo">
+    <div class="head"><h4>Одна модель, різні «голови» для задач</h4><span class="tag">interactive</span><span class="hint">Fine-tuning додає поверх BERT маленький лінійний шар під задачу й донавчає все разом на розмічених даних. Оберіть задачу.</span></div>
+    <div class="seg tabs" id="ftTabs"></div>
+    <div id="ftView"></div>
+  </div>
+
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Модель</th><th>Рік</th><th>Шари</th><th>Hidden</th><th>Голови</th><th>Параметри</th><th>Що нового</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">BERT-base</td><td>2018</td><td>12</td><td>768</td><td>12</td><td>110 млн</td><td>MLM + NSP, WordPiece</td></tr>
+      <tr><td class="mono">BERT-large</td><td>2018</td><td>24</td><td>1024</td><td>16</td><td>340 млн</td><td>те саме, більше</td></tr>
+      <tr><td class="mono">RoBERTa-base</td><td>2019</td><td>12</td><td>768</td><td>12</td><td>125 млн</td><td>без NSP, у 10× більше даних, byte-level BPE</td></tr>
+      <tr><td class="mono">DistilBERT</td><td>2019</td><td>6</td><td>768</td><td>12</td><td>66 млн</td><td>дистиляція: −40% розміру, ~97% якості</td></tr>
+      <tr><td class="mono">XLM-R base</td><td>2019</td><td>12</td><td>768</td><td>12</td><td>270 млн</td><td>100 мов, SentencePiece 250k</td></tr>
+      <tr><td class="mono">DeBERTa-v3-base</td><td>2021</td><td>12</td><td>768</td><td>12</td><td>184 млн</td><td>розплутана увага (зміст ↔ позиція)</td></tr>
+      <tr><td class="mono">ModernBERT-base</td><td>2024</td><td>22</td><td>768</td><td>12</td><td>149 млн</td><td>RoPE, контекст 8192, швидка увага</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-size:.85em;color:var(--muted)">Параметри BERT-base: ембедінги ≈ 23.8 млн (30 522 × 768 + позиції + сегменти) і 12 шарів × ≈ 7.1 млн. Розкладку одного шару показано в анімації розділу 8.</p>
+</section>
+
+<!-- ============ 13. XLM-R ============ -->
+<section class="slide" id="s13" data-title="XLM-R і мультимовність">
+  <div class="eyebrow">Розділ 11</div>
+  <h2>XLM-R і мультимовні енкодери</h2>
+  <p class="lead">BERT вчився англійською. Для інших мов з'явилися мультимовні моделі. Найвідоміша з них — <strong>XLM-RoBERTa</strong> (Facebook AI, 2019).</p>
+  <div class="cards">
+    <div class="card"><div class="k">XLM-R</div><h4>100 мов</h4><p>Архітектура RoBERTa, навчена тільки на MLM на 2.5 ТБ відфільтрованого CommonCrawl. Українська, англійська, польська та ще 97 мов в одній моделі.</p></div>
+    <div class="card"><div class="k">Cross-lingual</div><h4>Спільний простір</h4><p>Близькі за змістом речення різними мовами дають близькі вектори. Класифікатор, навчений англійською, часто працює й українською (zero-shot transfer).</p></div>
+    <div class="card"><div class="k">Токенізатор</div><h4>SentencePiece, 250k</h4><p>Модель <strong>unigram</strong> працює прямо по сирому тексту, без попереднього розбиття на слова. Словник у 8 разів більший, ніж у BERT, щоб вмістити 100 писемностей.</p></div>
+    <div class="card"><div class="k">Родина</div><h4>mBERT, mDeBERTa, mE5</h4><p>mBERT — це BERT для 104 мов. multilingual-e5 — енкодер для пошуку й ембедінгів речень, і він добре працює з українською.</p></div>
+  </div>
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s9">↩ Лекція 03</a><p>У розділах «Порівняння токенізаторів» і «Мова і ціна» ми бачили, що англоцентричний словник ріже українські слова на дрібні шматки. Великий мультимовний словник XLM-R частково це виправляє: українське речення займає менше токенів, тож у 512 позицій влазить більше тексту, а увага (n²) коштує дешевше.</p></div>
+  <div class="callout"><p><strong>Практична порада:</strong> для української задачі з невеликим датасетом почніть із <code>FacebookAI/xlm-roberta-base</code> (або <code>-large</code>). Модель уже бачила українську, а ви лише донавчаєте її на своїй задачі. Це і є <strong>transfer learning</strong>.</p></div>
+</section>
+
+<!-- ============ 14. HF HUB ============ -->
+<section class="slide" id="s14" data-title="Hugging Face Hub">
+  <div class="eyebrow">Розділ 12</div>
+  <h2>Hugging Face Hub: «GitHub для моделей»</h2>
+  <p class="lead"><a href="https://huggingface.co" target="_blank" rel="noopener">huggingface.co</a> зберігає понад 2 мільйони моделей, а також датасети й демо (Spaces). Кожна модель — це <strong>git-репозиторій</strong> з назвою <code>організація/модель</code>: ваги, конфіг, токенізатор і опис.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Що лежить у репозиторії моделі</h4><span class="tag">interactive</span><span class="hint">Файли репозиторію <code>google-bert/bert-base-uncased</code>. Клацніть файл. Зверніть увагу, що <code>config.json</code> містить ті самі числа, які ми сьогодні розбирали.</span></div>
+    <div class="repo">
+      <div class="files" id="repoFiles"></div>
+      <div class="view" id="repoView"></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Міні-каталог Hub</h4><span class="tag">interactive</span><span class="hint">Фільтруйте за задачею (task) так само, як на сайті, і клацніть модель, щоб отримати код запуску. Усі назви справжні.</span></div>
+    <div class="chips seg" id="hubTasks"></div>
+    <div class="hub" id="hubList"></div>
+    <div class="hub-info" id="hubInfo"></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Model card</div><h4>Читайте README</h4><p>У ньому описано, на чому модель навчена, для чого призначена, які має обмеження й ліцензію (Apache-2.0, MIT, CC-BY-NC…). Ліцензію треба перевірити до використання в продукті.</p></div>
+    <div class="card"><div class="k">Кеш</div><h4>~/.cache/huggingface</h4><p>Перший <code>from_pretrained</code> завантажує файли, наступні беруть їх із кешу. Змінна <code>HF_HOME</code> переносить кеш на інший диск.</p></div>
+    <div class="card"><div class="k">Доступ</div><h4><code>hf auth login</code></h4><p>Токен потрібен для приватних і gated-моделей (наприклад, Llama) та для <code>push_to_hub</code>. У старих версіях команда називалася <code>huggingface-cli login</code>.</p></div>
+    <div class="card"><div class="k">Безпека</div><h4>safetensors і remote code</h4><p>Формат <code>.safetensors</code> безпечний для завантаження, на відміну від pickle-файлів <code>.bin</code>. Обережно з <code>trust_remote_code=True</code>: він запускає Python-код з репозиторію. Для відтворюваності фіксуйте <code>revision="…"</code>.</p></div>
+  </div>
+</section>
+
+<!-- ============ 15. TRANSFORMERS LIB ============ -->
+<section class="slide" id="s15" data-title="Бібліотека transformers">
+  <div class="eyebrow">Розділ 12 · продовження</div>
+  <h2>Бібліотека 🤗 transformers</h2>
+  <p class="lead">Один інтерфейс для тисяч архітектур. <code>AutoTokenizer</code> і <code>AutoModel…</code> читають <code>config.json</code> і самі створюють потрібний клас. Щоб замінити BERT на XLM-R, досить змінити назву моделі.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Що відбувається всередині <code>pipeline("sentiment-analysis")</code></h4><span class="tag">animation</span><span class="hint">Модель <code>distilbert/distilbert-base-uncased-finetuned-sst-2-english</code>. Пройдіть усі кроки: токенізатор з лекції 03, потім трансформер, потім голова класифікації. Числа ≈ справжнім.</span></div>
+    <div class="pctl"><button class="btn" id="plPlay">▶ Програти</button><button class="btn" id="plStep">Крок →</button><button class="btn" id="plReset">↺</button></div>
+    <div class="pipe" id="plSteps"></div>
+    <div id="plView"></div>
+  </div>
+
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Клас</th><th>Голова</th><th>Задача</th><th>pipeline</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">AutoModel</td><td>немає (сирі вектори)</td><td>ембедінги, свої голови</td><td class="mono">feature-extraction</td></tr>
+      <tr><td class="mono">AutoModelForMaskedLM</td><td>словник (30 522 logits)</td><td>заповнити [MASK]</td><td class="mono">fill-mask</td></tr>
+      <tr><td class="mono">AutoModelForSequenceClassification</td><td>Linear на [CLS]</td><td>тональність, спам, NLI</td><td class="mono">text-classification</td></tr>
+      <tr><td class="mono">AutoModelForTokenClassification</td><td>Linear на кожен токен</td><td>NER, POS-теги</td><td class="mono">token-classification</td></tr>
+      <tr><td class="mono">AutoModelForQuestionAnswering</td><td>start / end logits</td><td>відповідь у тексті</td><td class="mono">question-answering</td></tr>
+      <tr><td class="mono">AutoModelForCausalLM</td><td>наступний токен</td><td>генерація (GPT, Llama)</td><td class="mono">text-generation</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><div class="qm">Типова помилка</div><p><code>AutoModel</code> повертає сирі вектори <em>без голови</em>. Для класифікації потрібен <code>AutoModelForSequenceClassification</code>. Якщо завантажити його з «голого» BERT, бібліотека попередить, що ваги <code>classifier.*</code> ініціалізовано випадково. Так і має бути: цю голову ще треба навчити.</p></div>
+</section>
+
+<!-- ============ 16. PYTORCH ============ -->
+<section class="slide" id="s16" data-title="Код: увага в PyTorch">
+  <div class="eyebrow">Розділ 13</div>
+  <h2>Увага своїми руками в PyTorch</h2>
+  <p>Формула з розділу 5 займає буквально кілька рядків:</p>
+<pre class="code" data-lang="python"><code class="py">import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+def attention(Q, K, V, mask=None):
+    # Q, K, V: [B, h, T, d_k]
+    d_k = Q.size(-1)
+    scores = Q @ K.transpose(-2, -1) / d_k ** 0.5     # [B, h, T, T]
+    if mask is not None:                              # mask: 1 = можна, 0 = не можна
+        scores = scores.masked_fill(mask == 0, float("-inf"))
+    weights = F.softmax(scores, dim=-1)               # сума по рядку = 1
+    return weights @ V, weights                       # [B, h, T, d_k]</code></pre>
+
+  <div class="demo">
+    <div class="head"><h4>Трекер форм: MultiHeadAttention.forward</h4><span class="tag">interactive</span><span class="hint">Клацайте по рядках коду або натисніть «Програти». Праворуч показано форму тензора після рядка. B = 2 речення, T = 6 токенів, d<sub>model</sub> = 768, h = 12. Більшість помилок у коді трансформерів виникає саме з плутанини у формах.</span></div>
+    <div class="pctl"><button class="btn" id="trkPlay">▶ Програти</button><button class="btn" id="trkStep">Крок →</button></div>
+    <div class="tracker">
+      <ol id="trkCode"></ol>
+      <div>
+        <div class="shape-big" id="trkShape"></div>
+        <div class="dims" id="trkDims"></div>
+        <div class="explain" id="trkExpl"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="codelabel">Повний блок трансформера (Post-LN, як у BERT)</div>
+<pre class="code" data-lang="python"><code class="py">class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model=768, n_heads=12):
+        super().__init__()
+        self.h, self.d_k = n_heads, d_model // n_heads
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+    def forward(self, x, mask=None):
+        B, T, _ = x.shape
+        split = lambda t: t.view(B, T, self.h, self.d_k).transpose(1, 2)
+        Q, K, V = split(self.W_q(x)), split(self.W_k(x)), split(self.W_v(x))
+        out, _ = attention(Q, K, V, mask)
+        out = out.transpose(1, 2).contiguous().view(B, T, -1)   # склеїти голови
+        return self.W_o(out)
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model=768, n_heads=12, d_ff=3072, p=0.1):
+        super().__init__()
+        self.attn = MultiHeadAttention(d_model, n_heads)
+        self.ff = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Linear(d_ff, d_model))
+        self.ln1, self.ln2 = nn.LayerNorm(d_model), nn.LayerNorm(d_model)
+        self.drop = nn.Dropout(p)
+
+    def forward(self, x, mask=None):
+        x = self.ln1(x + self.drop(self.attn(x, mask)))   # змішати токени
+        x = self.ln2(x + self.drop(self.ff(x)))           # обробити кожен токен
+        return x
+
+x = torch.randn(2, 6, 768)                # 2 речення × 6 токенів
+pad = torch.tensor([[1, 1, 1, 1, 1, 1],
+                    [1, 1, 1, 1, 0, 0]])  # друге коротше: 2 токени — паддінг
+mask = pad[:, None, None, :]              # [B, 1, 1, T] → транслюється на голови і рядки
+# для GPT-подібного блоку: mask = torch.tril(torch.ones(6, 6))  — каузальна маска [T, T]
+block = TransformerBlock()
+print(block(x, mask).shape)               # torch.Size([2, 6, 768])
+print(sum(p.numel() for p in block.parameters()))   # 7087872 ≈ 7.1 млн, як у BERT</code></pre>
+
+  <div class="callout"><p><strong>У реальному коді</strong> пишуть <code>F.scaled_dot_product_attention(Q, K, V, attn_mask=..., is_causal=...)</code> (PyTorch ≥ 2.0). Вона рахує те саме, але використовує FlashAttention і не зберігає матрицю T × T у пам'яті. Готовий шар теж є: <code>nn.TransformerEncoderLayer(d_model=768, nhead=12, batch_first=True)</code>.</p></div>
+</section>
+
+<!-- ============ 17. HF CODE ============ -->
+<section class="slide" id="s17" data-title="Код: transformers">
+  <div class="eyebrow">Розділ 13 · продовження</div>
+  <h2>BERT через 🤗 transformers</h2>
+<pre class="code" data-lang="python"><code class="py">from transformers import AutoTokenizer, AutoModel
+
+name = "google-bert/bert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(name)        # WordPiece, 30 522 токени
+model = AutoModel.from_pretrained(name)                # 12 шарів × 12 голів, 110M
+
+text = "The animal didn't cross the street because it was too tired."
+inputs = tokenizer(text, return_tensors="pt")          # input_ids, token_type_ids, attention_mask
+print(tokenizer.convert_ids_to_tokens(inputs["input_ids"][0]))
+# ['[CLS]', 'the', 'animal', 'didn', "'", 't', 'cross', 'the', 'street',
+#  'because', 'it', 'was', 'too', 'tired', '.', '[SEP]']   ← 16 токенів
+
+out = model(**inputs)
+out.last_hidden_state.shape    # torch.Size([1, 16, 768]) — вектор КОЖНОГО токена в контексті
+out.pooler_output.shape        # torch.Size([1, 768])     — [CLS] після додаткового шару</code></pre>
+
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s7">↩ Лекція 03</a><p>Токенізатор розбив <code>didn't</code> на три токени. Він завжди йде в парі з моделлю: матриця ембедінгів має рівно стільки рядків, скільки токенів у словнику. Якщо підставити токенізатор від іншої моделі, id вказуватимуть не на ті рядки.</p></div>
+
+  <div class="codelabel">Батч із паддінгом: навіщо attention_mask</div>
+<pre class="code" data-lang="python"><code class="py">batch = tokenizer(["Short one.", "A much longer second sentence here."],
+                  padding=True, return_tensors="pt")
+batch["attention_mask"]
+# tensor([[1, 1, 1, 1, 0, 0, 0, 0],    ← [PAD] позначені 0: на них не дивляться
+#         [1, 1, 1, 1, 1, 1, 1, 1]])   (це та сама mask з нашого TransformerBlock)</code></pre>
+
+  <div class="codelabel">Pipelines: результат за 2 рядки</div>
+<pre class="code" data-lang="python"><code class="py">from transformers import pipeline
+
+fill = pipeline("fill-mask", model="google-bert/bert-base-uncased")
+fill("The capital of France is [MASK].")             # → paris, lyon, lille, ...
+
+fill_uk = pipeline("fill-mask", model="FacebookAI/xlm-roberta-base")
+fill_uk("Столиця України — &lt;mask&gt;.")                 # у XLM-R маска пишеться як &lt;mask&gt;
+
+clf = pipeline("sentiment-analysis")                 # модель за замовчуванням: DistilBERT SST-2
+clf("I love this lecture!")                          # [{'label': 'POSITIVE', 'score': 0.9998}]</code></pre>
+
+  <div class="codelabel">Подивитися на справжні карти уваги</div>
+<pre class="code" data-lang="python"><code class="py">import matplotlib.pyplot as plt
+
+model = AutoModel.from_pretrained(name, attn_implementation="eager")  # eager віддає ваги
+out = model(**inputs, output_attentions=True)
+len(out.attentions), out.attentions[0].shape         # 12, torch.Size([1, 12, 16, 16])
+
+att = out.attentions[7][0, 9].detach()               # шар 8, голова 10: [T, T]
+toks = tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
+plt.imshow(att, cmap="Oranges")
+plt.xticks(range(len(toks)), toks, rotation=90); plt.yticks(range(len(toks)), toks)
+plt.show()
+# інтерактивно, як у розділі 6: pip install bertviz → from bertviz import head_view</code></pre>
+
+  <div class="codelabel">Fine-tuning класифікатора з Trainer</div>
+<pre class="code" data-lang="python"><code class="py">from datasets import load_dataset
+from transformers import AutoModelForSequenceClassification, TrainingArguments, Trainer
+
+ds = load_dataset("stanfordnlp/imdb")
+ds = ds.map(lambda b: tokenizer(b["text"], truncation=True, max_length=256), batched=True)
+
+model = AutoModelForSequenceClassification.from_pretrained(name, num_labels=2)
+args = TrainingArguments("bert-imdb", learning_rate=2e-5, num_train_epochs=1,
+                         per_device_train_batch_size=16, eval_strategy="epoch")
+trainer = Trainer(model=model, args=args, processing_class=tokenizer,
+                  train_dataset=ds["train"].shuffle(seed=0).select(range(5000)),
+                  eval_dataset=ds["test"].shuffle(seed=0).select(range(1000)))
+trainer.train()
+# trainer.push_to_hub()   # опублікувати модель у своєму акаунті на Hub</code></pre>
+</section>
+
+<!-- ============ 18. SUMMARY ============ -->
+<section class="slide" id="s18" data-title="Підсумок і тест">
+  <div class="eyebrow">Розділ 14</div>
+  <h2>Підсумок</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Токени → вектори</div><h4>Лекція 03 + 05</h4><p>Токенізатор дає id, матриця ембедінгів дає статичні вектори, а трансформер перетворює їх на контекстуальні.</p></div>
+    <div class="card"><div class="k">Чому увага</div><h4>RNN → Transformer</h4><p>Прямий зв'язок між будь-якими токенами за 1 крок і повний паралелізм. Ціна — n² пам'яті.</p></div>
+    <div class="card"><div class="k">Формула</div><h4>softmax(QKᵀ/√dₖ)·V</h4><p>Це м'який пошук: Q питає, K відповідає, V передає зміст. √dₖ не дає softmax насичитися.</p></div>
+    <div class="card"><div class="k">Блок</div><h4>Attention + FFN</h4><p>Увага змішує токени, FFN обробляє кожен токен окремо. Residual і LayerNorm тримають навчання стабільним.</p></div>
+    <div class="card"><div class="k">BERT</div><h4>Енкодер + MLM</h4><p>Двонаправлений контекст. [CLS] використовують для класифікації, вектори токенів — для NER і пошуку.</p></div>
+    <div class="card"><div class="k">Інструменти</div><h4>Hub + transformers</h4><p><code>from_pretrained</code> → <code>pipeline</code> / <code>Trainer</code> → <code>push_to_hub</code>.</p></div>
+  </div>
+
+  <h3>Перевірте себе</h3>
+  <div class="quiz" data-ans="1">
+    <div class="q">Навіщо у формулі уваги ділити Q·Kᵀ на √dₖ?</div>
+    <div class="opts"><button class="opt">Щоб пришвидшити множення матриць</button><button class="opt">Щоб розкид скорів не ріс із розмірністю і softmax не ставав one-hot</button><button class="opt">Щоб нормувати V до діапазону [0, 1]</button></div>
+    <div class="ans">Стандартне відхилення добутку q·k дорівнює √dₖ. Без ділення softmax насичується, і градієнти зникають.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">У self-attention Q, K і V — це…</div>
+    <div class="opts"><button class="opt">Три різні лінійні проєкції тих самих векторів токенів</button><button class="opt">Три окремі речення</button><button class="opt">Запит користувача, словник і відповідь</button></div>
+    <div class="ans">Матриці W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub> навчаються. Модель сама вирішує, що буде «запитом», а що «ключем».</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Що змішує інформацію <em>між</em> токенами в блоці трансформера?</div>
+    <div class="opts"><button class="opt">Feed-forward шар</button><button class="opt">LayerNorm</button><button class="opt">Multi-head attention</button></div>
+    <div class="ans">FFN і LayerNorm працюють з кожним токеном окремо. Обмін між позиціями відбувається тільки в увазі.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">Чим маска уваги GPT відрізняється від BERT?</div>
+    <div class="opts"><button class="opt">GPT не використовує маски взагалі</button><button class="opt">GPT має каузальну маску: токен бачить лише себе і попередні токени</button><button class="opt">BERT бачить лише праві токени</button></div>
+    <div class="ans">Каузальна (трикутна) маска потрібна для генерації: майбутнього ще немає. BERT бачить контекст з обох боків.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Ви завантажили <code>AutoModel</code> і хочете класифікувати відгуки. Чого бракує?</div>
+    <div class="opts"><button class="opt">Голови класифікації: потрібен AutoModelForSequenceClassification і fine-tuning</button><button class="opt">Нічого, AutoModel повертає мітки класів</button><button class="opt">Іншого токенізатора</button></div>
+    <div class="ans">AutoModel повертає вектори. Лінійну голову на [CLS] додає …ForSequenceClassification, і її треба навчити.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Чим токенізатор XLM-R відрізняється від BERT?</div>
+    <div class="opts"><button class="opt">Це той самий WordPiece, тільки більший</button><button class="opt">XLM-R не токенізує текст</button><button class="opt">SentencePiece (unigram) по сирому тексту, словник 250k на 100 мов</button></div>
+    <div class="ans">SentencePiece не потребує попереднього розбиття на слова, а великий словник вміщує 100 писемностей (див. лекцію 03).</div>
+  </div>
+
+  <p class="kbd-hint">Навігація: <kbd>←</kbd> <kbd>→</kbd> між розділами · <kbd>L</kbd> режим лекції · <kbd>T</kbd> тема</p>
+</section>
+
+</main>
+</div>
+<script>
+/* ===================== helpers ===================== */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=(x,d=2)=>Number.isFinite(x)?x.toFixed(d):"—";
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const softmax=v=>{const mx=Math.max(...v.filter(Number.isFinite));const e=v.map(x=>Number.isFinite(x)?Math.exp(x-mx):0);const s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)};
+const root=document.documentElement;
+const cssVar=n=>getComputedStyle(root).getPropertyValue(n).trim();
+const hexRgb=h=>{h=h.replace("#","");if(h.length===3)h=[...h].map(c=>c+c).join("");const n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255]};
+const mixRgb=(a,b,t)=>a.map((x,i)=>Math.round(x+(b[i]-x)*t));
+// diverging colour for v in [-1,1]: blue (−) · neutral · orange (+)
+const divCol=v=>{v=Math.max(-1,Math.min(1,v));const p=Math.round(Math.abs(v)*100);return p<3?"var(--surface-2)":`color-mix(in srgb, ${v>0?"var(--bm25)":"var(--tfidf)"} ${p}%, var(--surface-2))`};
+const seqCol=(p,c="var(--bm25)")=>p<=0.005?"var(--surface-2)":`color-mix(in srgb, ${c} ${Math.round(Math.min(1,p)*100)}%, var(--surface-2))`;
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const gauss=r=>{let u=0,v=0;while(!u)u=r();while(!v)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+const hashStr=s=>{let h=2166136261;for(const ch of s){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return h>>>0};
+const tokW=(t,fs)=>[...t].length*fs*0.6+14;
+const svgPt=(svg,e)=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// generic step player: play / step / reset buttons
+function player({n,show,ms=900,play,step,reset,onStop}){
+  let i=-1,timer=null;const label=play?play.textContent:"";
+  const stop=()=>{if(timer){clearInterval(timer);timer=null}if(play)play.textContent=label;onStop&&onStop()};
+  const go=k=>{i=Math.max(-1,Math.min(n-1,k));show(i)};
+  const tick=()=>{if(i>=n-1){stop();return}go(i+1);if(i>=n-1)stop()};
+  if(play)play.onclick=()=>{if(timer){stop();return}if(i>=n-1)go(-1);play.textContent="⏸ Пауза";tick();if(i<n-1&&!timer&&play.textContent!==label)timer=setInterval(tick,ms)};
+  if(step)step.onclick=()=>{stop();go(i>=n-1?0:i+1)};
+  if(reset)reset.onclick=()=>{stop();go(-1)};
+  return{go,stop,get i(){return i}};
+}
+
+function hlPy(el){
+  const src=el.textContent;
+  const re=/(#.*$)|(f?"(?:[^"\\\n]|\\.)*"|f?'(?:[^'\\\n]|\\.)*')|\b(def|class|import|from|for|in|if|else|elif|return|lambda|not|and|or|as|with|None|True|False|continue|break|pass|while|yield|print|len|sum|range|list|dict|super)\b|\b(\d+\.?\d*(?:e-?\d+)?)\b/gm;
+  let out="",last=0,m;
+  while((m=re.exec(src))){out+=esc(src.slice(last,m.index));
+    if(m[1])out+=`<span class="cm">${esc(m[1])}</span>`;else if(m[2])out+=`<span class="st">${esc(m[2])}</span>`;else if(m[3])out+=`<span class="kw">${m[3]}</span>`;else out+=`<span class="nu">${m[4]}</span>`;last=re.lastIndex}
+  out+=esc(src.slice(last));
+  el.innerHTML=out.replace(/(<span class="kw">(?:def|class)<\/span> )([A-Za-z_]\w*)/g,`$1<span class="fn">$2</span>`);
+}
+
+/* ===================== shell: toc, progress, modes ===================== */
+const sections=$$("section.slide");
+$("#toc").innerHTML=sections.map((s,i)=>`<li><a href="#${s.id}"><span class="num">${String(i).padStart(2,"0")}</span>${esc(s.dataset.title)}</a></li>`).join("");
+const tocLinks=$$("#toc a");
+function updateShell(){
+  const h=document.documentElement,max=h.scrollHeight-h.clientHeight;
+  $("#progress").style.width=(max>0?window.scrollY/max*100:0)+"%";
+  let cur=0;for(const [i,s] of sections.entries()){if(s.getBoundingClientRect().top<=140)cur=i}
+  tocLinks.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",updateShell,{passive:true});addEventListener("resize",()=>{updateShell();redrawAll()});
+const redraws=[];function redrawAll(){redraws.forEach(f=>f())}
+function setLecture(on){root.classList.toggle("lecture",on);$("#lectureBtn").setAttribute("aria-pressed",String(on));store.set("lecture",on?"1":"0");setTimeout(()=>{updateShell();redrawAll()},50)}
+$("#lectureBtn").onclick=()=>setLecture(!root.classList.contains("lecture"));
+const themes=["","dark","light"];
+function setTheme(t){if(t)root.setAttribute("data-theme",t);else root.removeAttribute("data-theme");store.set("theme",t);$("#themeBtn").textContent="◐ Тема"+(t?": "+(t==="dark"?"темна":"світла"):"");setTimeout(redrawAll,30)}
+$("#themeBtn").onclick=()=>setTheme(themes[(themes.indexOf(root.getAttribute("data-theme")||"")+1)%3]);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>setTimeout(redrawAll,30));
+addEventListener("keydown",e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;
+  const cur=Math.max(0,sections.findIndex((s,i)=>tocLinks[i].classList.contains("active")));
+  if(e.key==="ArrowRight"||e.key==="PageDown"){e.preventDefault();sections[Math.min(cur+1,sections.length-1)].scrollIntoView({behavior:"smooth"})}
+  else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();sections[Math.max(cur-1,0)].scrollIntoView({behavior:"smooth"})}
+  else if(e.key==="l"||e.key==="L")setLecture(!root.classList.contains("lecture"));
+  else if(e.key==="t"||e.key==="T")$("#themeBtn").click();
+});
+
+/* ===================== chart helper ===================== */
+function lineChart(svg,o){
+  const W=+svg.viewBox.baseVal.width,H=+svg.viewBox.baseVal.height,p={l:48,r:16,t:16,b:36};
+  const iw=W-p.l-p.r,ih=H-p.t-p.b;
+  const sx=x=>p.l+(x-o.xMin)/(o.xMax-o.xMin)*iw, sy=y=>p.t+ih-(y-o.yMin)/(o.yMax-o.yMin)*ih;
+  const ticks=(a,b,n)=>{const step=(b-a)/n;return Array.from({length:n+1},(_,i)=>a+i*step)};
+  const xt=o.xTicks||ticks(o.xMin,o.xMax,5),yt=o.yTicks||ticks(o.yMin,o.yMax,4);
+  let g=`<g class="grid">${yt.map(y=>`<line x1="${p.l}" x2="${W-p.r}" y1="${sy(y)}" y2="${sy(y)}"/>`).join("")}</g>`;
+  g+=`<line class="axis" x1="${p.l}" x2="${W-p.r}" y1="${sy(Math.max(o.yMin,Math.min(0,o.yMax)))}" y2="${sy(Math.max(o.yMin,Math.min(0,o.yMax)))}"/>`;
+  g+=`<line class="axis" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${p.t+ih}"/>`;
+  g+=yt.map(y=>`<text x="${p.l-8}" y="${sy(y)+4}" text-anchor="end">${o.yFmt?o.yFmt(y):fmt(y,1)}</text>`).join("");
+  g+=xt.map(x=>`<text x="${sx(x)}" y="${H-p.b+18}" text-anchor="middle">${o.xFmt?o.xFmt(x):fmt(x,0)}</text>`).join("");
+  if(o.xLabel)g+=`<text class="lab" x="${W-p.r}" y="${H-4}" text-anchor="end">${o.xLabel}</text>`;
+  if(o.yLabel)g+=`<text class="lab" x="${p.l+8}" y="${p.t+2}" text-anchor="start">${o.yLabel}</text>`;
+  const n=200;
+  o.series.forEach(s=>{
+    const pts=[];for(let i=0;i<=n;i++){const x=o.xMin+(o.xMax-o.xMin)*i/n;const y=s.fn(x);if(!Number.isFinite(y))continue;pts.push([sx(x),sy(Math.max(o.yMin-1,Math.min(o.yMax+1,y)))])}
+    g+=`<path class="${s.cls}" clip-path="url(#clip-${svg.id})" d="${pts.map((pt,i)=>(i?"L":"M")+pt[0].toFixed(1)+" "+pt[1].toFixed(1)).join("")}"/>`;
+  });
+  (o.markers||[]).forEach(m=>{if(m.y<=o.yMax&&m.y>=o.yMin)g+=`<circle class="marker" cx="${sx(m.x)}" cy="${sy(m.y)}" r="5" style="stroke:${m.color}"/>`});
+  g+=`<line class="cross" id="${svg.id}-cross" y1="${p.t}" y2="${p.t+ih}"/>`;
+  svg.innerHTML=`<defs><clipPath id="clip-${svg.id}"><rect x="${p.l}" y="${p.t}" width="${iw}" height="${ih}"/></clipPath></defs>`+g;
+  if(!svg._hover){svg._hover=true;
+    const wrap=svg.parentElement,tip=$(".tip",wrap);
+    svg.addEventListener("mousemove",e=>{const oo=svg._o;if(!oo||!tip)return;const r=svg.getBoundingClientRect();const x=oo.xMin+((e.clientX-r.left)/r.width*W-p.l)/iw*(oo.xMax-oo.xMin);if(x<oo.xMin||x>oo.xMax){tip.style.display="none";return}
+      const xs=oo.snap?oo.snap(x):x;const cross=$("#"+svg.id+"-cross");cross.style.display="block";cross.setAttribute("x1",sx(xs));cross.setAttribute("x2",sx(xs));
+      tip.style.display="block";tip.innerHTML=`<div>${oo.xName||"x"} = ${oo.xFmt?oo.xFmt(xs):fmt(xs,oo.snap?0:2)}</div>`+oo.series.map(s=>`<div>${s.name}: ${fmt(s.fn(xs),3)}</div>`).join("");
+      const px=(e.clientX-r.left)/r.width*wrap.clientWidth;tip.style.left=Math.max(0,Math.min(px+12,wrap.clientWidth-tip.offsetWidth-4))+"px";tip.style.top=(e.clientY-wrap.getBoundingClientRect().top-10)+"px"});
+    svg.addEventListener("mouseleave",()=>{if(tip)tip.style.display="none";const c=$("#"+svg.id+"-cross");if(c)c.style.display="none"});
+  }
+  svg._o=o;
+}
+const C={a:"var(--tfidf)",b:"var(--bm25)",c:"var(--aqua)",d:"var(--violet)"};
+
+/* ===================== shared sentence + attention weights ===================== */
+const ATT_TOKS=["The","animal","didn't","cross","the","street","because","it","was","too","tired"];
+// сирі скори (до softmax): більше число означає більшу схожість Q і K. Ілюстративні значення.
+const ATT_RAW=[
+  [2,5,0,1,0,0,0,0,0,0,0],
+  [3,3,1,3,0,1,0,2,0,0,1],
+  [0,2,1,5,0,0,0,0,0,0,0],
+  [0,4,3,2,0,4,0,0,0,0,0],
+  [0,0,0,0,1,6,0,0,0,0,0],
+  [0,0,0,4,4,2,0,0,0,0,0],
+  [0,0,1,3,0,0,1,3,2,0,2],
+  [0,6,0,1,0,2,0,1,1,0,2],
+  [0,2,0,0,0,0,0,4,1,2,4],
+  [0,0,0,0,0,0,0,0,2,1,5],
+  [0,4,0,0,0,0,0,2,3,3,1]
+];
+
+/* ===================== 0. hero arcs ===================== */
+(function(){
+  const svg=$("#heroSvg"),fs=15,gap=8,y=140;
+  const W=ATT_TOKS.map(t=>tokW(t,fs)),total=W.reduce((a,b)=>a+b,0)+gap*(W.length-1);
+  let x=(760-total)/2;const X=W.map(w=>{const c=x+w/2;x+=w+gap;return c});
+  const wts=ATT_RAW.map(r=>softmax(r));
+  const cycle=[7,10,1,3,5];let ci=0,focus=7,pinned=false;
+  function draw(){
+    const w=wts[focus],mx=Math.max(...w.filter((_,j)=>j!==focus));
+    let g="";
+    w.forEach((v,j)=>{if(j===focus||v<0.015)return;
+      const x1=X[focus],x2=X[j],h=Math.min(118,22+Math.abs(x2-x1)*0.32);
+      g+=`<path class="edge${reduceMotion?"":" draw"}" pathLength="1000" d="M${x1} ${y-16} Q${(x1+x2)/2} ${y-16-h*2} ${x2} ${y-16}" style="stroke-width:${(1+v/mx*9).toFixed(1)};opacity:${(0.2+0.8*v/mx).toFixed(2)};animation-delay:${(j*25)}ms"/>`});
+    ATT_TOKS.forEach((t,j)=>{const cls=j===focus?"q":(w[j]===mx?"on":"");
+      g+=`<g data-j="${j}" style="cursor:pointer"><rect class="tokbox ${cls}" x="${X[j]-W[j]/2}" y="${y-16}" width="${W[j]}" height="30" rx="6"/><text x="${X[j]}" y="${y+4}" text-anchor="middle" style="font-size:${fs}px">${esc(t)}</text><text class="mut" x="${X[j]}" y="${y+32}" text-anchor="middle">${j===focus?"запит":w[j].toFixed(2)}</text></g>`});
+    const top=w.map((v,j)=>[v,j]).filter(a=>a[1]!==focus).sort((a,b)=>b[0]-a[0])[0];
+    g+=`<text class="mut" x="10" y="20" style="font-size:12px">«${esc(ATT_TOKS[focus])}» найбільше дивиться на «${esc(ATT_TOKS[top[1]])}» (${top[0].toFixed(2)})${pinned?" · зафіксовано, клацніть ще раз":""}</text>`;
+    svg.innerHTML=g;
+  }
+  svg.addEventListener("click",e=>{const g=e.target.closest("[data-j]");if(!g)return;const j=+g.dataset.j;if(pinned&&j===focus){pinned=false}else{pinned=true;focus=j}draw()});
+  draw();
+  setInterval(()=>{if(pinned||document.hidden)return;ci=(ci+1)%cycle.length;focus=cycle[ci];draw()},2600);
+})();
+
+/* ===================== 1. bridge pipeline ===================== */
+(function(){
+  const T=[
+    `<b>Текст</b> — рядок символів. Для моделі це ще не числа.`,
+    `<b>Токенізатор</b> (лекція 03) ріже текст на субслова. XLM-R використовує SentencePiece, де «▁» позначає початок слова. Розбиття тут ілюстративне.`,
+    `<b>id</b> — номери токенів у словнику. XLM-R додає службові &lt;s&gt; = 0 на початок і &lt;/s&gt; = 2 у кінець (аналоги [CLS] і [SEP] у BERT).`,
+    `<b>Матриця ембедінгів</b> [vocab × 768]. id просто вибирає рядок. Вектор однаковий у будь-якому контексті, тобто статичний.`,
+    `<b>Трансформер</b> — тема сьогоднішньої лекції. 12 шарів уваги і FFN перетворюють статичні вектори на <em>контекстуальні</em>: кожен вектор тепер «знає» про сусідів.`,
+    `<b>Голова задачі</b> — маленький шар зверху: клас речення з [CLS], мітка для кожного токена (NER) або наступний токен (GPT).`];
+  const steps=$$("#bridgePipe .pstep");
+  steps.forEach(s=>s.addEventListener("click",()=>{steps.forEach(x=>x.classList.toggle("cur",x===s));$("#bridgeExpl").innerHTML=T[+s.dataset.i]}));
+})();
+
+/* ===================== 2. RNN vs Transformer race ===================== */
+(function(){
+  const toks=["Кіт","сидів","на","теплому","килимку","біля","вікна"],n=toks.length,slot=420/n,fs=11;
+  const cx=i=>slot*i+slot/2;
+  const rnn=$("#rnnSvg"),tr=$("#trSvg");
+  function drawRnn(t){
+    let g="";
+    for(let i=0;i<n;i++){
+      const done=i<t,cur=i===t-1;
+      g+=`<rect class="tokbox ${cur?"on":done?"done":""}" x="${cx(i)-slot/2+3}" y="150" width="${slot-6}" height="26" rx="5"/><text x="${cx(i)}" y="167" text-anchor="middle" style="font-size:${fs}px">${toks[i]}</text>`;
+      g+=`<line class="arr" x1="${cx(i)}" y1="148" x2="${cx(i)}" y2="${112}" style="opacity:${done?1:.2}"/>`;
+      if(i<n-1)g+=`<line class="arr" x1="${cx(i)+18}" y1="92" x2="${cx(i+1)-18}" y2="92" style="opacity:${i<t-1?1:.2}"/>`;
+      const trace=done?Math.pow(0.6,(t-1)-0)*0+Math.pow(0.6,i):0;
+      g+=`<rect class="hcell" x="${cx(i)-17}" y="72" width="34" height="40" rx="6" style="opacity:${done?1:.25};${cur?"fill:var(--bm25-soft)":""}"/>`;
+      g+=`<rect x="${cx(i)-12}" y="${108-32*trace}" width="7" height="${32*trace}" rx="2" style="fill:var(--violet)"/>`;
+      g+=`<text x="${cx(i)+5}" y="96" text-anchor="middle" style="font-size:11px">h${i+1}</text>`;
+    }
+    g+=`<text class="mut" x="4" y="30">фіолетова смужка: скільки в hₜ лишилося від «Кіт»</text>`;
+    g+=`<text class="mut" x="4" y="48">${t===0?"очікування…":t<n?"чекаємо на h"+t+" → рахуємо h"+(t+1):"готово за 7 послідовних кроків"}</text>`;
+    rnn.innerHTML=g;
+  }
+  function drawTr(t){
+    let g="";
+    if(t>=1){for(let i=0;i<n;i++)for(let j=0;j<n;j++)g+=`<path class="edge b${reduceMotion?"":" draw"}" pathLength="1000" d="M${cx(i)} 148 L${cx(j)} 112" style="stroke-width:1.2;opacity:.35"/>`}
+    for(let i=0;i<n;i++){
+      g+=`<rect class="tokbox ${t>=1?"done":""}" x="${cx(i)-slot/2+3}" y="150" width="${slot-6}" height="26" rx="5"/><text x="${cx(i)}" y="167" text-anchor="middle" style="font-size:${fs}px">${toks[i]}</text>`;
+      g+=`<rect class="hcell" x="${cx(i)-17}" y="72" width="34" height="40" rx="6" style="opacity:${t>=1?1:.25};stroke:var(--tfidf)"/><text x="${cx(i)}" y="96" text-anchor="middle" style="font-size:11px">h${i+1}′</text>`;
+    }
+    g+=`<text class="mut" x="4" y="30">кожен h′ бачить усі слова напряму</text>`;
+    g+=`<text class="mut" x="4" y="48">${t===0?"очікування…":"готово за 1 крок: усі 49 пар обчислено одночасно"}</text>`;
+    tr.innerHTML=g;
+  }
+  let t=0,timer=null;
+  function show(){drawRnn(t);drawTr(Math.min(t,1));$("#rnnStep").textContent=t;$("#trStep").textContent=Math.min(t,1)}
+  $("#raceGo").onclick=()=>{clearInterval(timer);t=0;show();timer=setInterval(()=>{t++;show();if(t>=n)clearInterval(timer)},700)};
+  $("#raceReset").onclick=()=>{clearInterval(timer);t=0;show()};
+  show();
+  const sl=$("#seqN");
+  function stats(){const N=2**+sl.value;$("#seqNV").textContent=N;$("#stRnn").textContent=N.toLocaleString("uk-UA");$("#stPath").textContent=`${(N-1).toLocaleString("uk-UA")} vs 1`;$("#stPairs").textContent=(N*N).toLocaleString("uk-UA")}
+  sl.addEventListener("input",stats);stats();
+})();
+
+/* ===================== 3. seq2seq alignment ===================== */
+(function(){
+  const src=["the","black","cat","sat","on","the","mat"],tgt=["чорний","кіт","сидів","на","килимку"];
+  const raw=[[0.5,4,1.2,0,0,0,0],[1,1,4,0.5,0,0,0],[0,0,1.2,4,0.6,0,0],[0,0,0,0.6,4,0.8,0.5],[0,0,0,0,0.3,1.8,4]];
+  const A=raw.map(r=>softmax(r));
+  const svg=$("#s2sSvg"),fs=14;let mode=1;
+  const sx=i=>70+i*(620/(src.length-1)),tx=j=>110+j*(540/(tgt.length-1));
+  function draw(k){
+    let g="";
+    if(mode===0){
+      if(k>=-1){src.forEach((_,i)=>g+=`<path class="edge" d="M${sx(i)} 44 L380 118" style="stroke-width:2;opacity:${k>=0?.25:.6}"/>`)}
+      g+=`<circle class="ctx" cx="380" cy="125" r="20"/><text x="380" y="130" text-anchor="middle" style="font-weight:600">c</text>`;
+      if(k>=0)g+=`<path class="edge${reduceMotion?"":" draw"}" pathLength="1000" d="M380 145 L${tx(k)} 196" style="stroke-width:5;opacity:.9"/>`;
+    } else if(k>=0){
+      A[k].forEach((w,i)=>{if(w<0.01)return;g+=`<path class="edge${reduceMotion?"":" draw"}" pathLength="1000" d="M${tx(k)} 196 C${tx(k)} 120 ${sx(i)} 120 ${sx(i)} 44" style="stroke-width:${(1+w*14).toFixed(1)};opacity:${(0.15+0.85*w).toFixed(2)}"/>`;g+=`<text class="mut" x="${sx(i)}" y="62" text-anchor="middle">${w.toFixed(2)}</text>`});
+    }
+    src.forEach((t,i)=>{const w=mode===1&&k>=0?A[k][i]:0;g+=`<rect class="tokbox ${w>0.4?"on":""}" x="${sx(i)-tokW(t,fs)/2}" y="14" width="${tokW(t,fs)}" height="28" rx="6"/><text x="${sx(i)}" y="33" text-anchor="middle" style="font-size:${fs}px">${t}</text>`});
+    tgt.forEach((t,j)=>{const vis=j<=k;g+=`<g style="opacity:${vis?1:.2}"><rect class="tokbox ${j===k?"q":vis?"done":""}" x="${tx(j)-tokW(t,fs)/2}" y="198" width="${tokW(t,fs)}" height="28" rx="6"/><text x="${tx(j)}" y="217" text-anchor="middle" style="font-size:${fs}px">${vis?t:"?"}</text></g>`});
+    g+=`<text class="mut" x="4" y="245">вхід (англійська) зверху · переклад (українська) знизу</text>`;
+    svg.innerHTML=g;
+    $("#s2sInfo").textContent=k<0?"":`крок ${k+1} / ${tgt.length}`;
+    let ex;
+    if(k<0)ex=mode?`Енкодер прочитав усі англійські слова й зберіг <b>кожен</b> прихований стан. Натисніть «Перекласти».`:`Енкодер стиснув усе речення в <b>один вектор c</b>. Натисніть «Перекласти».`;
+    else if(mode===0)ex=`Генеруючи «<b>${tgt[k]}</b>», декодер бачить лише c, тобто той самий стиснений вектор на кожному кроці. Для довгого речення c просто не вміщує всього.`;
+    else{const top=A[k].map((w,i)=>[w,i]).sort((a,b)=>b[0]-a[0]).slice(0,2);ex=`Генеруючи «<b>${tgt[k]}</b>», декодер дивиться на «${src[top[0][1]]}» (${top[0][0].toFixed(2)}) і «${src[top[1][1]]}» (${top[1][0].toFixed(2)}). Контекст c<sub>${k+1}</sub> = Σ wᵢ·hᵢ свій для кожного кроку.`}
+    $("#s2sExpl").innerHTML=ex;
+  }
+  const pl=player({n:tgt.length,show:draw,ms:1300,play:$("#s2sPlay"),step:$("#s2sStep"),reset:$("#s2sReset")});
+  $$("#s2sMode button").forEach(b=>b.onclick=()=>{mode=+b.dataset.m;$$("#s2sMode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));pl.stop();pl.go(-1)});
+  pl.go(-1);
+})();
+
+/* ===================== 4. soft lookup ===================== */
+(function(){
+  const keys=[{n:"кіт",p:[1.5,1.0]},{n:"собака",p:[1.0,1.55]},{n:"автобус",p:[-1.45,1.1]},{n:"поїзд",p:[-1.65,0.45]},{n:"яблуко",p:[0.25,-1.6]}];
+  const presets=[[1.25,1.15],[-1.5,0.85],[0,0.15]],qNames=["«кошеня»","«транспорт»","щось посередині"];
+  let q=[1.25,1.15];const svg=$("#lkSvg"),S=70,O=180,sl=$("#lkT");
+  const px=p=>[O+p[0]*S,O-p[1]*S],unpx=([x,y])=>[(x-O)/S,(O-y)/S];
+  function draw(){
+    const sharp=+sl.value;$("#lkTV").textContent=sharp.toFixed(1);
+    const sc=keys.map(k=>k.p[0]*q[0]+k.p[1]*q[1]),w=softmax(sc.map(s=>s*sharp));
+    const o=[0,1].map(d=>keys.reduce((a,k,i)=>a+w[i]*k.p[d],0));
+    let g=`<line class="axisl" x1="0" y1="${O}" x2="360" y2="${O}"/><line class="axisl" x1="${O}" y1="0" x2="${O}" y2="360"/>`;
+    const [qx,qy]=px(q);
+    keys.forEach((k,i)=>{const [x,y]=px(k.p);g+=`<line class="arr" x1="${O}" y1="${O}" x2="${x}" y2="${y}" style="opacity:.35"/><line class="edge" x1="${qx}" y1="${qy}" x2="${x}" y2="${y}" style="stroke-width:${(0.5+w[i]*10).toFixed(1)};opacity:${(0.15+0.85*w[i]).toFixed(2)}"/>`});
+    keys.forEach((k,i)=>{const [x,y]=px(k.p);g+=`<circle class="kpt" cx="${x}" cy="${y}" r="${6+w[i]*8}" style="fill:var(--bm25)"/><text x="${x}" y="${y-14-w[i]*8}" text-anchor="middle" style="font-size:12px">${k.n}</text>`});
+    const [ox,oy]=px(o);
+    g+=`<path class="opt" d="M${ox} ${oy-9} L${ox+9} ${oy} L${ox} ${oy+9} L${ox-9} ${oy} Z"/><text x="${ox+12}" y="${oy+16}" style="font-size:11px;fill:var(--aqua)">Σ w·V</text>`;
+    g+=`<line class="arr" x1="${O}" y1="${O}" x2="${qx}" y2="${qy}" style="stroke:var(--tfidf);stroke-dasharray:4 3"/><circle class="qpt" cx="${qx}" cy="${qy}" r="11"/><text x="${qx}" y="${qy+4}" text-anchor="middle" style="font-size:11px;fill:#fff;font-weight:600;pointer-events:none">Q</text>`;
+    svg.innerHTML=g;
+    const top=Math.max(...w);
+    $("#lkBars").innerHTML=keys.map((k,i)=>`<div class="softbar"><span style="font-family:'IBM Plex Mono',monospace;font-size:.92em">${k.n} · q·k=${sc[i].toFixed(2)}</span><div class="tr"><div class="fl" style="width:${(w[i]/top*100).toFixed(1)}%;background:var(--bm25)"></div></div><span class="n">${(w[i]*100).toFixed(1)}%</span></div>`).join("");
+    const bi=w.indexOf(top);
+    $("#lkExpl").innerHTML=`Найбільша вага у «<b>${keys[bi].n}</b>» (${(top*100).toFixed(0)}%), але ${top<0.9?"інші ключі теж дають свій внесок. Результат (зелений ромб) — суміш значень":"майже вся вага в одного ключа. Це вже майже жорсткий пошук, як у dict"}. ${sharp>3?"Висока різкість наближає softmax до argmax.":sharp<0.6?"Низька різкість робить увагу майже рівномірною.":""}`;
+  }
+  let drag=false;
+  svg.addEventListener("pointerdown",e=>{drag=true;svg.setPointerCapture(e.pointerId);const p=svgPt(svg,e);q=unpx([p.x,p.y]);draw()});
+  svg.addEventListener("pointermove",e=>{if(!drag)return;const p=svgPt(svg,e);q=unpx([Math.max(5,Math.min(355,p.x)),Math.max(5,Math.min(355,p.y))]);draw()});
+  svg.addEventListener("pointerup",()=>drag=false);svg.addEventListener("pointercancel",()=>drag=false);
+  $$("#lkPresets button").forEach(b=>b.onclick=()=>{q=[...presets[+b.dataset.p]];draw()});
+  sl.addEventListener("input",draw);draw();
+})();
+
+/* ===================== 5. attention calculator: shared numbers ===================== */
+const CALC=(function(){
+  const T=["кіт","п'є","тепле","молоко"],dk=3;
+  const X=[[1.0,0.0,0.2,1.0],[0.0,1.0,0.8,-0.2],[-0.3,0.4,1.0,0.6],[0.9,0.6,0.0,1.0]];
+  const WQ=[[1.0,0.0,0.6],[0.2,1.4,0.0],[0.0,0.6,1.0],[1.0,0.0,-0.4]];
+  const WK=[[1.2,0.0,0.0],[0.0,0.2,1.2],[-0.4,0.0,1.0],[1.0,1.2,0.0]];
+  const WV=[[1.0,0.0,0.2],[0.0,1.0,0.0],[0.3,0.0,1.0],[0.5,0.5,0.0]];
+  const mul=(a,b)=>a.map(r=>b[0].map((_,j)=>r.reduce((s,x,k)=>s+x*b[k][j],0)));
+  const tr=m=>m[0].map((_,j)=>m.map(r=>r[j]));
+  const Q=mul(X,WQ),K=mul(X,WK),V=mul(X,WV),S=mul(Q,tr(K)),Ss=S.map(r=>r.map(x=>x/Math.sqrt(dk))),A=Ss.map(r=>softmax(r)),Z=mul(A,V);
+  return{T,dk,X,WQ,WK,WV,Q,K,V,S,Ss,A,Z,mul,tr};
+})();
+
+/* ===================== 5a. one word, four steps ===================== */
+(function(){
+  const {T,Q,K,V,S,Ss,A,Z}=CALC,n=T.length;
+  const pct=x=>(x*100).toFixed(0)+"%";
+  const vec=(v,cls,o={})=>`<span class="vec ${cls} ${o.faint?"faint":""}">${v.map(x=>`<i style="background:${divCol(x/2.2)}${o.op!==undefined?`;opacity:${o.op}`:""}">${x.toFixed(2)}</i>`).join("")}</span>`;
+  let w=0,step=0,timers=[];
+  const later=(fn,ms)=>timers.push(setTimeout(fn,reduceMotion?0:ms));
+  const STEPS=["1 · три ролі","2 · порівняти","3 · у відсотки","4 · змішати"];
+  $("#scWord").innerHTML=T.map((t,i)=>`<button data-i="${i}">${t}</button>`).join("");
+  $("#scSteps").innerHTML=STEPS.map((t,i)=>`<button data-i="${i}">${t}</button>`).join("");
+  const order=()=>[...Array(n).keys()];
+  const top=()=>order().filter(j=>j!==w).sort((a,b)=>A[w][b]-A[w][a])[0];
+  const row=(j,inner,extra="")=>`<div class="sc-row ${j===w?"me":""} ${extra}" data-j="${j}"><span class="sc-w">${T[j]}${j===w?"<small>це наше слово</small>":""}</span>${inner}</div>`;
+  // reveal rows one by one; onEach(j) runs as row j appears
+  function reveal(onEach,gap=650){const rows=$$("#scStage .sc-row[data-j]");rows.forEach(r=>r.classList.add("hid"));
+    rows.forEach((r,k)=>later(()=>{rows.forEach(x=>x.classList.remove("cur"));r.classList.remove("hid");r.classList.add("cur");onEach&&onEach(+r.dataset.j,r)},300+k*gap));
+    later(()=>{rows.forEach(x=>x.classList.remove("cur"));const t=$("#scStage .total");if(t)t.classList.remove("hid")},300+rows.length*gap)}
+  const R={
+    0(){ // three roles
+      $("#scStage").innerHTML=`<div class="sc-rows">${order().map(j=>row(j,`<span class="vl q">Q</span>${vec(Q[j],"q",{faint:j!==w})}<span class="vl k">K</span>${vec(K[j],"k")}<span class="vl v">V</span>${vec(V[j],"v")}`)).join("")}</div>`;
+      $("#scExpl").innerHTML=`Кожне слово отримує <b>три вектори</b>:
+        <span style="color:var(--tfidf)"><b>Q — питання</b></span>, яке слово ставить іншим («хто тут мені важливий?»);
+        <span style="color:var(--bm25)"><b>K — бейджик</b></span>, за яким слово знаходять інші;
+        <span style="color:var(--aqua)"><b>V — зміст</b></span>, яким слово поділиться.
+        Їх отримують множенням вектора слова на три навчені матриці (W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub>). Далі нам потрібне <b>тільки питання «${T[w]}»</b> і бейджики та зміст усіх слів.`;
+      reveal(null,350);
+    },
+    1(){ // compare Q with every K
+      const mx=Math.max(...S[w]);
+      $("#scStage").innerHTML=`<div class="sc-q"><span>Питання слова <b>«${T[w]}»</b>:</span><span class="vl q">Q</span>${vec(Q[w],"q")}</div>
+        <div class="sc-rows">${order().map(j=>row(j,`<span class="vl k">K</span>${vec(K[j],"k")}<span class="sc-op">→ оцінка</span><span class="sc-num">${S[w][j].toFixed(2)}</span><div class="sc-bar"><div class="fl" style="background:${S[w][j]<0?"var(--tfidf)":"var(--bm25)"}"></div></div>
+          <div class="sc-calc">Q·K = ${Q[w].map((q,d)=>`${q.toFixed(2)}×${K[j][d].toFixed(2)}`).join(" + ")} = <b>${S[w][j].toFixed(2)}</b></div>`)).join("")}</div>`;
+      reveal((j,r)=>{$(".fl",r).style.width=Math.max(2,Math.abs(S[w][j])/mx*100)+"%"},900);
+      const t=order().sort((a,b)=>S[w][b]-S[w][a]);
+      $("#scExpl").innerHTML=`Порівнюємо <b>питання «${T[w]}»</b> з <b>бейджиком кожного слова</b>: перемножуємо числа попарно і додаємо (скалярний добуток). Що більша оцінка, то краще бейджик «відповідає» на питання. Найвищі оцінки в «${T[t[0]]}» (${S[w][t[0]].toFixed(2)}) і «${T[t[1]]}» (${S[w][t[1]].toFixed(2)}). Слово порівнює себе і з самим собою, це нормально.`;
+    },
+    2(){ // scale + softmax → percentages
+      $("#scStage").innerHTML=`<div class="sc-rows">${order().map(j=>row(j,`<span class="sc-num" style="min-width:40px">${S[w][j].toFixed(2)}</span><span class="sc-op">÷ √3 →</span><span class="sc-num" style="min-width:40px">${Ss[w][j].toFixed(2)}</span><span class="sc-op">→ softmax →</span><div class="sc-bar"><div class="fl" style="background:var(--bm25)"></div><span>${pct(A[w][j])}</span></div>`)).join("")}
+        <div class="sc-row total hid"><span class="sc-w">разом</span><div class="sc-bar"><div class="fl" style="width:100%;background:color-mix(in srgb,var(--aqua) 45%,var(--surface-2))"></div><span>100%</span></div></div></div>`;
+      reveal((j,r)=>{$(".fl",r).style.width=(A[w][j]*100)+"%"},700);
+      const t=top();
+      $("#scExpl").innerHTML=`Оцінки — довільні числа, бувають і від'ємні. Тому: (1) ділимо на √3 ≈ 1.73, щоб числа не були завеликими (чому — у розділі 5½); (2) <b>softmax</b> перетворює їх на частки, які в сумі дають <b>100%</b>. Більша оцінка дає непропорційно більшу частку. Це і є <b>ваги уваги</b>: «${T[w]}» віддає ${pct(A[w][t])} уваги слову «${T[t]}» і ${pct(A[w][w])} собі.`;
+    },
+    3(){ // weighted sum of V
+      const mw=Math.max(...A[w]);let acc=[0,0,0];
+      $("#scStage").innerHTML=`<div class="sc-rows">${order().map(j=>row(j,`<span class="sc-num" style="min-width:44px">${pct(A[w][j])}</span><span class="sc-op">×</span><span class="vl v">V</span>${vec(V[j],"v")}<span class="sc-op">=</span>${vec(V[j].map(x=>x*A[w][j]),"v",{op:(0.3+0.7*A[w][j]/mw).toFixed(2)})}`)).join("")}
+        <div class="sc-row total hid"><span class="sc-w">новий<small>«${T[w]}»</small></span><span class="sc-op">сума =</span><span id="scAcc">${vec(acc,"z")}</span><span class="vl" style="flex-basis:100%;padding-left:90px">був: зміст V[«${T[w]}»] = [${V[w].map(x=>x.toFixed(2)).join(", ")}]</span></div></div>`;
+      reveal(j=>{acc=acc.map((a,d)=>a+A[w][j]*V[j][d]);$("#scAcc").innerHTML=vec(acc,"z")},800);
+      const t=top();
+      $("#scExpl").innerHTML=`Новий вектор слова — це <b>суміш змісту всіх слів</b> у пропорціях з кроку 3: беремо ${pct(A[w][t])} від «${T[t]}», ${pct(A[w][w])} від себе і т. д., і додаємо. Тепер вектор «${T[w]}» несе інформацію про «${T[t]}». Це і є <b>контекст</b>. Те саме відбувається <b>для кожного слова одночасно</b> (матриці нижче) і повторюється в кожному шарі.`;
+    }
+  };
+  function show(st){timers.forEach(clearTimeout);timers=[];step=Math.max(0,Math.min(3,st));
+    $$("#scSteps button").forEach((b,i)=>{b.classList.toggle("on",i===step);b.classList.toggle("past",i<step)});
+    $$("#scWord button").forEach((b,i)=>b.setAttribute("aria-pressed",String(i===w)));
+    R[step]();}
+  $("#scSteps").addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(+b.dataset.i)});
+  $("#scWord").addEventListener("click",e=>{const b=e.target.closest("button");if(b){w=+b.dataset.i;show(step)}});
+  $("#scNext").onclick=()=>show(step+1);$("#scPrev").onclick=()=>show(step-1);$("#scReplay").onclick=()=>show(step);
+  show(0);
+})();
+
+/* ===================== 5b. matrix calculator (all words at once) ===================== */
+(function(){
+  const {T,X,WQ,WK,WV,Q,K,V,S,Ss,A,Z,tr}=CALC;
+  const D=n=>Array.from({length:n},(_,i)=>`d${i+1}`);
+  const M=(nm,m,rl,cl,o={})=>({nm,m,rl,cl,...o});
+  const steps=[
+    {t:"X",kind:"show",ops:[M("X",X,T,D(4),{sub:"ембедінги + позиції"})],ex:`Кожен токен — вектор з 4 чисел (у BERT їх 768). Це вже сума ембедінга токена і позиції. Поки що вектори «нічого не знають» про сусідів.`},
+    {t:"Q = X·W_Q",kind:"mul",ops:[M("X",X,T,D(4)),M("W_Q",WQ,D(4),D(3),{sub:"навчається"}),M("Q",Q,T,D(3),{c:"var(--tfidf)"})],ex:`<b>Запити.</b> Кожен рядок X множимо на матрицю W<sub>Q</sub>. Рядок Q[i] показує, «що шукає» токен i. Матриця W<sub>Q</sub> одна для всіх токенів.`},
+    {t:"K = X·W_K",kind:"mul",ops:[M("X",X,T,D(4)),M("W_K",WK,D(4),D(3),{sub:"навчається"}),M("K",K,T,D(3),{c:"var(--bm25)"})],ex:`<b>Ключі.</b> Той самий X, інша матриця W<sub>K</sub>. Рядок K[j] показує, «за чим знайти» токен j.`},
+    {t:"V = X·W_V",kind:"mul",ops:[M("X",X,T,D(4)),M("W_V",WV,D(4),D(3),{sub:"навчається"}),M("V",V,T,D(3),{c:"var(--aqua)"})],ex:`<b>Значення.</b> Рядок V[j] — це інформація, яку токен j передасть тим, хто на нього дивиться.`},
+    {t:"S = Q·Kᵀ",kind:"mul",ops:[M("Q",Q,T,D(3)),M("Kᵀ",tr(K),D(3),T),M("S",S,T,T,{sub:"скори"})],ex:`<b>Скори схожості.</b> S[i][j] = q<sub>i</sub>·k<sub>j</sub>, скалярний добуток запиту i і ключа j. Наведіть на клітинку, щоб побачити обчислення. Великий скор означає, що токен i зацікавлений у токені j.`},
+    {t:"S / √dₖ",kind:"scale",ops:[M("S",S,T,T),M("S/√3",Ss,T,T)],ex:`<b>Масштабування.</b> Ділимо на √d<sub>k</sub> = √3 ≈ 1.73, щоб скори не росли з розмірністю (детальніше в наступному розділі).`},
+    {t:"A = softmax",kind:"soft",ops:[M("S/√3",Ss,T,T),M("A",A,T,T,{sub:"ваги уваги",seq:true,sum:true})],ex:`<b>Softmax по рядках.</b> Кожен рядок стає розподілом ймовірностей: усі числа додатні і в сумі дають 1. Видно, що «кіт» і «молоко» дивляться переважно одне на одного, а «п'є» та «тепле» розподіляють увагу ширше.`},
+    {t:"Z = A·V",kind:"mul",ops:[M("A",A,T,T,{seq:true}),M("V",V,T,D(3)),M("Z",Z,T,D(3),{sub:"вихід",c:"var(--violet)"})],ex:`<b>Зважена сума значень.</b> Z[i] = Σ<sub>j</sub> A[i][j]·V[j]. Новий вектор «кіт» на ~48% складається зі значення «молоко». Це і є <em>контекстуалізація</em>. Далі Z іде у feed-forward і в наступний шар.`}
+  ];
+  let cur=0,anim=null;
+  const host=$("#calcMx"),dot=$("#calcDot");
+  $("#calcSteps").innerHTML=steps.map((s,i)=>`<button data-i="${i}">${i}. ${s.t}</button>`).join("");
+  const mxHtml=(o,k,hidden)=>{
+    const mx=Math.max(...o.m.flat().map(Math.abs))||1;
+    let h=`<div class="mx"><div class="nm" style="color:${o.c||"var(--ink)"}">${o.nm} <small>${o.sub||""} [${o.m.length}×${o.m[0].length}]</small></div><table><tr><th></th>${o.cl.map(c=>`<th>${esc(c)}</th>`).join("")}${o.sum?"<th>Σ</th>":""}</tr>`;
+    o.m.forEach((r,i)=>{h+=`<tr><td class="rl">${esc(o.rl[i])}</td>`+r.map((v,j)=>`<td data-k="${k}" data-i="${i}" data-j="${j}" class="${hidden?"hid":""}" style="background:${o.seq?seqCol(v):divCol(v/mx)}">${v.toFixed(2)}</td>`).join("")+(o.sum?`<td class="sum ${hidden?"hid":""}" data-k="${k}" data-i="${i}" data-j="s">${r.reduce((a,b)=>a+b,0).toFixed(2)}</td>`:"")+`</tr>`});
+    return h+`</table></div>`;
+  };
+  const cell=(k,i,j)=>host.querySelector(`td[data-k="${k}"][data-i="${i}"][data-j="${j}"]`);
+  function sources(st,i,j){ // [k,i,j] cells used to compute result (i,j)
+    const s=steps[st],a=s.ops[0];
+    if(s.kind==="mul")return[...a.m[0].map((_,t)=>[0,i,t]),...s.ops[1].m.map((_,t)=>[1,t,j])];
+    if(s.kind==="scale")return[[0,i,j]];
+    if(s.kind==="soft")return a.m[0].map((_,t)=>[0,i,t]);
+    return[];
+  }
+  function explainCell(st,i,j){
+    const s=steps[st],a=s.ops[0],r=s.ops[s.ops.length-1];
+    if(s.kind==="mul"){const b=s.ops[1];const terms=a.m[i].map((x,t)=>`${x.toFixed(2)}×${b.m[t][j].toFixed(2)}`);return `${r.nm}[${r.rl[i]}][${r.cl[j]}] = ${a.nm}[${a.rl[i]}] · ${b.nm}[:, ${b.cl[j]}] = ${terms.join(" + ")} = <b>${r.m[i][j].toFixed(2)}</b>`}
+    if(s.kind==="scale")return `${a.m[i][j].toFixed(2)} / √3 = <b>${r.m[i][j].toFixed(2)}</b>`;
+    if(s.kind==="soft"){const den=a.m[i].reduce((x,y)=>x+Math.exp(y),0);return `A[${r.rl[i]}][${r.cl[j]}] = exp(${a.m[i][j].toFixed(2)}) / Σ exp(рядок) = ${Math.exp(a.m[i][j]).toFixed(2)} / ${den.toFixed(2)} = <b>${r.m[i][j].toFixed(2)}</b>`}
+    return `X[${a.rl[i]}][${a.cl[j]}] = ${a.m[i][j].toFixed(2)}`;
+  }
+  function clearHl(){$$("td.src,td.hl",host).forEach(c=>c.classList.remove("src","hl"))}
+  function hl(st,i,j){clearHl();const rk=steps[st].ops.length-1;const c=cell(rk,i,j);if(c)c.classList.add("hl");sources(st,i,j).forEach(([k,a,b])=>{const x=cell(k,a,b);if(x)x.classList.add("src")})}
+  function render(st,animate=true){
+    clearInterval(anim);cur=st;const s=steps[st];
+    $$("#calcSteps button").forEach((b,i)=>{b.classList.toggle("on",i===st);b.classList.toggle("past",i<st)});
+    const rk=s.ops.length-1,ops=s.kind==="show"?[""]:s.kind==="mul"?["×","="]:["→"];
+    host.innerHTML=s.ops.map((o,k)=>(k?`<span class="mxop">${ops[k-1]}</span>`:"")+mxHtml(o,k,animate&&k===rk&&s.kind!=="show")).join("");
+    $("#calcExpl").innerHTML=s.ex;dot.innerHTML="&nbsp;";
+    if(animate&&s.kind!=="show"){
+      const R=s.ops[rk].m,order=[];R.forEach((r,i)=>r.forEach((_,j)=>order.push([i,j])));
+      let p=0;const step=reduceMotion?0:Math.max(60,Math.round(1600/order.length));
+      const reveal=()=>{if(p>=order.length){clearInterval(anim);clearHl();$$("td.hid",host).forEach(c=>c.classList.remove("hid"));return}const [i,j]=order[p++];hl(st,i,j);dot.innerHTML=explainCell(st,i,j);const c=cell(rk,i,j);if(c)c.classList.remove("hid");if(j===R[0].length-1){const sm=cell(rk,i,"s");if(sm)sm.classList.remove("hid")}};
+      if(step===0){while(p<order.length)reveal();reveal()}else anim=setInterval(reveal,step);
+    }
+  }
+  host.addEventListener("mouseover",e=>{const c=e.target.closest("td[data-k]");if(!c||c.classList.contains("hid")||c.dataset.j==="s")return;const s=steps[cur],k=+c.dataset.k,rk=s.ops.length-1;if(k!==rk&&s.kind!=="show")return;hl(cur,+c.dataset.i,+c.dataset.j);dot.innerHTML=explainCell(cur,+c.dataset.i,+c.dataset.j)});
+  host.addEventListener("mouseleave",()=>{clearHl()});
+  $("#calcSteps").addEventListener("click",e=>{const b=e.target.closest("button");if(b)render(+b.dataset.i)});
+  $("#calcNext").onclick=()=>render(Math.min(steps.length-1,cur+1));
+  $("#calcPrev").onclick=()=>render(Math.max(0,cur-1),false);
+  $("#calcReplay").onclick=()=>render(cur);
+  render(0,false);
+})();
+
+/* ===================== 5c. attention heatmap + masks ===================== */
+(function(){
+  const toks=ATT_TOKS,n=toks.length;
+  let sel=7,mode="bi",weights;
+  const matrix=$("#attMatrix"),sent=$("#attSelSent"),bars=$("#attBars");
+  const masked=(i,j)=>mode==="causal"&&j>i;
+  function compute(){weights=ATT_RAW.map((r,i)=>softmax(r.map((x,j)=>masked(i,j)?-Infinity:x)))}
+  const color=(v,row)=>{const mx=Math.max(...weights[row]);return seqCol(mx?v/mx:0)};
+  function render(){
+    let html=`<div class="att-lbl col"></div>`;
+    for(let j=0;j<n;j++)html+=`<div class="att-lbl col">${esc(toks[j])}</div>`;
+    for(let i=0;i<n;i++){
+      html+=`<div class="att-lbl row ${i===sel?"sel":""}" data-r="${i}">${esc(toks[i])}</div>`;
+      const mx=Math.max(...weights[i]);
+      for(let j=0;j<n;j++){const w=weights[i][j],m=masked(i,j);
+        html+=`<div class="att-cell ${i===sel?"sel":""} ${!m&&w===mx?"max":""} ${m?"masked":""}" data-r="${i}" data-c="${j}" title="${esc(toks[i])} → ${esc(toks[j])}: ${m?"замасковано":w.toFixed(3)}" style="background:${m?"":color(w,i)}"><span class="v">${m?"":w.toFixed(2)}</span></div>`}
+    }
+    matrix.style.gridTemplateColumns=`auto repeat(${n},30px)`;
+    matrix.innerHTML=html;renderSel();
+  }
+  function renderSel(){
+    const mx=Math.max(...weights[sel]);
+    sent.innerHTML=toks.map((t,i)=>{const w=weights[sel][i];return `<span class="w ${i===sel?"self":""}" style="background:${masked(sel,i)?"repeating-linear-gradient(45deg,var(--surface-2) 0 4px,var(--bg) 4px 8px)":seqCol(mx?w/mx:0)}" title="увага ${w.toFixed(3)}">${esc(t)}<small>${masked(sel,i)?"×":w.toFixed(2)}</small></span>`}).join("");
+    const ranked=toks.map((t,i)=>({t,w:weights[sel][i]})).sort((a,b)=>b.w-a.w).slice(0,4);
+    bars.innerHTML=ranked.map(({t,w})=>`<div class="att-bar"><span style="font-family:'IBM Plex Mono',monospace">${esc(t)}</span><div class="tr"><div class="fl" style="width:${Math.round(w/mx*100)}%"></div></div><span class="n">${w.toFixed(3)}</span></div>`).join("");
+    $("#maskNote").innerHTML=mode==="bi"?`BERT: «${esc(toks[sel])}» бачить і ліві, і праві слова. Тому «it» може дивитися на «animal» (ліворуч) і на «tired» (праворуч).`:`GPT: токен бачить лише себе і попередні слова, бо майбутнього під час генерації ще немає. Замасковані скори = −∞, після softmax вони дають 0. ${sel===0?"Перше слово бачить тільки себе!":""}`;
+  }
+  matrix.addEventListener("click",e=>{const c=e.target.closest("[data-r]");if(!c)return;sel=+c.dataset.r;render()});
+  matrix.addEventListener("mouseover",e=>{const c=e.target.closest(".att-cell,.att-lbl.row");if(c&&+c.dataset.r!==sel){sel=+c.dataset.r;$$(".att-lbl.row",matrix).forEach(l=>l.classList.toggle("sel",+l.dataset.r===sel));$$(".att-cell",matrix).forEach(x=>x.classList.toggle("sel",+x.dataset.r===sel));renderSel()}});
+  $$("#maskMode button").forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$("#maskMode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));compute();render()});
+  compute();render();
+})();
+
+/* ===================== 6. sqrt(d_k) ===================== */
+(function(){
+  const DK=[4,8,16,32,64,128,256,512,1024],sl=$("#dk"),chk=$("#dkScale");let seed=7;
+  function run(){
+    const d=DK[+sl.value];$("#dkV").textContent=d;
+    const r=rng(seed),q=Array.from({length:d},()=>gauss(r)),ks=Array.from({length:8},()=>Array.from({length:d},()=>gauss(r)));
+    const raw=ks.map(k=>k.reduce((s,x,i)=>s+x*q[i],0)),sc=chk.checked?raw.map(x=>x/Math.sqrt(d)):raw;
+    const p=softmax(sc),top=Math.max(...p);
+    $("#softbars").innerHTML=p.map((w,i)=>`<div class="softbar"><span style="font-family:'IBM Plex Mono',monospace;font-size:.92em">k${i+1} · скор ${sc[i].toFixed(1)}</span><div class="tr"><div class="fl" style="width:${(w/top*100).toFixed(1)}%;background:${w===top?"var(--bm25)":"var(--tfidf)"}"></div></div><span class="n">${(w*100).toFixed(1)}%</span></div>`).join("");
+    const mean=sc.reduce((a,b)=>a+b,0)/8,std=Math.sqrt(sc.reduce((a,b)=>a+(b-mean)**2,0)/8);
+    $("#dkStd").textContent=std.toFixed(1);$("#dkMax").textContent=(top*100).toFixed(1)+"%";
+    $("#dkEnt").textContent=(-p.reduce((a,x)=>a+(x>0?x*Math.log(x):0),0)).toFixed(2);
+  }
+  sl.addEventListener("input",run);chk.addEventListener("change",run);$("#dkNew").onclick=()=>{seed=(seed*7919+13)%100003;run()};run();
+})();
+
+/* ===================== 7. multi-head ===================== */
+(function(){
+  const toks=["[CLS]","the","animal","didn't","cross","the","street","because","it","was","too","tired","[SEP]"],n=toks.length;
+  const ix=t=>toks.indexOf(t);
+  const pairs=(list,base)=>(i,j)=>{for(const [a,b,v] of list)if(i===a&&j===b)return v;return base(i,j)};
+  const heads=[
+    {n:"попереднє слово",c:"--tfidf",f:(i,j)=>j===Math.max(0,i-1)?6:0,ex:`Кожен токен дивиться на <b>попередній</b>. Така голова дає моделі локальний порядок слів і збирає біграми.`},
+    {n:"наступне слово",c:"--bm25",f:(i,j)=>j===Math.min(n-1,i+1)?6:0,ex:`Дзеркальна голова: кожен токен дивиться на <b>наступний</b>. BERT двонаправлений, тому може так робити, а GPT не може.`},
+    {n:"кореференція",c:"--violet",f:pairs([[8,2,7],[11,2,5],[9,8,4],[2,2,3]],(i,j)=>j===n-1?2.5:j===i?2:0),ex:`«<b>it</b>» дивиться на «<b>animal</b>», а «tired» теж посилається на «animal». Саме такі голови Clark et al. знайшли в BERT для зв'язування займенників.`},
+    {n:"[SEP] / «нічого»",c:"--ink-2",f:(i,j)=>j===n-1?6:j===i?1:0,ex:`Майже всі токени дивляться на <b>[SEP]</b>. Це поширений патерн, так голова каже «мені тут нічого не потрібно» (no-op). У реальних BERT таких голів багато.`},
+    {n:"синтаксис",c:"--aqua",f:pairs([[2,4,5],[4,2,4],[4,6,4.5],[6,4,4],[1,2,5],[5,6,5],[11,9,4],[9,11,3.5],[10,11,5],[7,4,3.5],[8,9,4],[3,4,5]],(i,j)=>j===i?1.5:0),ex:`Зв'язки «підмет → дієслово → додаток»: animal → cross → street, артикль → іменник, too → tired. Голова фактично відновлює дерево залежностей.`},
+    {n:"широкий контекст",c:"--rose",f:(i,j)=>j===i?1.5:j===0?1.2:1,ex:`Увага розподілена <b>майже рівномірно</b>: голова збирає «середній зміст» речення. Таке характерно для нижніх шарів.`}
+  ];
+  heads.forEach(h=>h.W=Array.from({length:n},(_,i)=>softmax(Array.from({length:n},(_,j)=>h.f(i,j)))));
+  let cur=2,all=false,hov=-1;const svg=$("#mhSvg");
+  $("#mhHeads").innerHTML=heads.map((h,i)=>`<button data-h="${i}"><span class="sw" style="background:var(${h.c})"></span>${i+1} · ${h.n}</button>`).join("")+`<button data-h="all"><span class="sw" style="background:conic-gradient(var(--tfidf),var(--bm25),var(--violet),var(--aqua),var(--rose),var(--tfidf))"></span>усі голови</button>`;
+  $("#mhThumbs").innerHTML=heads.map((h,i)=>`<div class="thumb" data-h="${i}"><canvas width="${n}" height="${n}"></canvas><div class="t">${i+1} · ${h.n}</div></div>`).join("");
+  function thumbs(){
+    const bg=hexRgb(cssVar("--surface-2"));
+    $$("#mhThumbs .thumb").forEach((t,hi)=>{const cx=$("canvas",t).getContext("2d"),h=heads[hi],col=hexRgb(cssVar(h.c));
+      for(let i=0;i<n;i++){const mx=Math.max(...h.W[i]);for(let j=0;j<n;j++){const c=mixRgb(bg,col,h.W[i][j]/mx);cx.fillStyle=`rgb(${c})`;cx.fillRect(j,i,1,1)}}
+      t.classList.toggle("on",!all&&hi===cur)});
+  }
+  function draw(){
+    const y=i=>22+i*31;let g="";
+    const list=all?heads.map((_,i)=>i):[cur];
+    list.forEach(hi=>{const h=heads[hi];for(let i=0;i<n;i++){if(hov>=0&&i!==hov)continue;for(let j=0;j<n;j++){const w=h.W[i][j];if(w<0.04)continue;
+      g+=`<path d="M122 ${y(i)} C210 ${y(i)} 210 ${y(j)} 298 ${y(j)}" style="fill:none;stroke:var(${h.c});stroke-width:${(w*(all?5:7)).toFixed(1)};opacity:${((all?0.45:0.85)*Math.min(1,w*1.4)+0.05).toFixed(2)};stroke-linecap:round"/>`}}});
+    toks.forEach((t,i)=>{g+=`<text data-i="${i}" x="114" y="${y(i)+4}" text-anchor="end" style="cursor:pointer;${i===hov?"font-weight:700":""}">${esc(t)}</text><text x="306" y="${y(i)+4}">${esc(t)}</text>`});
+    g+=`<text class="mut" x="114" y="420" text-anchor="end">запити (Q)</text><text class="mut" x="306" y="420">ключі (K)</text>`;
+    svg.innerHTML=g;
+    $$("#mhHeads button").forEach(b=>b.setAttribute("aria-pressed",String(all?b.dataset.h==="all":b.dataset.h===String(cur))));
+    $("#mhExpl").innerHTML=all?`<b>Усі 6 голів разом.</b> Кожна бачить свій тип зв'язку. Їхні виходи (по 64 виміри) склеюються в один вектор 768 і проходять через W<sup>O</sup>. Так один шар одночасно враховує синтаксис, сусідів і кореференцію.`:heads[cur].ex;
+    thumbs();
+  }
+  $("#mhHeads").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.h==="all")all=true;else{all=false;cur=+b.dataset.h}draw()});
+  $("#mhThumbs").addEventListener("click",e=>{const t=e.target.closest(".thumb");if(!t)return;all=false;cur=+t.dataset.h;draw()});
+  svg.addEventListener("mouseover",e=>{const t=e.target.closest("text[data-i]");const v=t?+t.dataset.i:-1;if(v!==hov&&t){hov=v;draw()}});
+  svg.addEventListener("mouseleave",()=>{hov=-1;draw()});
+  redraws.push(thumbs);draw();
+  // split d_model into heads
+  const H=[1,2,4,6,8,12,16,24],cols=["--tfidf","--bm25","--violet","--aqua","--rose","--olive"],sl=$("#hR");
+  function split(){const h=H[+sl.value],d=768/h;$("#hV").textContent=h;
+    $("#splitBar").innerHTML=Array.from({length:h},(_,i)=>`<div style="background:var(${cols[i%cols.length]})">${h<=12?d:""}</div>`).join("");
+    $("#splitTxt").innerHTML=`h = ${h} → d<sub>k</sub> = 768 / ${h} = <b>${d}</b> на голову · параметри W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>, W<sup>O</sup> = 4 · 768² ≈ 2.36 млн, <b>незалежно від h</b>`}
+  sl.addEventListener("input",split);split();
+})();
+
+/* ===================== 8. positional encoding ===================== */
+const PE=(pos,dim,d)=>{const i=Math.floor(dim/2),a=pos/Math.pow(10000,2*i/d);return dim%2?Math.cos(a):Math.sin(a)};
+(function(){
+  const col2dim=c=>c<64?2*c:2*(c-64)+1;
+  const cv=$("#peHeat"),cx=cv.getContext("2d"),P=64,D=128,cw=cv.width/D,ch=cv.height/P;
+  function draw(){
+    const neg=hexRgb(cssVar("--tfidf")),pos=hexRgb(cssVar("--bm25")),mid=hexRgb(cssVar("--surface-2"));
+    for(let p=0;p<P;p++)for(let d=0;d<D;d++){const v=PE(p,col2dim(d),D);const c=v>=0?mixRgb(mid,pos,v):mixRgb(mid,neg,-v);cx.fillStyle=`rgb(${c})`;cx.fillRect(d*cw,p*ch,cw,ch)}
+  }
+  cv.addEventListener("mousemove",e=>{const r=cv.getBoundingClientRect();let d=Math.floor((e.clientX-r.left)/r.width*D),p=Math.floor((e.clientY-r.top)/r.height*P);if(d<0||p<0||d>=D||p>=P)return;const c=d;d=col2dim(c);
+    $("#peHeatInfo").innerHTML=`pos = ${p} · вимір ${d} (${d%2?"cos":"sin"}, i = ${Math.floor(d/2)}) · PE = <b>${PE(p,d,D).toFixed(3)}</b> · довжина хвилі ≈ ${(2*Math.PI*Math.pow(10000,2*Math.floor(d/2)/D)).toFixed(1)} позицій`});
+  redraws.push(draw);draw();
+  const inp=$("#peI");
+  function run(){const i=+inp.value;$("#peIV").textContent=i;const d=64,f=Math.pow(10000,2*i/d);
+    lineChart($("#peChart"),{xMin:0,xMax:100,yMin:-1.1,yMax:1.1,xName:"pos",snap:Math.round,xLabel:"позиція",yLabel:"PE",yTicks:[-1,-0.5,0,0.5,1],
+      series:[{fn:x=>Math.sin(x/f),cls:"s1",color:C.a,name:`sin, dim ${2*i}`},{fn:x=>Math.cos(x/f),cls:"s2",color:C.b,name:`cos, dim ${2*i+1}`}]})}
+  inp.addEventListener("input",run);redraws.push(run);run();
+  const ps=$("#peSim");
+  function sim(){const p=+ps.value;$("#peSimV").textContent=p;const d=64;const f=x=>{let s=0;for(let i=0;i<d/2;i++)s+=Math.cos((p-x)/Math.pow(10000,2*i/d));return s};
+    lineChart($("#peSimChart"),{xMin:0,xMax:100,yMin:-4,yMax:34,xName:"x",snap:Math.round,xLabel:"позиція x",yLabel:"PE(p)·PE(x)",yTicks:[0,8,16,24,32],
+      series:[{fn:f,cls:"s5",color:C.d,name:"схожість"}],markers:[{x:p,y:32,color:C.d}]})}
+  ps.addEventListener("input",sim);redraws.push(sim);sim();
+})();
+
+/* ===================== 9. transformer block flow ===================== */
+(function(){
+  const toks=["[CLS]","кіт","п'є","молоко","[SEP]"],T=toks.length,D=8,r=rng(42);
+  const X0=Array.from({length:T},(_,i)=>Array.from({length:D},(_,j)=>Math.max(-1,Math.min(1,Math.sin(i*1.7+j*(0.6+i*0.15))*0.9+gauss(r)*0.15))));
+  const LN=v=>{const m=v.reduce((a,b)=>a+b,0)/v.length,s=Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length)+1e-5;return v.map(x=>(x-m)/s*0.55)};
+  const Wf=Array.from({length:D},()=>Array.from({length:D},()=>gauss(r)*0.6));
+  const At=X0.map(a=>softmax(X0.map(b=>a.reduce((s,x,k)=>s+x*b[k],0)*0.9)));
+  const Y=At.map(w=>Array.from({length:D},(_,j)=>w.reduce((s,wi,k)=>s+wi*X0[k][j],0)));
+  const X1=X0.map((x,i)=>LN(x.map((v,j)=>v+Y[i][j])));
+  const F=X1.map(x=>Wf[0].map((_,j)=>Math.tanh(x.reduce((s,v,k)=>s+v*Wf[k][j],0))));
+  const X2=X1.map((x,i)=>LN(x.map((v,j)=>v+F[i][j])));
+  const states=[X0,Y,X1,F,X2,X2];
+  const info=[
+    {t:"Вхід",ex:`Кожен рядок — вектор одного токена: <b>ембедінг токена + позиції + сегмента</b>. Рядки поки незалежні, вектор «молоко» нічого не знає про «кіт».`,st:[["ембедінги BERT","23.8 млн"],["форма","[B, T, 768]"]]},
+    {t:"Multi-Head Attention",ex:`<b>Рядки змішуються.</b> Кожен новий рядок — зважена сума рядків-значень усіх токенів. Кольори рядків стали схожими, бо токени обмінялися інформацією. Це єдине місце в блоці, де токени «спілкуються».`,st:[["параметри","2 362 368"],["W_Q, W_K, W_V, W_O","4 × 768×768 + bias"]]},
+    {t:"Add & LayerNorm",ex:`<b>Residual:</b> до виходу уваги додаємо вхід x, тож старий зміст не губиться. <b>LayerNorm</b> нормалізує кожен рядок до середнього 0 і дисперсії 1.`,st:[["параметри","1 536 (γ, β)"],["форма","[B, T, 768]"]]},
+    {t:"Feed-Forward",ex:`<b>Кожен рядок окремо.</b> Той самий двошаровий MLP (768 → 3072 → 768, GELU) застосовується до кожного токена незалежно. Змінюється «зміст» вектора, але обміну між токенами немає. Тут зосереджено ~2/3 параметрів шару, і тут, за дослідженнями, зберігається багато «фактів».`,st:[["параметри","4 722 432"],["розмір прихованого шару","3072 = 4 × 768"]]},
+    {t:"Add & LayerNorm",ex:`Знову residual і нормалізація. Вихід має ту саму форму, що й вхід, тому блоки можна ставити один на одного скільки завгодно разів.`,st:[["параметри","1 536"],["разом за шар","≈ 7.09 млн"]]},
+    {t:"Вихід шару",ex:`Контекстуальні вектори йдуть у наступний блок. Після 12 блоків BERT-base віддає <code>last_hidden_state</code>: по вектору 768 на кожен токен.`,st:[["12 шарів","≈ 85 млн"],["+ ембедінги","≈ 110 млн разом"]]}
+  ];
+  const grid=$("#tensor");grid.style.gridTemplateColumns=`repeat(${D},1fr)`;
+  grid.innerHTML=Array.from({length:T*D},()=>"<div></div>").join("");
+  $("#tensorRows").innerHTML=toks.map(t=>`<div style="height:0;flex:1;display:flex;align-items:center;justify-content:flex-end">${t}</div>`).join("");
+  const cells=$$("div",grid);
+  function sizeRows(){const h=cells[0].getBoundingClientRect().height;$$("#tensorRows div").forEach(d=>{d.style.height=h+"px";d.style.flex="none"})}
+  function show(s){
+    const k=Math.max(0,s),M=states[k];
+    M.forEach((r,i)=>r.forEach((v,j)=>cells[i*D+j].style.background=divCol(v)));
+    $$("#encFlow .fb").forEach(b=>b.classList.toggle("on",+b.dataset.s===s));
+    $("#encExpl").innerHTML=s<0?`Натисніть «Програти» або клацніть блок ліворуч. Сітка показує тензор [T = ${T} токенів × d = ${D}] (у BERT d = 768).`:`<b>${info[s].t}.</b> ${info[s].ex}`;
+    $("#encStats").innerHTML=s<0?"":info[s].st.map(([l,v])=>`<div class="stat"><div class="l">${l}</div><div class="v" style="font-size:1em">${v}</div></div>`).join("");
+    $("#encInfo").textContent=s<0?"":`етап ${s+1} / 6`;
+  }
+  const pl=player({n:6,show,ms:2200,play:$("#encPlay"),step:$("#encStep"),reset:$("#encReset")});
+  $$("#encFlow .fb").forEach(b=>b.onclick=()=>{pl.stop();pl.go(+b.dataset.s)});
+  function residuals(){
+    const fc=$("#encFlow").getBoundingClientRect(),R=s=>$(`#encFlow .fb[data-s="${s}"]`).getBoundingClientRect();
+    const place=(el,a,b)=>{el.style.top=(a-fc.top)+"px";el.style.height=Math.max(10,b-a)+"px"};
+    place($("#res1"),R(1).top-8,R(2).top+R(2).height/2);place($("#res2"),R(3).top-8,R(4).top+R(4).height/2);
+    sizeRows();
+  }
+  redraws.push(residuals);pl.go(-1);requestAnimationFrame(residuals);
+  if(document.fonts)document.fonts.ready.then(residuals);
+})();
+
+/* ===================== 10. architecture families ===================== */
+(function(){
+  const N=6,mini=f=>`<div class="mini">${Array.from({length:N*N},(_,k)=>`<i class="${f(Math.floor(k/N),k%N)?"on":""}"></i>`).join("")}</div>`;
+  const A=[
+    {k:"Encoder-only",h:"BERT, RoBERTa, XLM-R",m:mini(()=>1),p:`Повна маска: кожен токен бачить усі. Підходить для класифікації, NER і ембедінгів для пошуку.`},
+    {k:"Decoder-only",h:"GPT, Llama, Qwen",m:mini((i,j)=>j<=i),p:`Каузальна маска (трикутник): токен бачить себе і минуле. Модель передбачає наступний токен, тобто генерує текст. Так влаштовані сучасні LLM.`},
+    {k:"Encoder-decoder",h:"Transformer (2017), T5, BART",m:`<div style="display:flex;gap:10px;align-items:center">${mini(()=>1)}<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace">+</span>${mini((i,j)=>j<=i)}</div>`,p:`Енкодер читає вхід повністю, а декодер генерує вихід каузально і через <b>cross-attention</b> дивиться на енкодер (як у розділі 3). Використовується для перекладу й сумаризації.`}
+  ];
+  $("#archs").innerHTML=A.map(a=>`<div class="card"><div class="k">${a.k}</div><h4>${a.h}</h4>${a.m}<p>${a.p}</p></div>`).join("");
+})();
+
+/* ===================== 11. MLM ===================== */
+(function(){
+  const P=[
+    {s:"the capital of france is paris .",m:{paris:[["paris",.42],["lille",.05],["lyon",.04],["marseille",.02],["tours",.02]],france:[["france",.87],["paris",.03],["french",.02],["europe",.01],["burgundy",.01]],capital:[["capital",.71],["city",.06],["seat",.03],["heart",.02],["center",.02]]}},
+    {s:"the man went to the store to buy some milk .",m:{store:[["store",.48],["market",.14],["shop",.09],["supermarket",.06],["bakery",.03]],milk:[["food",.18],["milk",.12],["bread",.09],["groceries",.08],["water",.05]],man:[["man",.31],["woman",.12],["boy",.08],["girl",.06],["guy",.03]]}},
+    {s:"she played the piano at the concert .",m:{piano:[["piano",.62],["guitar",.11],["violin",.08],["drums",.04],["organ",.03]],concert:[["concert",.33],["festival",.08],["party",.06],["show",.05],["wedding",.04]],she:[["she",.71],["he",.24],["i",.02],["they",.01],["we",.01]]}}
+  ];
+  let pi=0,mi=-1;
+  $("#mlmPresets").innerHTML=P.map((p,i)=>`<button data-i="${i}" aria-pressed="${i===0}">${i+1}. ${p.s.split(" ").slice(0,4).join(" ")}…</button>`).join("");
+  function render(){
+    const w=P[pi].s.split(" "),m=P[pi].m;
+    $("#mlmSent").innerHTML=`<span class="w" style="background:var(--tfidf);color:#fff">[CLS]</span>`+w.map((t,i)=>`<span class="w ${i===mi?"m":m[t]?"can":""}" data-i="${i}">${i===mi?"[MASK]":esc(t)}</span>`).join("")+`<span class="w" style="background:var(--bm25);color:#fff">[SEP]</span>`;
+    if(mi<0){$("#mlmBars").innerHTML=`<p style="color:var(--muted);font-size:.9em">Клацніть виділене синім слово.</p>`;return}
+    const pr=m[w[mi]],top=pr[0][1];
+    $("#mlmBars").innerHTML=`<div style="font-size:.82em;color:var(--muted);margin-bottom:4px">Голова MLM: вектор [MASK] → Linear(768 → 30 522) → softmax. Топ-5:</div>`+pr.map(([t,p])=>`<div class="softbar"><span style="font-family:'IBM Plex Mono',monospace">${t}${t===w[mi]?" ✓":""}</span><div class="tr"><div class="fl" style="width:${p/top*100}%;background:${t===w[mi]?"var(--aqua)":"var(--tfidf)"}"></div></div><span class="n">${(p*100).toFixed(0)}%</span></div>`).join("");
+  }
+  $("#mlmSent").addEventListener("click",e=>{const t=e.target.closest(".w[data-i]");if(!t)return;const i=+t.dataset.i;if(!P[pi].m[P[pi].s.split(" ")[i]])return;mi=mi===i?-1:i;render()});
+  $("#mlmPresets").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;pi=+b.dataset.i;mi=-1;$$("#mlmPresets button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));render()});
+  mi=5;render();
+  // 15% → 80/10/10
+  const words="the quick brown fox jumps over the lazy dog while the old farmer watches from a wooden fence near the river".split(" ");
+  const vocab=["apple","run","blue","house","seven","green","sing","table","cloud","river","fast"];
+  function roll(){
+    let sel=words.map(()=>Math.random()<0.15);if(sel.filter(Boolean).length<2){sel[3]=true;sel[11]=true}
+    $("#maskSent").innerHTML=words.map((w,i)=>{if(!sel[i])return `<span class="w">${w}</span>`;const r=Math.random();
+      if(r<0.8)return `<span class="w m">[MASK]<small>${w}</small></span>`;
+      if(r<0.9)return `<span class="w r">${vocab[Math.floor(Math.random()*vocab.length)]}<small>${w}</small></span>`;
+      return `<span class="w k">${w}<small>${w}</small></span>`}).join("");
+  }
+  $("#maskRoll").onclick=roll;roll();
+})();
+
+/* ===================== 12a. BERT input embeddings ===================== */
+(function(){
+  const a=$("#bertA"),b=$("#bertB");
+  const tok=s=>s.toLowerCase().match(/[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu)||[];
+  const vec=(key,scale=1)=>{const r=rng(hashStr(key));return Array.from({length:6},()=>Math.max(-1,Math.min(1,gauss(r)*0.55*scale)))};
+  const vv=(v,c)=>`<div class="vv ${c}">${v.map(x=>`<i style="background:${divCol(x)}"></i>`).join("")}</div>`;
+  function run(){
+    const all=[["[CLS]",0],...tok(a.value).map(w=>[w,0]),["[SEP]",0],...tok(b.value).map(w=>[w,1]),["[SEP]",1]].slice(0,40);
+    $("#bertSeq").innerHTML=all.map(([w,s],p)=>`<span class="tok ${w==="[CLS]"?"cls":w==="[SEP]"?"sep":""}">${esc(w)}<small>pos ${p} · seg ${s}</small></span>`).join("");
+    $("#bertVecs").innerHTML=all.map(([w,s],p)=>{const t=vec("t"+w),ps=vec("p"+p,0.6),sg=vec("s"+s,0.4),sum=t.map((x,i)=>x+ps[i]+sg[i]);
+      return `<div class="tk"><span class="nm" title="${esc(w)}">${esc(w)}</span>${vv(t,"a")}<span class="op">+</span>${vv(ps,"b")}<span class="op">+</span>${vv(sg,"c")}<span class="op">=</span>${vv(sum,"s")}</div>`}).join("");
+  }
+  a.addEventListener("input",run);b.addEventListener("input",run);run();
+})();
+
+/* ===================== 12b. contextual embeddings: «коса» ===================== */
+(function(){
+  const S=[
+    {t:"заплела довгу косу",g:0},{t:"руса коса до пояса",g:0},{t:"коса з синьою стрічкою",g:0},
+    {t:"наточив косу",g:1},{t:"косою косили траву",g:1},{t:"коса дзвенить у полі",g:1},
+    {t:"піщана коса в морі",g:2},{t:"відпочивали на косі",g:2},{t:"Арабатська коса",g:2}];
+  const G=[{n:"зачіска",c:"var(--tfidf)",x:160,y:80},{n:"інструмент",c:"var(--bm25)",x:545,y:80},{n:"смуга суходолу",c:"var(--aqua)",x:380,y:225}];
+  const off=[[-50,-12],[40,16],[-10,42]];
+  const target=m=>S.map((s,i)=>m?[G[s.g].x+off[i%3][0],G[s.g].y+off[i%3][1]]:[380+(i%3-1)*3,150+(Math.floor(i/3)-1)*3]);
+  let mode=0,pos=target(0),raf=null;const svg=$("#kosaSvg");
+  function draw(){
+    let g="";
+    if(mode)G.forEach(c=>g+=`<circle cx="${c.x}" cy="${c.y+10}" r="84" style="fill:${c.c};opacity:.07"/><text x="${c.x}" y="${c.y-62}" text-anchor="middle" style="fill:${c.c};font-weight:600">${c.n}</text>`);
+    S.forEach((s,i)=>{const [x,y]=pos[i];g+=`<circle cx="${x}" cy="${y}" r="7" style="fill:${G[s.g].c};stroke:var(--surface);stroke-width:2"><title>${s.t}</title></circle>`;if(mode)g+=`<text class="mut" x="${x+10}" y="${y+4}">${s.t}</text>`});
+    if(!mode)g+=`<text x="400" y="154" style="font-size:13px">← «коса»: один і той самий вектор для всіх 9 речень</text>`;
+    svg.innerHTML=g;
+  }
+  function go(m){mode=m;const from=pos.map(p=>[...p]),to=target(m),t0=performance.now(),dur=reduceMotion?0:900;cancelAnimationFrame(raf);
+    const f=now=>{const k=dur?Math.min(1,(now-t0)/dur):1,e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;pos=from.map((p,i)=>[p[0]+(to[i][0]-p[0])*e,p[1]+(to[i][1]-p[1])*e]);draw();if(k<1)raf=requestAnimationFrame(f)};raf=requestAnimationFrame(f)}
+  $$("#kosaMode button").forEach(b=>b.onclick=()=>{$$("#kosaMode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));go(+b.dataset.m)});
+  draw();
+})();
+
+/* ===================== 12c. fine-tuning heads ===================== */
+(function(){
+  const T=(t,lab,cls="")=>`<div class="t ${cls}">${esc(t)}${lab!==undefined?`<small>${esc(lab)}</small>`:""}</div>`;
+  const tasks=[
+    {n:"Класифікація речення",cls:"AutoModelForSequenceClassification",
+     v:()=>`<div class="ftrow">${T("[CLS]","→ голова","cls")}${["i","love","this","movie","!","[SEP]"].map(t=>T(t)).join("")}</div><p>Беремо <b>лише вектор [CLS]</b> (768) → Linear(768 → кількість класів) → softmax → <b style="color:var(--aqua)">POSITIVE 0.99</b>. Задачі: тональність, спам, тематика.</p>`},
+    {n:"NER: мітки токенів",cls:"AutoModelForTokenClassification",
+     v:()=>`<div class="ftrow">${T("[CLS]","—")}${T("taras","B-PER","hot")}${T("lives","O")}${T("in","O")}${T("kyiv","B-LOC","hot")}${T("[SEP]","—")}</div><p><b>Кожен токен</b> → Linear(768 → кількість міток). Модель передбачає мітку для кожної позиції (BIO-схема: B- початок сутності, I- продовження, O поза сутністю). Якщо слово розбилося на субслова, мітку зазвичай беруть з першого.</p>`},
+    {n:"Питання → відповідь",cls:"AutoModelForQuestionAnswering",
+     v:()=>`<div class="ftrow">${T("[CLS]")}${["where","does","taras","live","?"].map(t=>T(t,"seg 0")).join("")}${T("[SEP]")}${T("taras","seg 1")}${T("lives","seg 1")}${T("in","seg 1")}${T("kyiv","START","hot")}${T(",","seg 1")}${T("ukraine","END","hot")}${T("[SEP]")}</div><p>Питання і текст подаються як пара речень. Для кожного токена контексту голова дає два числа: <b>start</b> і <b>end</b> logits. Відповідь — проміжок між найкращими start і end: «kyiv, ukraine».</p>`},
+    {n:"Пара речень (NLI)",cls:"AutoModelForSequenceClassification",
+     v:()=>`<div class="ftrow">${T("[CLS]","→ голова","cls")}${["a","man","plays","guitar"].map(t=>T(t,"A")).join("")}${T("[SEP]")}${["a","person","makes","music"].map(t=>T(t,"B")).join("")}${T("[SEP]")}</div><p>Два речення в одному вході, розрізнені segment-ембедінгом. Увага бачить обидва одночасно, тож може порівнювати їх слово до слова. [CLS] → <b style="color:var(--aqua)">ENTAILMENT</b> (з A випливає B).</p>`},
+    {n:"Ембедінги для пошуку",cls:"AutoModel + mean pooling",
+     v:()=>`<div class="ftrow">${T("[CLS]","v₀")}${["cheap","flights","to","lviv"].map((t,i)=>T(t,`v${i+1}`,"hot")).join("")}${T("[SEP]","v₅")}</div><p>Голови немає: усереднюємо вектори токенів (mean pooling) і отримуємо один вектор речення. Близькі за змістом тексти дають близькі вектори. Для якісного пошуку модель додатково вчать на парах «запит – документ» (sentence-transformers, E5).</p>`}
+  ];
+  let cur=0;
+  $("#ftTabs").innerHTML=tasks.map((t,i)=>`<button data-i="${i}">${t.n}</button>`).join("");
+  function show(i){cur=i;$$("#ftTabs button").forEach((b,k)=>b.setAttribute("aria-pressed",String(k===i)));$("#ftView").innerHTML=tasks[i].v()+`<div class="dotexp">клас: <b>${tasks[i].cls}</b></div>`}
+  $("#ftTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(+b.dataset.i)});
+  show(0);
+})();
+
+/* ===================== 14a. Hub repo anatomy ===================== */
+(function(){
+  const F=[
+    {n:"README.md",s:"10 kB",lang:"markdown",c:`---
+language: en
+license: apache-2.0
+datasets: [bookcorpus, wikipedia]
+tags: [exbert]
+---
+# BERT base model (uncased)
+
+Pretrained model on English language using a masked
+language modeling (MLM) objective. ...
+
+## Intended uses & limitations
+## How to use
+## Training data
+## Limitations and bias`,ex:`<b>Model card.</b> Метадані у YAML (мова, ліцензія, датасети) потрібні для пошуку на Hub. Нижче йде опис: як навчали, для чого використовувати, обмеження і упередження (bias). Перед використанням моделі читайте саме його.`},
+    {n:"config.json",s:"570 B",lang:"json",c:`{
+  "architectures": ["BertForMaskedLM"],
+  "model_type": "bert",
+  "vocab_size": 30522,
+  "hidden_size": 768,
+  "num_hidden_layers": 12,
+  "num_attention_heads": 12,
+  "intermediate_size": 3072,
+  "hidden_act": "gelu",
+  "max_position_embeddings": 512,
+  "type_vocab_size": 2,
+  "position_embedding_type": "absolute",
+  "hidden_dropout_prob": 0.1,
+  "attention_probs_dropout_prob": 0.1,
+  "layer_norm_eps": 1e-12,
+  "pad_token_id": 0
+}`,ex:`<b>Архітектура в числах.</b> Тут усе з лекції: <code>num_attention_heads</code> 12 (розділ 6), <code>intermediate_size</code> 3072 — прихований шар FFN (розділ 8), <code>max_position_embeddings</code> 512 — навчені позиції (розділ 7), <code>type_vocab_size</code> 2 — сегменти A/B. <code>AutoModel</code> читає <code>model_type</code> і обирає клас.`},
+    {n:"model.safetensors",s:"440 MB",lang:"text",c:`# 110M чисел float32 × 4 байти ≈ 440 MB (скорочено)
+bert.embeddings.word_embeddings.weight        [30522, 768]
+bert.embeddings.position_embeddings.weight    [512, 768]
+bert.embeddings.token_type_embeddings.weight  [2, 768]
+bert.encoder.layer.0.attention.self.query.weight   [768, 768]
+bert.encoder.layer.0.attention.self.key.weight     [768, 768]
+bert.encoder.layer.0.attention.self.value.weight   [768, 768]
+bert.encoder.layer.0.attention.output.dense.weight [768, 768]
+bert.encoder.layer.0.intermediate.dense.weight     [3072, 768]
+bert.encoder.layer.0.output.dense.weight           [768, 3072]
+...
+bert.encoder.layer.11.output.LayerNorm.weight      [768]
+bert.pooler.dense.weight                           [768, 768]`,ex:`<b>Ваги.</b> Іменовані тензори: query / key / value — це наші W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub>, а intermediate / output — два шари FFN. Формат safetensors не виконує коду під час завантаження і читається з диска без копіювання. Старий <code>pytorch_model.bin</code> (pickle) може містити шкідливий код.`},
+    {n:"tokenizer.json",s:"466 kB",lang:"json",c:`{
+  "normalizer":     {"type": "BertNormalizer", "lowercase": true, ...},
+  "pre_tokenizer":  {"type": "BertPreTokenizer"},
+  "model": {
+    "type": "WordPiece",
+    "unk_token": "[UNK]",
+    "continuing_subword_prefix": "##",
+    "vocab": {"[PAD]": 0, ..., "[CLS]": 101, "[SEP]": 102, "[MASK]": 103, ...}
+  },
+  "post_processor": {"type": "TemplateProcessing",
+    "single": "[CLS] $A [SEP]", "pair": "[CLS] $A [SEP] $B [SEP]"}
+}`,ex:`<b>Швидкий токенізатор</b> (бібліотека tokenizers, Rust) зі всіма етапами з лекції 03: нормалізація → претокенізація → модель WordPiece → постобробка. Саме <code>post_processor</code> додає [CLS] і [SEP]. <a href="./03-bpe-tokenizers.html#s6">↩ Лекція 03: власний токенізатор</a>`},
+    {n:"vocab.txt",s:"232 kB",lang:"text",c:`0     [PAD]
+1     [unused0]
+...
+100   [UNK]
+101   [CLS]
+102   [SEP]
+103   [MASK]
+...
+1996  the
+1997  of
+1998  and
+...
+2293  love
+...
+30521 ##～`,ex:`<b>Словник WordPiece</b>: 30 522 рядки, номер рядка дорівнює id токена. Звідси числа 101 і 102 для [CLS] і [SEP]. Рядки <code>[unusedN]</code> зарезервовано для ваших власних спецтокенів.`},
+    {n:"tokenizer_config.json",s:"48 B",lang:"json",c:`{"do_lower_case": true}`,ex:`Налаштування токенізатора. Модель «uncased», тому весь текст переводиться в нижній регістр. У нових репозиторіях тут ще вказують <code>model_max_length</code> і спецтокени.`}
+  ];
+  $("#repoFiles").innerHTML=F.map((f,i)=>`<button data-i="${i}"><span>${f.n}</span><span>${f.s}</span></button>`).join("");
+  function show(i){const f=F[i];$$("#repoFiles button").forEach((b,k)=>b.setAttribute("aria-pressed",String(k===i)));
+    $("#repoView").innerHTML=`<pre class="code" data-lang="${f.lang}"><code>${esc(f.c)}</code></pre><p style="font-size:.9em;color:var(--ink-2)">${f.ex}</p>`}
+  $("#repoFiles").addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(+b.dataset.i)});
+  show(1);
+})();
+
+/* ===================== 14b. Hub mini-catalog ===================== */
+(function(){
+  const M=[
+    {n:"google-bert/bert-base-uncased",t:"fill-mask",d:"Класичний англійський BERT, 110M. Базова модель для донавчання.",g:"en · 110M"},
+    {n:"FacebookAI/xlm-roberta-base",t:"fill-mask",d:"Мультимовний енкодер на 100 мов, включно з українською.",g:"100 мов · 270M"},
+    {n:"distilbert/distilbert-base-uncased-finetuned-sst-2-english",t:"text-classification",d:"DistilBERT, донавчений на тональність (SST-2). Модель pipeline за замовчуванням.",g:"en · 66M"},
+    {n:"cardiffnlp/twitter-xlm-roberta-base-sentiment",t:"text-classification",d:"Мультимовна тональність твітів (XLM-R): negative / neutral / positive.",g:"мультимовна"},
+    {n:"dslim/bert-base-NER",t:"token-classification",d:"BERT для NER: PER, ORG, LOC, MISC (CoNLL-2003).",g:"en · NER"},
+    {n:"deepset/roberta-base-squad2",t:"question-answering",d:"RoBERTa на SQuAD 2.0: знаходить відповідь у тексті або каже, що її немає.",g:"en · QA"},
+    {n:"sentence-transformers/all-MiniLM-L6-v2",t:"feature-extraction",d:"Маленький (22M) і швидкий енкодер речень для семантичного пошуку.",g:"en · 384-d"},
+    {n:"intfloat/multilingual-e5-base",t:"feature-extraction",d:"Мультимовні ембедінги для пошуку. Тексти треба починати з префіксів «query: » / «passage: ».",g:"100 мов · 768-d"}
+  ];
+  const ex={
+    "fill-mask":n=>`fill = pipeline("fill-mask", model="${n}")\nfill("Kyiv is the capital of ${n.includes("xlm")?"<mask>":"[MASK]"}.")`,
+    "text-classification":n=>`clf = pipeline("text-classification", model="${n}")\nclf("This lecture was really helpful!")`,
+    "token-classification":n=>`ner = pipeline("token-classification", model="${n}", aggregation_strategy="simple")\nner("Taras Shevchenko was born near Kyiv.")`,
+    "question-answering":n=>`qa = pipeline("question-answering", model="${n}")\nqa(question="Where was Taras born?", context="Taras Shevchenko was born near Kyiv.")`,
+    "feature-extraction":n=>`from sentence_transformers import SentenceTransformer\nmodel = SentenceTransformer("${n}")\nemb = model.encode(${n.includes("e5")?`["query: де купити квитки?", "passage: квитки продаються онлайн"]`:`["cheap flights", "low-cost airline tickets"]`})\nemb.shape`};
+  const tasks=["усі",...new Set(M.map(m=>m.t))];let ft="усі";
+  $("#hubTasks").innerHTML=tasks.map(t=>`<button data-t="${t}" aria-pressed="${t===ft}">${t}</button>`).join("");
+  function list(){const L=M.filter(m=>ft==="усі"||m.t===ft);
+    $("#hubList").innerHTML=L.map(m=>`<div class="m" data-n="${m.n}" tabindex="0"><div class="n">${m.n}</div><div class="d">${m.d}</div><span class="tag">${m.t} · ${m.g}</span></div>`).join("");show(L[0].n)}
+  function show(n){const m=M.find(x=>x.n===n);$$("#hubList .m").forEach(c=>c.style.borderColor=c.dataset.n===n?"var(--tfidf)":"");
+    $("#hubInfo").innerHTML=`<pre class="code" data-lang="python" style="margin:0"><code class="py">${esc((m.t==="feature-extraction"?"":"from transformers import pipeline\n\n")+ex[m.t](m.n))}</code></pre>`;$$("code.py",$("#hubInfo")).forEach(hlPy)}
+  $("#hubTasks").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;ft=b.dataset.t;$$("#hubTasks button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));list()});
+  $("#hubList").addEventListener("click",e=>{const c=e.target.closest(".m");if(c)show(c.dataset.n)});
+  $("#hubList").addEventListener("keydown",e=>{const c=e.target.closest(".m");if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();show(c.dataset.n)}});
+  list();
+})();
+
+/* ===================== 15. pipeline internals ===================== */
+(function(){
+  const toks=["[CLS]","i","love","this","movie","!","[SEP]"],ids=[101,1045,2293,2023,3185,999,102];
+  const row=(a,cls="")=>`<div class="ftrow">${a.map(x=>`<div class="t ${cls}">${x}</div>`).join("")}</div>`;
+  const S=[
+    {l:"вхід",t:"текст",v:()=>`<div class="out">"I love this movie!"</div><p class="hint" style="font-size:.88em;color:var(--ink-2)">Звичайний рядок Python.</p>`},
+    {l:"токенізатор",t:"токени",v:()=>row(toks.map(esc))+`<p style="font-size:.88em;color:var(--ink-2)">Нижній регістр (uncased), WordPiece і спецтокени [CLS] / [SEP]. Усе це з лекції 03.</p>`},
+    {l:"токенізатор",t:"input_ids",v:()=>row(ids.map(String))+row(ids.map(()=>"1"))+`<p style="font-size:.88em;color:var(--ink-2)">Перший рядок — <code>input_ids</code> (номери рядків у vocab.txt), другий — <code>attention_mask</code> (усі 1, паддінгу немає).</p>`},
+    {l:"модель",t:"ембедінги",v:()=>`<div class="shape-big">[1, 7, 768]</div><p style="font-size:.88em;color:var(--ink-2)">Кожен id → рядок матриці ембедінгів 30 522 × 768, плюс позиційний ембедінг.</p>`},
+    {l:"модель",t:"6 шарів",v:()=>`<div class="shape-big">[1, 7, 768]</div><p style="font-size:.88em;color:var(--ink-2)">DistilBERT має 6 блоків (attention + FFN). Форма не змінюється, але тепер вектор [CLS] «знає» про все речення.</p>`},
+    {l:"голова",t:"logits",v:()=>`<div class="out">h_[CLS] → Linear(768→768) → ReLU → Linear(768→2)\nlogits ≈ [-4.3, 4.7]   # [NEGATIVE, POSITIVE]</div>`},
+    {l:"постобробка",t:"softmax → мітка",v:()=>`<div class="softbars"><div class="softbar"><span>NEGATIVE</span><div class="tr"><div class="fl" style="width:1%;background:var(--bm25)"></div></div><span class="n">0.01%</span></div><div class="softbar"><span>POSITIVE</span><div class="tr"><div class="fl" style="width:100%;background:var(--aqua)"></div></div><span class="n">99.99%</span></div></div><div class="out">[{'label': 'POSITIVE', 'score': 0.9999}]</div>`}
+  ];
+  $("#plSteps").innerHTML=S.map((s,i)=>(i?`<span class="arrow">→</span>`:"")+`<div class="pstep" data-i="${i}"><div class="l">${s.l}</div><div class="t">${s.t}</div></div>`).join("");
+  function show(i){$$("#plSteps .pstep").forEach(p=>{const k=+p.dataset.i;p.classList.toggle("cur",k===i);p.style.opacity=i<0||k<=i?1:.45});$("#plView").innerHTML=i<0?`<div class="explain">Натисніть «Програти», щоб пройти шлях від рядка до мітки.</div>`:S[i].v()}
+  const pl=player({n:S.length,show,ms:1600,play:$("#plPlay"),step:$("#plStep"),reset:$("#plReset")});
+  $("#plSteps").addEventListener("click",e=>{const p=e.target.closest(".pstep");if(p){pl.stop();pl.go(+p.dataset.i)}});
+  pl.go(-1);
+})();
+
+/* ===================== 16. shape tracker ===================== */
+(function(){
+  const L=[
+    ["def forward(self, x, mask=None):",[["B",2],["T",6],["d_model",768]],"Вхід: 2 речення по 6 токенів, кожен токен — вектор 768."],
+    ["    B, T, _ = x.shape",[["B",2],["T",6],["d_model",768]],"Запам'ятовуємо розміри, щоб далі робити reshape."],
+    ["    q = self.W_q(x)",[["B",2],["T",6],["d_model",768]],"Linear(768 → 768) діє на останній вимір. Форма не змінюється, але це вже запити для <b>всіх 12 голів</b> разом."],
+    ["    q = q.view(B, T, self.h, self.d_k)",[["B",2],["T",6],["h",12],["d_k",64]],"Розрізаємо 768 на 12 голів по 64. Дані в пам'яті не рухаються, змінюється лише «погляд» на них."],
+    ["    q = q.transpose(1, 2)",[["B",2],["h",12],["T",6],["d_k",64]],"Переставляємо h вперед, щоб кожна голова працювала як окремий «батч». Те саме робимо з k і v."],
+    ["    scores = q @ k.transpose(-2, -1)",[["B",2],["h",12],["T",6],["T",6]],"[…, T, 64] @ [..., 64, T] → [..., T, T]. Матриця уваги <b>для кожної голови кожного речення</b>, саме вона росте як T²."],
+    ["    scores = scores / self.d_k ** 0.5",[["B",2],["h",12],["T",6],["T",6]],"Ділимо на √64 = 8."],
+    ["    scores = scores.masked_fill(mask == 0, -inf)",[["B",2],["h",12],["T",6],["T",6]],"mask має форму [B, 1, 1, T] і транслюється (broadcast) на всі голови й рядки: [PAD]-стовпці стають −∞."],
+    ["    weights = scores.softmax(dim=-1)",[["B",2],["h",12],["T",6],["T",6]],"Softmax по останньому виміру (ключах): кожен рядок дає в сумі 1."],
+    ["    out = weights @ v",[["B",2],["h",12],["T",6],["d_k",64]],"[…, T, T] @ [..., T, 64] → [..., T, 64]: зважена сума значень."],
+    ["    out = out.transpose(1, 2)",[["B",2],["T",6],["h",12],["d_k",64]],"Повертаємо токени на друге місце."],
+    ["    out = out.contiguous().view(B, T, -1)",[["B",2],["T",6],["d_model",768]],"Склеюємо 12 × 64 назад у 768 (concat голів). <code>contiguous()</code> потрібен, бо після transpose пам'ять «перемішана»."],
+    ["    return self.W_o(out)",[["B",2],["T",6],["d_model",768]],"Фінальна проєкція W<sup>O</sup> змішує інформацію з різних голів. Форма та сама, що на вході."]
+  ];
+  const col={B:"var(--ink-2)",T:"var(--bm25)",h:"var(--violet)",d_k:"var(--tfidf)",d_model:"var(--tfidf)"};
+  $("#trkCode").innerHTML=L.map((l,i)=>`<li data-i="${i}"><code class="py">${esc(l[0])}</code></li>`).join("");
+  $$("#trkCode code.py").forEach(hlPy);
+  function show(i){i=Math.max(0,i);const [,d,ex]=L[i];
+    $$("#trkCode li").forEach((li,k)=>li.classList.toggle("on",k===i));
+    $("#trkShape").textContent=`[${d.map(x=>x[1]).join(", ")}]`;
+    $("#trkDims").innerHTML=d.map(([n,v])=>`<div class="d"><div class="bar" style="height:${(14+Math.log2(v)*11).toFixed(0)}px;background:${col[n]}"></div><span>${n}</span><span>${v}</span></div>`).join("");
+    $("#trkExpl").innerHTML=ex;}
+  const pl=player({n:L.length,show,ms:1500,play:$("#trkPlay"),step:$("#trkStep")});
+  $("#trkCode").addEventListener("click",e=>{const li=e.target.closest("li");if(li){pl.stop();pl.go(+li.dataset.i)}});
+  pl.go(0);
+})();
+
+/* ===================== quiz + code highlight ===================== */
+$$(".quiz").forEach(qz=>{const ans=+qz.dataset.ans;$$(".opt",qz).forEach((b,i)=>b.addEventListener("click",()=>{if(qz.classList.contains("done"))return;qz.classList.add("done");b.classList.add(i===ans?"ok":"no");$$(".opt",qz)[ans].classList.add("ok")}))});
+$$("pre.code > code.py").forEach(hlPy);
+if(store.get("lecture")==="1")setLecture(true);
+setTheme(store.get("theme")||"");
+updateShell();
+</script>
+</body>
+</html>
