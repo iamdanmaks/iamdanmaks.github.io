@@ -434,7 +434,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 </section>
 
 <!-- ============ 4. QKV ============ -->
-<section class="slide" id="s4" data-title="Q, K, V: м'який пошук">
+<section class="slide" id="s4" data-title="Q, K, V: м'який пошук" data-narr="audio/05-attention-transformers/s4">
   <div class="eyebrow">Розділ 4 · <b>2017</b></div>
   <h2>«Attention Is All You Need»: Q, K, V</h2>
   <p class="lead">Vaswani et al. зробили радикальний крок: <strong>повністю викинули рекурентність</strong>. Увагу застосовують до самої послідовності (<strong>self-attention</strong>), тобто кожен токен дивиться на всі токени того самого речення.</p>
@@ -1024,6 +1024,7 @@ trainer.train()
 </main>
 </div>
 <script src="common.js"></script>
+<script src="narration.js"></script>
 <script>
 /* ===================== helpers ===================== */
 const softmax=v=>{const mx=Math.max(...v.filter(Number.isFinite));const e=v.map(x=>Number.isFinite(x)?Math.exp(x-mx):0);const s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)};
@@ -1242,6 +1243,10 @@ const ATT_RAW=[
   svg.addEventListener("pointermove",e=>{if(!drag)return;const p=svgPt(svg,e);q=unpx([Math.max(5,Math.min(355,p.x)),Math.max(5,Math.min(355,p.y))]);draw()});
   svg.addEventListener("pointerup",()=>drag=false);svg.addEventListener("pointercancel",()=>drag=false);
   $$("#lkPresets button").forEach(b=>b.onclick=()=>{q=[...presets[+b.dataset.p]];draw()});
+  // озвучка (narration.js): плавно пересунути Q у точку (x, y) за ms мілісекунд
+  let qAnim=0;
+  (window.narrHooks=window.narrHooks||{}).lkQ=(x,y,ms)=>{cancelAnimationFrame(qAnim);const a=[...q],t0=performance.now();
+    const step=t=>{const k=ms>0?Math.min(1,(t-t0)/ms):1,e=k<.5?2*k*k:1-(-2*k+2)**2/2;q=[a[0]+(x-a[0])*e,a[1]+(y-a[1])*e];draw();if(k<1)qAnim=requestAnimationFrame(step)};step(t0)};
   sl.addEventListener("input",draw);draw();
 })();
 
