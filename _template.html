@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ЗАМІНИТИ: назва лекції -->
+<title>Назва лекції</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+/* Стилі лише цієї лекції. Спільна база — common.css */
+.tbars{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.tbar{display:grid;grid-template-columns:90px 1fr 56px;gap:10px;align-items:center;font-size:.88em}
+.tbar .tr{height:20px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.tbar .fl{height:100%;background:var(--orange);border-radius:6px;transition:width .15s}
+.tbar .n{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<!-- Шапка: однакова в усіх лекціях, змінюється лише текст .brand -->
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Лекція NN · Коротка назва</span>
+  <span class="spacer"></span>
+  <button class="btn" id="lectureBtn" aria-pressed="false" title="Збільшує шрифт і робить кожен розділ окремим слайдом"><span class="dot"></span>Режим лекції</button>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Зміст"><ol id="toc"></ol></nav>
+<main id="main">
+
+<!-- Кожен розділ — <section class="slide"> з унікальним id і data-title (з нього будується зміст ліворуч).
+     У режимі лекції кожен розділ займає цілий екран, а стрілки ← → гортають розділи. -->
+
+<!-- ============ 0. HERO ============ -->
+<section class="slide" id="s0" data-title="Вступ">
+  <div class="eyebrow">Обробка природної мови · Лекція NN · <b>Тема</b></div>
+  <h1>Назва лекції: що ми зрозуміємо сьогодні</h1>
+  <div class="hero-grid">
+    <div>
+      <p class="lead">Головна думка лекції одним-двома реченнями. Чому це важливо і що студент зможе після неї.</p>
+      <p>Короткий контекст: звідки береться задача, з чим ми її пов'язуємо з попередніх лекцій.</p>
+    </div>
+    <aside class="agenda">
+      <h3>Сьогодні</h3>
+      <ol>
+        <li>Перший розділ</li>
+        <li>Другий розділ</li>
+        <li>Інтерактивне демо</li>
+        <li>Код</li>
+        <li>Підсумок і тест</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 1. ТЕКСТ, КАРТКИ, ВИНОСКИ ============ -->
+<section class="slide" id="s1" data-title="Перший розділ">
+  <div class="eyebrow">Розділ 1 · <b>ключове слово</b></div>
+  <h2>Заголовок розділу</h2>
+  <p class="lead">Лід-абзац: одна думка, яку треба винести з розділу.</p>
+  <p>Звичайний текст. Терміни з підказкою: <span class="term" title="англійський відповідник або коротке визначення">термін</span>. Вбудований код: <code>tokenizer.encode()</code>.</p>
+
+  <div class="cards">
+    <div class="card"><div class="k">Мітка</div><h4>Заголовок картки</h4><p>Коротке пояснення, 1–2 речення.</p></div>
+    <div class="card"><div class="k">Мітка</div><h4>Заголовок картки</h4><p>Картки зручні для переліків і порівнянь.</p></div>
+    <div class="card"><div class="k">Мітка</div><h4>Заголовок картки</h4><p>Сітка сама підлаштовується під ширину.</p></div>
+  </div>
+
+  <div class="vs">
+    <div class="card"><div class="k">Підхід A</div><h4>Синя рамка</h4><p>Для порівняння «A проти B».</p></div>
+    <div class="card b"><div class="k">Підхід B</div><h4>Помаранчева рамка</h4><p>Клас <code>b</code> на другій картці.</p></div>
+  </div>
+
+  <div class="callout"><p><strong>Звичайна виноска.</strong> Важливе уточнення або визначення.</p></div>
+  <div class="callout q"><div class="qm">Питання</div><p>Питання до аудиторії, над яким варто подумати перед наступним розділом.</p></div>
+  <div class="callout warn"><div class="qm">Нюанс</div><p>Пастка, типова помилка або обмеження методу.</p></div>
+
+  <details class="more">
+    <summary>Для тих, хто хоче глибше</summary>
+    <div class="body"><p>Необов'язкові деталі, які не потрібні для основної лінії лекції.</p></div>
+  </details>
+</section>
+
+<!-- ============ 2. ФОРМУЛА І ПАЙПЛАЙН ============ -->
+<section class="slide" id="s2" data-title="Другий розділ">
+  <div class="eyebrow">Розділ 2 · <b>формула</b></div>
+  <h2>Формули без LaTeX</h2>
+  <p>Формули верстаються HTML-ом: <code>&lt;var&gt;</code> для змінних, <code>.frac</code> для дробів, <code>.c1/.c2/.c3</code> для кольорів (синій, помаранчевий, бірюзовий).</p>
+  <div class="formula"><span class="c2">softmax</span>(<var>z</var>)<sub><var>i</var></sub> =
+    <span class="frac"><span><var>e</var><sup><var>z<sub>i</sub></var> / <var class="c1">T</var></sup></span><span><span class="sum">Σ<small><var>j</var></small></span><var>e</var><sup><var>z<sub>j</sub></var> / <var class="c1">T</var></sup></span></span>
+  </div>
+
+  <p>Послідовність кроків:</p>
+  <div class="pipe">
+    <div class="pstep"><div class="l">крок 1</div><div class="t">текст</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep emb"><div class="l">крок 2 · виділений</div><div class="t">токени</div></div>
+    <span class="arrow">→</span>
+    <div class="pstep hot"><div class="l">крок 3 · акцент</div><div class="t">модель</div></div>
+  </div>
+</section>
+
+<!-- ============ 3. ІНТЕРАКТИВНЕ ДЕМО ============ -->
+<section class="slide" id="s3" data-title="Інтерактивне демо">
+  <div class="eyebrow">Розділ 3 · <b>демо</b></div>
+  <h2>Кожна ключова ідея — з демо</h2>
+  <p>Демо — це панель <code>.demo</code>: заголовок, тег (<code>interactive</code> / <code>animation</code>), підказка, контролі <code>.ctl</code> і результат. Логіка — у <code>&lt;script&gt;</code> внизу сторінки.</p>
+
+  <div class="demo">
+    <div class="head"><h4>Температура в softmax</h4><span class="tag">interactive</span><span class="hint">Рухайте повзунок: мала T робить розподіл гострим, велика T — рівномірним.</span></div>
+    <div class="ctl"><label><span>Температура <var>T</var> = <span class="v" id="tempV">1.0</span></span><input type="range" id="temp" min="0.1" max="5" step="0.1" value="1"></label></div>
+    <div class="tbars" id="tempBars"></div>
+    <div class="result"><span class="big b" id="tempTop">—</span><span class="expl">ймовірність найкращого варіанта</span></div>
+  </div>
+</section>
+
+<!-- ============ 4. КОД ============ -->
+<section class="slide" id="s4" data-title="Код">
+  <div class="eyebrow">Розділ 4 · <b>практика</b></div>
+  <h2>Код</h2>
+  <p>Python у <code>&lt;pre class="code" data-lang="python"&gt;&lt;code class="py"&gt;</code> підсвічується автоматично.</p>
+  <div class="codelabel">softmax з температурою</div>
+<pre class="code" data-lang="python"><code class="py">import numpy as np
+
+def softmax(z, T=1.0):
+    z = np.asarray(z) / T
+    e = np.exp(z - z.max())  # стабільність
+    return e / e.sum()
+
+print(softmax([2.0, 1.0, 0.1], T=0.5))</code></pre>
+</section>
+
+<!-- ============ 5. ПІДСУМОК І ТЕСТ ============ -->
+<section class="slide" id="s5" data-title="Підсумок і тест">
+  <div class="eyebrow">Розділ 5</div>
+  <h2>Підсумок</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Ідея 1</div><h4>Коротко</h4><p>Що запам'ятати.</p></div>
+    <div class="card"><div class="k">Ідея 2</div><h4>Коротко</h4><p>Що запам'ятати.</p></div>
+    <div class="card"><div class="k">Ідея 3</div><h4>Коротко</h4><p>Що запам'ятати.</p></div>
+  </div>
+
+  <h3>Перевірте себе</h3>
+  <!-- data-ans — номер правильної відповіді, рахуючи з нуля -->
+  <div class="quiz" data-ans="1">
+    <div class="q">Що станеться з розподілом softmax, якщо температура T → 0?</div>
+    <div class="opts"><button class="opt">Стане рівномірним</button><button class="opt">Уся ймовірність піде на максимум</button><button class="opt">Нічого не зміниться</button></div>
+    <div class="ans">Ділення на малу T розтягує різниці між логітами, тож softmax наближається до argmax.</div>
+  </div>
+
+  <p class="kbd-hint">Навігація: <kbd>←</kbd> <kbd>→</kbd> між розділами · <kbd>L</kbd> режим лекції · <kbd>T</kbd> тема</p>
+</section>
+
+</main>
+</div>
+<script src="common.js"></script>
+<script>
+/* Тут доступні хелпери з common.js: $, $$, esc, fmt, store, cssVar, redraws, hlPy. */
+
+/* ===================== 3. temperature demo ===================== */
+(function(){
+  const logits={"кіт":2.0,"пес":1.0,"авто":0.1,"сир":-0.5};
+  const t=$("#temp");
+  function run(){
+    const T=+t.value;$("#tempV").textContent=T.toFixed(1);
+    const z=Object.values(logits).map(x=>x/T),mx=Math.max(...z),e=z.map(x=>Math.exp(x-mx)),s=e.reduce((a,b)=>a+b,0),p=e.map(x=>x/s);
+    $("#tempBars").innerHTML=Object.keys(logits).map((w,i)=>`<div class="tbar"><span>${esc(w)}</span><div class="tr"><div class="fl" style="width:${(p[i]*100).toFixed(1)}%"></div></div><span class="n">${fmt(p[i])}</span></div>`).join("");
+    $("#tempTop").textContent=fmt(Math.max(...p));
+  }
+  t.addEventListener("input",run);run();
+})();
+</script>
+</body>
+</html>
