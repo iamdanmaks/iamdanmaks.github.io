@@ -1,8 +1,8 @@
 /* =====================================================================
    Спільний каркас лекцій з NLP: хелпери, зміст, прогрес, режим лекції,
-   тема, клавіатура, тести, підсвітка Python.
-   Підключення: <script src="common.js"></script> наприкінці <body>,
-   перед власним <script> лекції. Опис: FORMAT.md.
+   тема, клавіатура, тести, підсвітка Python, підказки глосарію.
+   Підключення: <script src="glossary.js"></script><script src="common.js"></script>
+   наприкінці <body>, перед власним <script> лекції. Опис: FORMAT.md.
    ===================================================================== */
 
 /* ===================== helpers ===================== */
@@ -125,6 +125,42 @@ if(quizzes.length){
   renderQuizMeta();
 }
 $$("code.py").forEach(hlPy);
+
+/* ===================== glossary ===================== */
+// <span class="term" data-g="ключ">слово у будь-якій формі</span>: визначення береться з glossary.js.
+// Підказка з'являється при наведенні, фокусі (Tab) чи дотику і веде до лекції, де термін пояснено,
+// та до glossary.html. <span class="term" title="…"> лишається для приміток, яких немає в глосарії.
+const gloss=typeof GLOSSARY==="object"?GLOSSARY:{};
+const glossTip=document.createElement("div");glossTip.className="gloss-tip";glossTip.id="glossTip";glossTip.setAttribute("role","tooltip");glossTip.hidden=true;
+document.body.append(glossTip);
+let glossFor=null,glossTimer=0;
+function glossShow(el){
+  clearTimeout(glossTimer);if(glossFor===el&&!glossTip.hidden)return;
+  const k=el.dataset.g,g=gloss[k],[file,hash]=g.src.split("#"),here=file===PAGE;
+  const more=here&&el.closest("section.slide")?.id===hash?"":`<a href="${here?"#"+hash:g.src}">Докладніше ${here?"в цій лекції":"в лекції "+file.slice(0,2)} →</a>`;
+  glossTip.innerHTML=`<div class="gt-h"><b>${g.term}</b>${g.en&&g.en!==g.term?` · <span>${g.en}</span>`:""}</div><p>${g.def}</p><div class="gt-l">${more}<a href="glossary.html#${k}">Глосарій</a></div>`;
+  glossFor?.classList.remove("on");glossFor=el;el.classList.add("on");el.setAttribute("aria-describedby","glossTip");
+  glossTip.hidden=false;
+  const r=el.getBoundingClientRect(),w=glossTip.offsetWidth,h=glossTip.offsetHeight;
+  const left=Math.max(12,Math.min(r.left,root.clientWidth-w-12)),below=r.bottom+8+h<=innerHeight||r.top-8-h<0;
+  glossTip.style.left=left+scrollX+"px";glossTip.style.top=(below?r.bottom+8:r.top-8-h)+scrollY+"px";
+}
+function glossHide(){clearTimeout(glossTimer);glossTip.hidden=true;if(glossFor){glossFor.classList.remove("on");glossFor.removeAttribute("aria-describedby");glossFor=null}}
+const glossLater=()=>{clearTimeout(glossTimer);glossTimer=setTimeout(()=>{if(!glossTip.contains(document.activeElement))glossHide()},180)};
+$$(".term[data-g]").forEach(el=>{
+  if(!gloss[el.dataset.g]){console.warn("glossary.js: немає терміна",el.dataset.g);return}
+  el.removeAttribute("title");el.tabIndex=0;
+  el.addEventListener("mouseenter",()=>glossShow(el));el.addEventListener("mouseleave",glossLater);
+  el.addEventListener("focus",()=>glossShow(el));el.addEventListener("blur",glossLater);
+  el.addEventListener("click",()=>glossShow(el));  // дотик на телефоні
+});
+glossTip.addEventListener("mouseenter",()=>clearTimeout(glossTimer));glossTip.addEventListener("mouseleave",glossLater);
+glossTip.addEventListener("focusout",glossLater);
+document.addEventListener("click",e=>{if(glossFor&&!glossTip.contains(e.target)&&!e.target.closest(".term[data-g]"))glossHide()});
+addEventListener("keydown",e=>{if(e.key==="Escape"&&glossFor)glossHide()});
+glossTip.addEventListener("click",e=>{if(e.target.closest("a"))glossHide()});
+let glossW=root.clientWidth;addEventListener("resize",()=>{if(root.clientWidth!==glossW){glossW=root.clientWidth;glossHide()}});  // на телефоні resize стріляє і від панелі адреси
+$("#toc").insertAdjacentHTML("afterend",'<a class="toc-gloss" href="glossary.html">Глосарій термінів →</a>');
 
 if(store.get("lecture")==="1")setLecture(true);
 setTheme(store.get("theme")||"");

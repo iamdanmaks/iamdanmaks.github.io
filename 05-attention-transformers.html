@@ -323,8 +323,8 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
   <h1>Увага і трансформери: від RNN до BERT</h1>
   <div class="hero-grid">
     <div>
-      <p class="lead">Одна ідея — <em>«нехай модель сама вирішує, на які слова дивитися»</em> — дала архітектуру <strong>Transformer</strong>. Вона замінила рекурентні мережі й стала основою BERT, XLM-R, GPT і всіх сучасних мовних моделей.</p>
-      <p>У 2017 році стаття <strong>«Attention Is All You Need»</strong> показала, що послідовність можна обробляти без RNN і LSTM, лише за допомогою <span class="term" title="self-attention">самоуваги</span>. Нижче показано, як кожне слово «дивиться» на інші, щоб зрозуміти себе в контексті.</p>
+      <p class="lead">Одна ідея — <em>«нехай модель сама вирішує, на які слова дивитися»</em> — дала архітектуру <strong>Transformer</strong>. Вона замінила рекурентні мережі й стала основою <span class="term" data-g="bert">BERT</span>, <span class="term" data-g="xlm-r">XLM-R</span>, GPT і всіх сучасних мовних моделей.</p>
+      <p>У 2017 році стаття <strong>«Attention Is All You Need»</strong> показала, що послідовність можна обробляти без <span class="term" data-g="rnn">RNN</span> і <span class="term" data-g="lstm">LSTM</span>, лише за допомогою <span class="term" data-g="self-attention">самоуваги</span>. Нижче показано, як кожне слово «дивиться» на інші, щоб зрозуміти себе в контексті.</p>
       <div class="demo" style="margin-top:18px">
         <div class="head"><h4>Самоувага в одному реченні</h4><span class="tag">animation</span><span class="hint">Дуги показують, куди «дивиться» виділене слово. Товща дуга означає більшу вагу уваги. Слово змінюється автоматично. Можна клацнути будь-яке слово, щоб зафіксувати його.</span></div>
         <div class="vizbox"><svg class="viz" id="heroSvg" viewBox="0 0 760 190" role="img" aria-label="Дуги уваги між словами речення"></svg></div>
@@ -356,7 +356,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 <section class="slide" id="s1" data-title="Від токенів до трансформера">
   <div class="eyebrow">Розділ 1 · <b>місток з лекції 03</b></div>
   <h2>Від токенів до трансформера</h2>
-  <p class="lead">У лекції 03 ми розібрали, як текст перетворюється на <strong>токени</strong> та їхні id. Сьогодні подивимося, що відбувається з цими id далі, тобто як модель збирає з них <em>розуміння</em>.</p>
+  <p class="lead">У лекції 03 ми розібрали, як текст перетворюється на <strong><span class="term" data-g="token">токени</span></strong> та їхні id. Сьогодні подивимося, що відбувається з цими id далі, тобто як модель збирає з них <em>розуміння</em>.</p>
 
   <div class="pipe" id="bridgePipe">
     <div class="pstep" data-i="0"><div class="l">текст</div><div class="t">"Кіт п'є молоко"</div></div>
@@ -373,12 +373,12 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
   </div>
   <div class="explain" id="bridgeExpl">Клацніть по кроку, щоб побачити, що він робить.</div>
 
-  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s0b">↩ Лекція 03</a><p>Розділ «Токенізація → модель» закінчувався на матриці ембедінгів: кожен id стає рядком цієї матриці. Але такий вектор <strong>однаковий для слова в будь-якому контексті</strong>. Наприклад, «коса» в «заплела косу» і «наточив косу» отримає той самий вектор. Трансформер розв'язує саме цю проблему: він перетворює статичні вектори токенів на <strong>контекстуальні</strong>.</p></div>
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s0b">↩ Лекція 03</a><p>Розділ «<span class="term" data-g="tokenization">Токенізація</span> → модель» закінчувався на <span class="term" data-g="embedding-matrix">матриці ембедінгів</span>: кожен id стає рядком цієї матриці. Але такий вектор <strong>однаковий для слова в будь-якому контексті</strong>. Наприклад, «коса» в «заплела косу» і «наточив косу» отримає той самий вектор. <span class="term" data-g="transformer">Трансформер</span> розв'язує саме цю проблему: він перетворює статичні вектори токенів на <strong>контекстуальні</strong>.</p></div>
 
   <div class="cards">
-    <div class="card"><div class="k">Токенізатор</div><h4>Задає «алфавіт» моделі</h4><p>BPE, WordPiece і SentencePiece визначають, які одиниці бачить модель і скільки їх у тексті. Від цього залежать довжина послідовності, а отже, ціна й швидкість уваги (вона квадратична!).</p></div>
+    <div class="card"><div class="k">Токенізатор</div><h4>Задає «алфавіт» моделі</h4><p><span class="term" data-g="bpe">BPE</span>, <span class="term" data-g="wordpiece">WordPiece</span> і <span class="term" data-g="sentencepiece">SentencePiece</span> визначають, які одиниці бачить модель і скільки їх у тексті. Від цього залежать довжина послідовності, а отже, ціна й швидкість <span class="term" data-g="attention">уваги</span> (вона квадратична!).</p></div>
     <div class="card"><div class="k">Трансформер</div><h4>Змішує токени між собою</h4><p>Кожен шар дає кожному токену змогу «подивитися» на інші й оновити свій вектор. Після 12 шарів вектор «косу» вже знає, про зачіску йдеться чи про сінокіс.</p></div>
-    <div class="card"><div class="k">Разом → LLM</div><h4>Субслова + увага + масштаб</h4><p>Субслівний словник без [UNK], паралельна увага і великі дані разом дали BERT (2018), GPT-3 (2020) і сучасні LLM. Тому токенізатор і модель завжди йдуть у парі.</p></div>
+    <div class="card"><div class="k">Разом → LLM</div><h4>Субслова + увага + масштаб</h4><p>Субслівний <span class="term" data-g="vocabulary">словник</span> без <span class="term" data-g="unk">[UNK]</span>, паралельна увага і великі дані разом дали BERT (2018), GPT-3 (2020) і сучасні <span class="term" data-g="llm">LLM</span>. Тому токенізатор і модель завжди йдуть у парі.</p></div>
   </div>
 </section>
 
@@ -425,7 +425,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 <section class="slide" id="s3" data-title="Seq2seq і перша увага">
   <div class="eyebrow">Розділ 3 · <b>2014–2015</b></div>
   <h2>Переклад і народження уваги</h2>
-  <p class="lead">Класична архітектура машинного перекладу називається <strong>seq2seq</strong>. Енкодер читає речення і стискає його в один вектор <var>c</var>, а декодер розгортає з нього переклад. Bahdanau et al. (2015) запропонували давати декодеру <strong>свій контекст на кожному кроці</strong>, тобто зважену суму всіх станів енкодера.</p>
+  <p class="lead">Класична архітектура машинного перекладу називається <strong><span class="term" data-g="seq2seq">seq2seq</span></strong>. <span class="term" data-g="encoder">Енкодер</span> читає речення і стискає його в один вектор <var>c</var>, а <span class="term" data-g="decoder">декодер</span> розгортає з нього переклад. Bahdanau et al. (2015) запропонували давати декодеру <strong>свій контекст на кожному кроці</strong>, тобто зважену суму всіх станів енкодера.</p>
 
   <div class="demo">
     <div class="head"><h4>Як декодер «дивиться» на вхід</h4><span class="tag">animation</span><span class="hint">Перемкніть режим і запустіть переклад. Без уваги все речення проходить через одну точку <var>c</var>. З увагою кожне українське слово бере інформацію з тих англійських слів, які йому потрібні. Зверніть увагу, що лінії перехрещуються: «black cat» перекладається як «чорний кіт», порядок слів інший.</span></div>
@@ -446,7 +446,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
   <div class="eyebrow">Розділ 4 · <b>2017</b></div>
   <h2>«Attention Is All You Need»: Q, K, V</h2>
   <p class="lead">Vaswani et al. зробили радикальний крок: <strong>повністю викинули рекурентність</strong>. Увагу застосовують до самої послідовності (<strong>self-attention</strong>), тобто кожен токен дивиться на всі токени того самого речення.</p>
-  <p>З ембедінга кожного токена трьома різними лінійними шарами отримуємо три вектори:</p>
+  <p>З <span class="term" data-g="embedding">ембедінга</span> кожного токена трьома різними лінійними шарами отримуємо три вектори:</p>
   <div class="qkv">
     <div class="box"><div class="h q">Query (Q)</div><div class="s">«Що я шукаю?»</div></div>
     <div class="box"><div class="h k">Key (K)</div><div class="s">«За чим мене можна знайти?»</div></div>
@@ -503,7 +503,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 
   <div class="callout q"><div class="qm">Звідки беруться Q, K, V</div>
     <p>Усі три вектори отримують з <strong>того самого вектора токена</strong> <var>x</var>, але через <strong>три різні навчені матриці</strong>: <code>q = x·W<sub>Q</sub></code>, <code>k = x·W<sub>K</sub></code>, <code>v = x·W<sub>V</sub></code>. Матриці спочатку випадкові, а потім налаштовуються під час навчання, як будь-які інші ваги.</p>
-    <p><strong>Рядок i у Q, K і V завжди належить токену i</strong>, тобто тому самому слову, що й рядок i в X: кожен токен множиться на ті самі матриці незалежно від інших. Токени «зустрічаються» лише далі, у <code>Q·Kᵀ</code> (хто на кого дивиться) і в <code>A·V</code> (змішування змісту).</p>
+    <p><strong>Рядок i у <span class="term" data-g="qkv">Q, K і V</span> завжди належить токену i</strong>, тобто тому самому слову, що й рядок i в X: кожен токен множиться на ті самі матриці незалежно від інших. Токени «зустрічаються» лише далі, у <code>Q·Kᵀ</code> (хто на кого дивиться) і в <code>A·V</code> (змішування змісту).</p>
   </div>
 
   <div class="demo">
@@ -563,7 +563,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
     </tbody>
   </table></div>
   <p>Матриця W<sub>Q</sub> має форму d<sub>model</sub> × d<sub>k</sub>: вона перетворює вектор токена з 768 чисел на запит з 64 чисел. Скалярний добуток <var>q</var>·<var>k</var> — це сума d<sub>k</sub> добутків, тому від d<sub>k</sub> залежить, наскільки великими виходять скори.</p>
-  <p>Якщо компоненти <var>q</var> і <var>k</var> мають середнє 0 і дисперсію 1, то їхній скалярний добуток — сума <var>d<sub>k</sub></var> доданків, і його стандартне відхилення дорівнює <strong>√d<sub>k</sub></strong>. Що більша розмірність, то більший розкид скорів, і softmax «насичується»: майже вся вага йде одному ключу, а градієнти для решти зникають.</p>
+  <p>Якщо компоненти <var>q</var> і <var>k</var> мають середнє 0 і дисперсію 1, то їхній <span class="term" data-g="dot-product">скалярний добуток</span> — сума <var>d<sub>k</sub></var> доданків, і його стандартне відхилення дорівнює <strong>√d<sub>k</sub></strong>. Що більша розмірність, то більший розкид скорів, і <span class="term" data-g="softmax">softmax</span> «насичується»: майже вся вага йде одному ключу, а градієнти для решти зникають.</p>
   <div class="demo">
     <div class="head"><h4>Випадкові Q і K різної розмірності</h4><span class="tag">interactive</span><span class="hint">Один запит і 8 ключів з N(0, 1). Змінюйте d<sub>k</sub> і вмикайте або вимикайте масштабування. Зі шкалою розподіл залишається «живим» за будь-якої розмірності, без неї він стає one-hot.</span></div>
     <div class="ctl">
@@ -625,7 +625,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
   <div class="eyebrow">Розділ 7</div>
   <h2>Увага не бачить порядку слів</h2>
   <p class="lead">Self-attention працює з <strong>множиною</strong> токенів. Якщо переставити слова, кожен токен отримає той самий вихід, тільки на іншому місці. «Dog bites man» і «man bites dog» для чистої уваги однакові.</p>
-  <p>Тому до ембедінга токена <strong>додають</strong> вектор позиції. В оригінальному Transformer це фіксовані синусоїди:</p>
+  <p>Тому до ембедінга токена <strong>додають</strong> <span class="term" data-g="positional-encoding">вектор позиції</span>. В оригінальному Transformer це фіксовані синусоїди:</p>
   <div class="formula">
     <var>PE</var>(<var>pos</var>, 2<var>i</var>) = sin<span style="font-size:1.4em">(</span><span class="frac"><span><var>pos</var></span><span>10000<sup>2<var>i</var>/<var>d</var></sup></span></span><span style="font-size:1.4em">)</span>
     <span style="display:inline-block;width:24px"></span>
@@ -653,7 +653,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
     </div>
   </div>
 
-  <div class="callout"><p><strong>Що використовують на практиці:</strong> BERT і XLM-R мають <strong>навчені</strong> позиційні ембедінги, тобто окрему матрицю 512 × 768, яка вчиться разом з моделлю. Звідси й ліміт у 512 токенів. Сучасні LLM (Llama, Qwen, Mistral) і новіші енкодери на кшталт ModernBERT використовують <strong>RoPE</strong>: замість додавання вектора вони повертають Q і K на кут, що залежить від позиції.</p></div>
+  <div class="callout"><p><strong>Що використовують на практиці:</strong> BERT і XLM-R мають <strong>навчені</strong> позиційні ембедінги, тобто окрему матрицю 512 × 768, яка вчиться разом з моделлю. Звідси й ліміт у 512 токенів. Сучасні LLM (Llama, Qwen, Mistral) і новіші енкодери на кшталт ModernBERT використовують <strong><span class="term" data-g="rope">RoPE</span></strong>: замість додавання вектора вони повертають Q і K на кут, що залежить від позиції.</p></div>
 
   <details class="check"><summary>Перевір себе</summary>
     <div class="quiz" data-ans="1">
@@ -668,7 +668,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 <section class="slide" id="s9" data-title="Блок трансформера">
   <div class="eyebrow">Розділ 8</div>
   <h2>Блок трансформера зсередини</h2>
-  <p class="lead">Трансформер — це стопка <strong>однакових блоків</strong>. У кожному блоці є два підшари: <strong>multi-head attention</strong> змішує інформацію <em>між токенами</em>, а <strong>feed-forward</strong> обробляє <em>кожен токен окремо</em>. Навколо кожного підшару є residual-зв'язок і LayerNorm.</p>
+  <p class="lead">Трансформер — це стопка <strong>однакових блоків</strong>. У кожному блоці є два підшари: <strong><span class="term" data-g="multi-head">multi-head attention</span></strong> змішує інформацію <em>між токенами</em>, а <strong><span class="term" data-g="ffn">feed-forward</span></strong> обробляє <em>кожен токен окремо</em>. Навколо кожного підшару є <span class="term" data-g="residual">residual-зв'язок</span> і <span class="term" data-g="layernorm">LayerNorm</span>.</p>
 
   <div class="demo">
     <div class="head"><h4>Тензор проходить через блок</h4><span class="tag">animation</span><span class="hint">Сітка праворуч — це тензор [T × d]: рядок відповідає токену, клітинка — одному виміру його вектора. Слідкуйте, що змінюється. Після уваги <b>рядки змішуються між собою</b>, бо токени обмінюються інформацією. Після FFN кожен рядок змінюється <b>сам по собі</b>. Можна клацати по блоках.</span></div>
@@ -704,7 +704,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
     <div class="card"><div class="k">LayerNorm</div><h4>Стабілізація</h4><p>Нормалізує кожен вектор токена до середнього 0 і дисперсії 1, а потім масштабує навченими параметрами. BERT ставить її <em>після</em> додавання (Post-LN). Сучасні LLM ставлять її <em>перед</em> підшаром (Pre-LN), бо так навчання стабільніше.</p></div>
   </div>
 
-  <div class="callout q"><div class="qm">Енкодер чи декодер? Блок той самий</div><p>І BERT (енкодер), і GPT чи Llama (декодер) складаються з цього самого блоку: увага → Add &amp; Norm → FFN → Add &amp; Norm. Різниця лише в <strong>масці уваги</strong>: в енкодері токен бачить усі слова, а в декодері тільки себе і попередні (як у карті уваги з розділу 5, режим «каузальна»). Окремий випадок — декодер у класичній схемі encoder-decoder (переклад, T5). Там у блоці є третій підшар, <strong>cross-attention</strong>, який дивиться на вихід енкодера (розділ 9).</p></div>
+  <div class="callout q"><div class="qm">Енкодер чи декодер? Блок той самий</div><p>І BERT (енкодер), і GPT чи Llama (декодер) складаються з цього самого блоку: увага → Add &amp; Norm → FFN → Add &amp; Norm. Різниця лише в <strong>масці уваги</strong>: в енкодері токен бачить усі слова, а в декодері тільки себе і попередні (як у карті уваги з розділу 5, режим «каузальна»). Окремий випадок — декодер у класичній схемі encoder-decoder (переклад, T5). Там у блоці є третій підшар, <strong><span class="term" data-g="cross-attention">cross-attention</span></strong>, який дивиться на вихід енкодера (розділ 9).</p></div>
 
   <h3>Що дає стопка блоків</h3>
   <p>Один блок дає кожному токену трохи інформації про сусідів. Після 12 блоків вектор слова вже визначається <strong>контекстом</strong>, а не лише самим словом. Найкраще це видно на багатозначних словах.</p>
@@ -719,7 +719,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 <section class="slide" id="s10" data-title="Енкодер, декодер і маски">
   <div class="eyebrow">Розділ 9</div>
   <h2>Три родини трансформерів</h2>
-  <p class="lead">Оригінальний Transformer для перекладу мав і енкодер, і декодер. Згодом їх почали використовувати окремо. Головна різниця між родинами — <strong>маска уваги</strong>: які токени дозволено бачити.</p>
+  <p class="lead">Оригінальний Transformer для перекладу мав і енкодер, і декодер. Згодом їх почали використовувати окремо. Головна різниця між родинами — <strong><span class="term" data-g="attention-mask">маска уваги</span></strong>: які токени дозволено бачити.</p>
   <div class="archs" id="archs"></div>
   <div class="callout q"><div class="qm">Звідси і «розуміє» vs «генерує»</div><p>Енкодер бачить контекст з обох боків, тому добре підходить для класифікації, NER і пошуку. Декодер бачить лише минуле і передбачає наступний токен, тобто генерує текст. Сьогодні ми детально розбираємо <strong>енкодер</strong> на прикладі BERT. Декодерні LLM влаштовані так само, тільки з каузальною маскою.</p></div>
 </section>
@@ -728,7 +728,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 <section class="slide" id="s11" data-title="BERT: попереднє навчання">
   <div class="eyebrow">Розділ 10 · <b>2018</b></div>
   <h2>BERT: як навчити енкодер розуміти мову</h2>
-  <p class="lead"><strong>BERT</strong> (Bidirectional Encoder Representations from Transformers, Devlin et al., 2018) — це стопка енкодер-блоків, попередньо навчена на BooksCorpus і англійській Вікіпедії (~3.3 млрд слів) <strong>без ручної розмітки</strong>.</p>
+  <p class="lead"><strong>BERT</strong> (Bidirectional Encoder Representations from Transformers, Devlin et al., 2018) — це стопка енкодер-блоків, <span class="term" data-g="pretraining">попередньо навчена</span> на BooksCorpus і англійській Вікіпедії (~3.3 млрд слів) <strong>без ручної розмітки</strong>.</p>
 
   <div class="vs">
     <div class="card"><div class="k">Завдання 1</div><h4>Masked Language Modeling</h4><p>Ховаємо 15% токенів і просимо модель відновити їх за контекстом <strong>з обох боків</strong>. Саме це робить BERT двонаправленим.</p></div>
@@ -773,7 +773,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
     <div class="vecs" id="bertVecs"></div>
     <div class="legendrow"><span><span class="sw" style="outline:1.5px solid var(--tfidf)"></span>token</span><span><span class="sw" style="outline:1.5px solid var(--bm25)"></span>position</span><span><span class="sw" style="outline:1.5px solid var(--aqua)"></span>segment (A=0, B=1)</span><span><span class="sw" style="outline:1.5px solid var(--ink)"></span>сума → у перший шар</span></div>
   </div>
-  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s3">↩ Лекція 03</a><p>Тут слова розбито спрощено. Справжній BERT ріже текст токенізатором <strong>WordPiece</strong> зі словником 30 522 токени, тому «unbelievable» стане <code>un ##bel ##ie ##vable</code>. [CLS], [SEP], [MASK] і [PAD] — це спеціальні токени того самого словника з id 101, 102, 103 і 0.</p></div>
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s3">↩ Лекція 03</a><p>Тут слова розбито спрощено. Справжній BERT ріже текст токенізатором <strong>WordPiece</strong> зі словником 30 522 токени, тому «unbelievable» стане <code>un ##bel ##ie ##vable</code>. [CLS], [SEP], [MASK] і [PAD] — це <span class="term" data-g="special-tokens">спеціальні токени</span> того самого словника з id 101, 102, 103 і 0.</p></div>
 
   <div class="demo">
     <div class="head"><h4>Одна модель, різні «голови» для задач</h4><span class="tag">interactive</span><span class="hint">Fine-tuning додає поверх BERT маленький лінійний шар під задачу й донавчає все разом на розмічених даних. Оберіть задачу.</span></div>
@@ -802,13 +802,13 @@ d["кошеня"]  # → KeyError</code></pre></div>
   <h2>XLM-R і мультимовні енкодери</h2>
   <p class="lead">BERT вчився англійською. Для інших мов з'явилися мультимовні моделі. Найвідоміша з них — <strong>XLM-RoBERTa</strong> (Facebook AI, 2019).</p>
   <div class="cards">
-    <div class="card"><div class="k">XLM-R</div><h4>100 мов</h4><p>Архітектура RoBERTa, навчена тільки на MLM на 2.5 ТБ відфільтрованого CommonCrawl. Українська, англійська, польська та ще 97 мов в одній моделі.</p></div>
-    <div class="card"><div class="k">Cross-lingual</div><h4>Спільний простір</h4><p>Близькі за змістом речення різними мовами дають близькі вектори. Класифікатор, навчений англійською, часто працює й українською (zero-shot transfer).</p></div>
+    <div class="card"><div class="k">XLM-R</div><h4>100 мов</h4><p>Архітектура RoBERTa, навчена тільки на <span class="term" data-g="mlm">MLM</span> на 2.5 ТБ відфільтрованого CommonCrawl. Українська, англійська, польська та ще 97 мов в одній моделі.</p></div>
+    <div class="card"><div class="k">Cross-lingual</div><h4>Спільний простір</h4><p>Близькі за змістом речення різними мовами дають близькі вектори. Класифікатор, навчений англійською, часто працює й українською (<span class="term" data-g="zero-shot">zero-shot</span> transfer).</p></div>
     <div class="card"><div class="k">Токенізатор</div><h4>SentencePiece, 250k</h4><p>Модель <strong>unigram</strong> працює прямо по сирому тексту, без попереднього розбиття на слова. Словник у 8 разів більший, ніж у BERT, щоб вмістити 100 писемностей.</p></div>
     <div class="card"><div class="k">Родина</div><h4>mBERT, mDeBERTa, mE5</h4><p>mBERT — це BERT для 104 мов. multilingual-e5 — енкодер для пошуку й ембедінгів речень, і він добре працює з українською.</p></div>
   </div>
   <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s9">↩ Лекція 03</a><p>У розділах «Порівняння токенізаторів» і «Мова і ціна» ми бачили, що англоцентричний словник ріже українські слова на дрібні шматки. Великий мультимовний словник XLM-R частково це виправляє: українське речення займає менше токенів, тож у 512 позицій влазить більше тексту, а увага (n²) коштує дешевше.</p></div>
-  <div class="callout"><p><strong>Практична порада:</strong> для української задачі з невеликим датасетом почніть із <code>FacebookAI/xlm-roberta-base</code> (або <code>-large</code>). Модель уже бачила українську, а ви лише донавчаєте її на своїй задачі. Це і є <strong>transfer learning</strong>.</p></div>
+  <div class="callout"><p><strong>Практична порада:</strong> для української задачі з невеликим датасетом почніть із <code>FacebookAI/xlm-roberta-base</code> (або <code>-large</code>). Модель уже бачила українську, а ви лише <span class="term" data-g="fine-tuning">донавчаєте</span> її на своїй задачі. Це і є <strong><span class="term" data-g="transfer-learning">transfer learning</span></strong>.</p></div>
 </section>
 
 <!-- ============ 14. HF HUB ============ -->
@@ -1063,6 +1063,7 @@ trainer.train()
 
 </main>
 </div>
+<script src="glossary.js"></script>
 <script src="common.js"></script>
 <script>
 /* ===================== helpers ===================== */

@@ -145,6 +145,22 @@ section.slide>.wide,section.slide>.demo,section.slide>.cards,section.slide>.two,
 .callout.warn .qm{font-family:"Unbounded",sans-serif;color:var(--orange);font-size:.8em;margin-bottom:6px}
 .callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
 .term{border-bottom:1px dashed var(--muted);cursor:help}
+/* підказка глосарію для .term[data-g] (див. glossary.js) */
+.term[data-g]{border-bottom-color:color-mix(in srgb,var(--blue) 60%,transparent)}
+.term[data-g]:hover,.term[data-g].on{border-bottom-style:solid;border-bottom-color:var(--blue)}
+.term[data-g]:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:2px}
+.gloss-tip{position:absolute;z-index:40;width:max-content;max-width:min(340px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--blue);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 14px 12px;font-size:.86rem;line-height:1.5;color:var(--ink-2)}
+.lecture .gloss-tip{font-size:1rem;max-width:min(400px,calc(100vw - 24px))}
+.gloss-tip .gt-h{color:var(--ink)}
+.gloss-tip .gt-h b{font-weight:600}
+.gloss-tip .gt-h span{font-family:"IBM Plex Mono",monospace;font-size:.82em;color:var(--muted)}
+.gloss-tip p{margin:4px 0 8px}
+.gloss-tip var{font-family:"IBM Plex Sans",sans-serif}
+.gloss-tip .gt-l{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.92em}
+.gloss-tip .gt-l a{text-decoration:none}
+.gloss-tip .gt-l a:hover{text-decoration:underline}
+.toc-gloss{display:block;margin:14px 0 0 14px;color:var(--muted);text-decoration:none}
+.toc-gloss:hover{color:var(--ink-2);text-decoration:underline}
 
 /* ---------- toggles / details ---------- */
 details.more{margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
