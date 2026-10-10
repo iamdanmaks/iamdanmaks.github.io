@@ -11,6 +11,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const fmt=(x,d=2)=>Number.isFinite(x)?x.toFixed(d):"—";
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 const root=document.documentElement;
+const PAGE=decodeURIComponent(location.pathname.split("/").pop()||"index.html");
 const cssVar=n=>getComputedStyle(root).getPropertyValue(n).trim();
 
 // Демо, що малюють на canvas/SVG із кольорами теми, реєструють тут функцію
@@ -32,13 +33,46 @@ function hlPy(el){
 
 /* ===================== shell: toc, progress, modes ===================== */
 const sections=$$("section.slide");
-$("#toc").innerHTML=sections.map((s,i)=>`<li><a href="#${s.id}"><span class="num">${String(i).padStart(2,"0")}</span>${esc(s.dataset.title)}</a></li>`).join("");
+// Прогрес читання: розділ вважається прочитаним, коли його кінець з'явився на екрані.
+// Зберігається в localStorage ("prog:<файл>"); index.html показує його на картках лекцій.
+const progKey="prog:"+PAGE;
+let prog={read:[],last:0};try{Object.assign(prog,JSON.parse(store.get(progKey)||"{}"))}catch(e){}
+const readSet=new Set(prog.read.filter(id=>sections.some(s=>s.id===id)));
+// Час читання: ~130 слів/хв плюс хвилина на кожне демо; data-min на розділі перекриває оцінку.
+const secMin=sections.map(s=>+s.dataset.min||Math.max(1,Math.round(s.textContent.split(/\s+/).length/130+$$(".demo",s).length)));
+$("#toc").innerHTML=sections.map((s,i)=>`<li><a href="#${s.id}" title="≈${secMin[i]} хв"><span class="num">${String(i).padStart(2,"0")}</span>${esc(s.dataset.title)}</a></li>`).join("");
+$("#toc").insertAdjacentHTML("beforebegin",'<div class="toc-head"><div class="toc-stat"><span id="tocRead"></span><span id="tocLeft"></span></div><div class="toc-bar"><i id="tocBar"></i></div><button type="button" id="progReset" title="Позначити всі розділи непрочитаними">↺ скинути прогрес</button></div>');
+$(".topbar .spacer").insertAdjacentHTML("beforebegin",'<span class="readchip" id="readChip" title="Прочитано розділів"></span>');
 const tocLinks=$$("#toc a");
+function saveProg(){prog.read=[...readSet];prog.total=sections.length;store.set(progKey,JSON.stringify(prog))}
+function renderProg(){
+  const n=readSet.size,left=sections.reduce((a,s,i)=>a+(readSet.has(s.id)?0:secMin[i]),0);
+  tocLinks.forEach((a,i)=>a.classList.toggle("read",readSet.has(sections[i].id)));
+  $("#tocRead").textContent=`Прочитано ${n}/${sections.length}`;
+  $("#tocLeft").textContent=left?`≈${left} хв`:"✓ усе";
+  $("#tocBar").style.width=n/sections.length*100+"%";
+  $("#readChip").textContent=`${n}/${sections.length}`;
+}
+$("#progReset").onclick=()=>{readSet.clear();prog.last=0;saveProg();renderProg()};
+let lastCur=-1;
 function updateShell(){
   const max=root.scrollHeight-root.clientHeight;
   $("#progress").style.width=(max>0?window.scrollY/max*100:0)+"%";
   let cur=0;for(const [i,s] of sections.entries()){if(s.getBoundingClientRect().top<=140)cur=i}
   tocLinks.forEach((a,i)=>a.classList.toggle("active",i===cur));
+  let changed=false;
+  sections.forEach(s=>{if(!readSet.has(s.id)&&s.getBoundingClientRect().bottom<=innerHeight+4){readSet.add(s.id);changed=true}});
+  if(cur!==lastCur){const first=lastCur<0;lastCur=cur;if(!first){prog.last=cur;changed=true}}  // перший виклик при завантаженні не затирає збережене місце
+  if(changed){saveProg();renderProg()}
+}
+// «Продовжити з того місця»: якщо сторінку відкрито з початку, а раніше читали далі.
+function offerResume(){
+  const i=prog.last;if(location.hash||!(i>0&&i<sections.length)||window.scrollY>50)return;
+  const t=document.createElement("div");t.className="resume";t.setAttribute("role","status");
+  t.innerHTML=`<span>Ви зупинилися на розділі «${esc(sections[i].dataset.title)}»</span><button class="btn go" type="button">Продовжити →</button><button class="btn x" type="button" aria-label="Закрити">×</button>`;
+  const close=()=>t.remove();
+  $(".go",t).onclick=()=>{sections[i].scrollIntoView({behavior:"smooth"});close()};$(".x",t).onclick=close;
+  document.body.append(t);setTimeout(()=>addEventListener("scroll",function h(){if(window.scrollY>innerHeight){close();removeEventListener("scroll",h)}},{passive:true}),300);
 }
 addEventListener("scroll",updateShell,{passive:true});addEventListener("resize",()=>{updateShell();redrawAll()});
 function setLecture(on){root.classList.toggle("lecture",on);$("#lectureBtn").setAttribute("aria-pressed",String(on));store.set("lecture",on?"1":"0");setTimeout(()=>{updateShell();redrawAll()},50)}
@@ -59,10 +93,39 @@ addEventListener("keydown",e=>{
 });
 
 /* ===================== quiz + code highlight ===================== */
-// <div class="quiz" data-ans="N"> — N: номер правильної відповіді серед .opt, з нуля
-$$(".quiz").forEach(qz=>{const ans=+qz.dataset.ans;$$(".opt",qz).forEach((b,i)=>b.addEventListener("click",()=>{if(qz.classList.contains("done"))return;qz.classList.add("done");b.classList.add(i===ans?"ok":"no");$$(".opt",qz)[ans].classList.add("ok")}))});
+// <div class="quiz" data-ans="N"> — N: номер правильної відповіді серед .opt, з нуля.
+// Відповіді зберігаються в localStorage ("quiz:<файл>"), щоб їх бачила сторінка index.html.
+// Необов'язкова перевірка посеред лекції: <details class="check"><summary>Перевір себе</summary> .quiz… </details>.
+// Згорнута за замовчуванням і на прогрес читання не впливає.
+const quizzes=$$(".quiz"),quizKey="quiz:"+PAGE;
+let quizState={};try{quizState=JSON.parse(store.get(quizKey)||"{}").answers||{}}catch(e){}
+const qid=(qz,i)=>qz.dataset.id||String(i);
+const plQ=n=>n+" "+(n%10>=1&&n%10<=4&&!(n%100>=11&&n%100<=14)?"питання":"питань");
+function showAnswer(qz,pick){const ans=+qz.dataset.ans,opts=$$(".opt",qz);qz.classList.add("done");opts[pick]?.classList.add(pick===ans?"ok":"no");opts[ans].classList.add("ok")}
+function quizStats(list=quizzes){let done=0,ok=0;list.forEach(qz=>{const p=quizState[qid(qz,quizzes.indexOf(qz))];if(p!==undefined){done++;if(p===+qz.dataset.ans)ok++}});return{done,ok,total:list.length}}
+function renderQuizMeta(){
+  const st=quizStats();
+  store.set(quizKey,JSON.stringify({answers:quizState,ok:st.ok,done:st.done,total:st.total}));
+  $$("details.check").forEach(d=>{const s=quizStats($$(".quiz",d)),el=$(".check-status",d);
+    if(el)el.textContent=s.done?`${s.ok}/${s.total} правильно`:plQ(s.total)+" · необов'язково";d.classList.toggle("passed",s.done===s.total&&s.ok===s.total)});
+  const box=$("#quizScore");if(box){
+    box.querySelector(".qs-text").innerHTML=st.done?`Правильно <b>${st.ok}</b> з ${st.done} відповідей · усього в лекції ${plQ(st.total)}`:`Усього в лекції ${plQ(st.total)}. Відповіді зберігаються в цьому браузері.`;
+    box.querySelector("button").hidden=!st.done}
+}
+quizzes.forEach((qz,i)=>{
+  const id=qid(qz,i);if(quizState[id]!==undefined)showAnswer(qz,quizState[id]);
+  $$(".opt",qz).forEach((b,j)=>b.addEventListener("click",()=>{if(qz.classList.contains("done"))return;quizState[id]=j;showAnswer(qz,j);renderQuizMeta()}))});
+$$("details.check").forEach(d=>{const sm=$("summary",d);if(sm&&!$(".check-status",sm))sm.insertAdjacentHTML("beforeend",'<span class="check-status"></span>')});
+if(quizzes.length){
+  const last=sections[sections.length-1],lastQ=$$(".quiz",last).pop();
+  const box=document.createElement("div");box.className="quiz-score";box.id="quizScore";
+  box.innerHTML='<span class="qs-text"></span><button class="btn" type="button">↺ Скинути відповіді</button>';
+  box.querySelector("button").onclick=()=>{quizState={};quizzes.forEach(qz=>{qz.classList.remove("done");$$(".opt",qz).forEach(b=>b.classList.remove("ok","no"))});renderQuizMeta()};
+  if(lastQ)lastQ.after(box);else last.append(box);
+  renderQuizMeta();
+}
 $$("code.py").forEach(hlPy);
 
 if(store.get("lecture")==="1")setLecture(true);
 setTheme(store.get("theme")||"");
-updateShell();
+renderProg();updateShell();offerResume();

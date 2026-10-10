@@ -96,6 +96,16 @@ nav.toc li a{display:block;padding:6px 14px;color:var(--ink-2);text-decoration:n
 nav.toc li a:hover{color:var(--ink)}
 nav.toc li a.active{color:var(--ink);border-left-color:var(--blue);font-weight:500}
 nav.toc .num{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px;font-family:"IBM Plex Mono",monospace;font-size:.85em}
+nav.toc li a.read .num{color:var(--aqua)}
+nav.toc li a.read .num::after{content:" ✓"}
+.toc-head{padding:0 0 12px 14px;font-size:.92em;color:var(--muted)}
+.toc-stat{display:flex;justify-content:space-between;gap:8px;font-family:"IBM Plex Mono",monospace;font-size:.85em}
+.toc-bar{height:3px;background:var(--line-soft);border-radius:2px;margin:6px 0 4px;overflow:hidden}
+.toc-bar i{display:block;height:100%;width:0;background:var(--aqua);transition:width .3s}
+.toc-head button{font:inherit;font-size:.85em;color:var(--muted);background:none;border:0;padding:0;cursor:pointer}
+.toc-head button:hover{color:var(--ink-2);text-decoration:underline}
+.readchip{display:none;font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.lecture .readchip{display:inline-block}
 main{min-width:0}
 section.slide{padding-block:48px;border-top:1px solid var(--line)}
 section.slide:first-child{border-top:0;padding-top:8px}
@@ -229,6 +239,21 @@ pre.code .o{color:var(--code-cm)}
 .quiz button.opt.no{border-color:var(--orange);opacity:.7}
 .quiz .ans{margin-top:10px;font-size:.9em;color:var(--ink-2);display:none}
 .quiz.done .ans{display:block}
+.quiz-score{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:18px 0;padding:12px 16px;border:1px dashed var(--line);border-radius:var(--radius);font-size:.9em;color:var(--ink-2)}
+.quiz-score b{color:var(--aqua)}
+/* необов'язкова перевірка посеред лекції: згорнута, поки студент сам не відкриє */
+details.check{margin:22px 0;max-width:none}
+details.check>summary{display:inline-flex;align-items:center;gap:10px;cursor:pointer;list-style:none;font-size:.88em;font-weight:500;color:var(--violet);border:1px solid var(--line);border-radius:999px;padding:5px 14px;background:var(--surface)}
+details.check>summary::-webkit-details-marker{display:none}
+details.check>summary::before{content:"?";display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--violet);color:var(--bg);font-size:.8em;font-weight:600}
+details.check>summary:hover{border-color:var(--violet)}
+details.check .check-status{font-weight:400;color:var(--muted);font-size:.92em}
+details.check.passed>summary::before{content:"✓";background:var(--aqua)}
+details.check[open]>summary{margin-bottom:4px}
+details.check .quiz{margin:10px 0}
+/* «Продовжити з того місця» */
+.resume{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);padding:10px 12px 10px 18px;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);font-size:.88em;color:var(--ink-2)}
+.resume .btn.x{padding:4px 10px}
 
 .kbd-hint{font-size:.78em;color:var(--muted);margin-top:40px;font-family:"IBM Plex Mono",monospace}
 kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:.9em;background:var(--surface)}
@@ -237,8 +262,10 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;paddi
 @media (max-width:900px){
   .wrap{grid-template-columns:minmax(0,1fr)}
   nav.toc{display:none}
+  .readchip{display:inline-block}
   .hero-grid,.vs{grid-template-columns:minmax(0,1fr)}
   h1{font-size:1.7em}
 }
-@media (max-width:640px){.topbar .brand{display:none}.topbar{gap:8px;padding:8px 12px}.topbar .btn{padding:6px 10px}}
+@media (max-width:480px){.readchip,.lecture .readchip{display:none}}
+@media (max-width:640px){.resume{left:16px;right:16px;bottom:12px;transform:none;max-width:none;flex-wrap:wrap;border-radius:var(--radius);padding:12px 14px}.resume span{flex:1 1 100%}.resume .btn.go{margin-left:auto}.topbar .brand{display:none}.topbar{gap:8px;padding:8px 12px}.topbar .btn{padding:6px 10px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

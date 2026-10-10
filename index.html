@@ -49,6 +49,10 @@ h1{font-family:"Unbounded",sans-serif;font-weight:700;font-size:clamp(1.7em,4vw,
 .card .go{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:.85em;font-weight:500;color:var(--tfidf)}
 .card:nth-child(2) .go{color:var(--bm25)}
 .card:nth-child(2):hover{border-color:var(--bm25)}
+.card .prog{display:flex;align-items:center;gap:12px;margin-top:14px;font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted)}
+.card .prog .bar{flex:0 0 120px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.card .prog .bar i{display:block;height:100%;background:var(--aqua)}
+.card .prog + .go{margin-top:10px}
 </style>
 </head>
 <body>
@@ -80,5 +84,19 @@ h1{font-family:"Unbounded",sans-serif;font-weight:700;font-size:clamp(1.7em,4vw,
     </a>
   </div>
 </div>
+<script>
+// Прогрес із localStorage, який пишуть лекції (common.js): "prog:<файл>" і "quiz:<файл>".
+document.querySelectorAll("a.card").forEach(card=>{
+  const file=decodeURIComponent(card.getAttribute("href").split("/").pop());
+  let p=null,q=null;try{p=JSON.parse(localStorage.getItem("prog:"+file));q=JSON.parse(localStorage.getItem("quiz:"+file))}catch(e){}
+  const read=p&&p.read?p.read.length:0;if(!read&&!(q&&q.done))return;
+  const total=p&&p.total||read,parts=[];
+  if(read)parts.push(read>=total?"✓ прочитано":`прочитано ${read}/${total}`);
+  if(q&&q.done)parts.push(`тест ${q.ok}/${q.total}`);
+  const el=document.createElement("span");el.className="prog";
+  el.innerHTML=`<span class="bar"><i style="width:${total?Math.min(100,read/total*100):0}%"></i></span><span>${parts.join(" · ")}</span>`;
+  card.querySelector(".go").before(el);
+});
+</script>
 </body>
 </html>

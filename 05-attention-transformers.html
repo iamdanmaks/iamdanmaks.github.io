@@ -411,6 +411,14 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
     <div class="card"><div class="k">04 · Пляшкове горлечко</div><h4>Весь контекст в одному векторі</h4><p>Стан <var>h<sub>n</sub></var> має вмістити сенс усього речення. У вектор фіксованого розміру довгий текст без втрат не влазить.</p></div>
   </div>
   <div class="callout warn"><div class="qm">Чесна ціна уваги</div><p>Увага не безкоштовна: кожен токен порівнюється з кожним, тому пам'ять і обчислення ростуть як <strong>n²</strong>. Через це у BERT контекст обмежено 512 токенами. Тут знову важить токенізатор з лекції 03: якщо українська дає в 2–3 рази більше токенів, ніж англійська, увага коштує в 4–9 разів дорожче.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Чому RNN довго навчаються на довгих текстах навіть на потужних GPU?</div>
+      <div class="opts"><button class="opt">У них забагато параметрів</button><button class="opt">Кожен крок чекає на прихований стан попереднього, тож токени не обробити паралельно</button><button class="opt">Вони не вміють працювати з батчами</button></div>
+      <div class="ans">Обчислення h<sub>t</sub> потребує h<sub>t−1</sub>, тому n токенів означає n послідовних кроків. Самоувага обробляє всі токени за один крок.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 3. SEQ2SEQ ============ -->
@@ -466,6 +474,14 @@ d["кошеня"]  # → KeyError</code></pre></div>
   </div>
 
   <div class="callout"><p><strong>Чому це прибрало RNN:</strong> кожен токен напряму пов'язаний з кожним, тож шлях між будь-якими двома позиціями займає <strong>один крок</strong>. Усі пари обчислюються <strong>паралельно</strong> як добуток матриць, а саме це GPU робить найкраще.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Що повертає увага для одного запиту q?</div>
+      <div class="opts"><button class="opt">Значення V найсхожішого ключа, як у Python dict</button><button class="opt">Сам ключ K з найвищою схожістю</button><button class="opt">Зважену суму всіх значень V, де ваги — softmax схожості q з ключами</button></div>
+      <div class="ans">Це м'який пошук: кожне значення бере участь у відповіді з вагою, пропорційною схожості його ключа із запитом.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 5. FORMULA STEP BY STEP ============ -->
@@ -594,6 +610,14 @@ d["кошеня"]  # → KeyError</code></pre></div>
     <div class="split" id="splitBar"></div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.85em;color:var(--ink-2)" id="splitTxt"></div>
   </div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">У BERT-base d<sub>model</sub> = 768 і 12 голів. Яка довжина векторів q і k в одній голові?</div>
+      <div class="opts"><button class="opt">64</button><button class="opt">768</button><button class="opt">9216</button></div>
+      <div class="ans">d<sub>k</sub> = d<sub>model</sub> / h = 768 / 12 = 64. Голови ділять вектор між собою, тому multi-head коштує приблизно стільки ж, скільки одна велика голова.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 8. POSITIONAL ENCODING ============ -->
@@ -630,6 +654,14 @@ d["кошеня"]  # → KeyError</code></pre></div>
   </div>
 
   <div class="callout"><p><strong>Що використовують на практиці:</strong> BERT і XLM-R мають <strong>навчені</strong> позиційні ембедінги, тобто окрему матрицю 512 × 768, яка вчиться разом з моделлю. Звідси й ліміт у 512 токенів. Сучасні LLM (Llama, Qwen, Mistral) і новіші енкодери на кшталт ModernBERT використовують <strong>RoPE</strong>: замість додавання вектора вони повертають Q і K на кут, що залежить від позиції.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Що станеться з виходом чистої самоуваги без позиційного кодування, якщо переставити слова в реченні?</div>
+      <div class="opts"><button class="opt">Вихід зміниться непередбачувано</button><button class="opt">Кожен токен отримає той самий вектор, лише на новому місці</button><button class="opt">Модель видасть помилку</button></div>
+      <div class="ans">Без позицій увага бачить множину токенів, а не послідовність, тому «dog bites man» і «man bites dog» для неї однакові.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 9. TRANSFORMER BLOCK ============ -->
@@ -716,6 +748,14 @@ d["кошеня"]  # → KeyError</code></pre></div>
     <div class="mlm" id="maskSent"></div>
     <div class="legendrow"><span><span class="sw" style="background:var(--ink)"></span>[MASK] (80%)</span><span><span class="sw" style="background:var(--bm25-soft);border:1px solid var(--bm25)"></span>випадковий токен (10%)</span><span><span class="sw" style="background:color-mix(in srgb,var(--aqua) 18%,var(--surface));border:1px solid var(--aqua)"></span>без змін, але треба передбачити (10%)</span></div>
   </div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Чому BERT не генерує текст «з коробки», як GPT?</div>
+      <div class="opts"><button class="opt">У BERT немає матриці ембедінгів</button><button class="opt">BERT навчали лише на англійській</button><button class="opt">Він навчений відновлювати замасковані токени за контекстом з обох боків, а не передбачати наступний</button></div>
+      <div class="ans">MLM дає двонаправлене розуміння, але генерація зліва направо потребує каузальної маски й задачі «наступний токен».</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 12. BERT IO ============ -->

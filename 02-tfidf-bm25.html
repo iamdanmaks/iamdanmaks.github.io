@@ -207,6 +207,14 @@ wakati.parse("これは日本語のテキストです。").split()
 # ['これ', 'は', '日本', '語', 'の', 'テキスト', 'です', '。']</code></pre>
 
   <div class="callout"><p><strong>Корпус</strong> — це набір текстів. Текстовий датасет, не обов'язково розмічений. Просто список документів довільної форми, стилю і теми. Далі всі метрики рахуються відносно корпусу.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Токенізатор scikit-learn <code>(?u)\w\w+</code> отримав речення «I love NLP!». Які токени лишаться?</div>
+      <div class="opts"><button class="opt">I · love · NLP · !</button><button class="opt">love · NLP</button><button class="opt">I · love · NLP</button></div>
+      <div class="ans">Регулярний вираз шукає щонайменше два символи слова поспіль, тому однолітерне «I» зникає, а пунктуація не потрапляє взагалі.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 4. BAG OF WORDS ============ -->
@@ -381,6 +389,14 @@ for text, score in tfidf_search("scary movie"):
   <details class="more"><summary>Що робить TfidfVectorizer за замовчуванням</summary><div class="body">
     <p>Приводить текст до нижнього регістру, токенізує регулярним виразом <code>(?u)\b\w\w+\b</code> (пунктуація ігнорується, токен — це мінімум 2 літери чи цифри), рахує IDF як log((1+N)/(1+df))+1 і нормалізує кожен вектор документа до одиничної довжини (L2). Через це косинусна подібність зводиться до звичайного скалярного добутку. Стоп-слова, N-грами і уніфікацію акцентів можна ввімкнути параметрами.</p>
   </div></details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Запит і документ не мають жодного спільного токена. Яка косинусна подібність їхніх TF-IDF векторів?</div>
+      <div class="opts"><button class="opt">0: вектори ортогональні</button><button class="opt">−1: вектори протилежні</button><button class="opt">Залежить від довжини документа</button></div>
+      <div class="ans">Скалярний добуток рахується лише по спільних токенах. TF-IDF не буває від'ємним, тому без спільних слів кут 90° і косинус 0.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 7. METRICS ============ -->
@@ -409,6 +425,14 @@ for text, score in tfidf_search("scary movie"):
     </div>
     <p style="font-size:.85em;color:var(--muted);margin-bottom:0">Порядок у топ-K precision і recall не враховують. Метрики, чутливі до порядку (MRR, nDCG), розглянемо на практиці.</p>
   </div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">У топ-5 видачі 2 релевантні документи, а всього в корпусі для цього запиту їх 4. Чому дорівнюють precision@5 і recall@5?</div>
+      <div class="opts"><button class="opt">precision = 0.4, recall = 0.5</button><button class="opt">precision = 0.5, recall = 0.4</button><button class="opt">precision = 0.4, recall = 0.4</button></div>
+      <div class="ans">precision@5 = 2/5 = 0.4: частка релевантних серед показаних. recall@5 = 2/4 = 0.5: частка знайдених серед усіх релевантних.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 8. PREPROCESSING ============ -->
@@ -460,6 +484,14 @@ lemmatizer = WordNetLemmatizer()
 print([lemmatizer.lemmatize(t, pos='v') for t in tokens])  # ['runners', 'run', 'gardens', '!']
 
 print(list(ngrams(tokens, 2)))                          # [('runners', 'running'), ('running', 'gardens'), ...]</code></pre>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Корпус пройшов через нижній регістр і стемінг, а запити йдуть у пошук як є. Що станеться із запитом «Running»?</div>
+      <div class="opts"><button class="opt">Нічого, TF-IDF не чутливий до регістру</button><button class="opt">Він знайде більше документів, бо форма повна</button><button class="opt">Він не збіжеться з токеном «run» у словнику, і документи не знайдуться</button></div>
+      <div class="ans">Обробка мусить бути однаковою для корпусу і запиту. Інакше запит і документи живуть у різних словниках.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 9. OTHER USES ============ -->

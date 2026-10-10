@@ -232,6 +232,14 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
     <div class="card"><div class="k">Ціна</div><h4>Більше токенів — дорожче</h4><p>Кількість токенів, на які розбивається текст, визначає ціну й швидкість моделі. Токенізація — це не дрібниця, а фундамент мовної моделі.</p></div>
   </div>
   <div class="callout q"><div class="qm">Від токенізації до моделі</div><p>Ось чому ми починаємо розмову про мовні моделі саме з токенізації: щоб збудувати модель, треба спершу визначити словник, а отже — і матрицю ембедінгів, з якої модель «читатиме» значення кожного токена. Далі розберемо, як зробити цей словник компактним і повним одночасно.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Що токенізатор насправді передає нейромережі?</div>
+      <div class="opts"><button class="opt">Вектори сенсу кожного слова</button><button class="opt">Цілі числа, тобто номери рядків у матриці ембедінгів</button><button class="opt">Рядки тексту, розбиті на частини</button></div>
+      <div class="ans">Токенізатор нічого не «розуміє»: він видає id. Вектори з'являються, коли модель бере рядок матриці ембедінгів за цим id.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 1. SIMPLE TOKENIZATION ============ -->
@@ -481,6 +489,14 @@ while len(vocab) &lt; vocab_size:
         else:
             i += 1</code></pre>
   </div></details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Корпус: «hug» ×10, «pug» ×5, «hugs» ×5. Старт із символів. Яку пару BPE зіллє першою?</div>
+      <div class="opts"><button class="opt">h + u (15 разів)</button><button class="opt">p + u (5 разів)</button><button class="opt">u + g (20 разів)</button></div>
+      <div class="ans">Пара u+g є в усіх трьох словах: 10 + 5 + 5 = 20. Це найчастіша пара, тому першим мьоржем стане «ug».</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 6. TRAIN YOUR OWN ============ -->
@@ -616,6 +632,14 @@ tokenizer_xlmr = Tokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
 tokens_to_words_ratio(ukr_text, tokenizer_xlmr)   # ≈ 2.22
 tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
   </div></details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Текст із 40 слів токенізатор розбив на 100 токенів. Скільки токенів на слово?</div>
+      <div class="opts"><button class="opt">2.5</button><button class="opt">0.4</button><button class="opt">40</button></div>
+      <div class="ans">Токени на слово = 100 / 40 = 2.5. Для англійської у GPT-2 це ≈1.6 (див. калькулятор нижче), тож такий текст, найімовірніше, іншою мовою або з незвичного домену.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 9. MULTILINGUAL COST ============ -->
