@@ -63,7 +63,7 @@
   <div class="eyebrow">Розділ 1 · <b>ключове слово</b></div>
   <h2>Заголовок розділу</h2>
   <p class="lead">Лід-абзац: одна думка, яку треба винести з розділу.</p>
-  <p>Звичайний текст. Терміни з підказкою: <span class="term" title="англійський відповідник або коротке визначення">термін</span>. Вбудований код: <code>tokenizer.encode()</code>.</p>
+  <p>Звичайний текст. Термін із глосарію (визначення в <code>glossary.js</code>, слово в будь-якій формі): <span class="term" data-g="softmax">softmax</span>, <span class="term" data-g="logit">логітів</span>. Разова примітка поза глосарієм: <span class="term" title="англійський відповідник або коротке уточнення">термін</span>. Вбудований код: <code>tokenizer.encode()</code>.</p>
 
   <div class="cards">
     <div class="card"><div class="k">Мітка</div><h4>Заголовок картки</h4><p>Коротке пояснення, 1–2 речення.</p></div>
@@ -103,6 +103,15 @@
     <span class="arrow">→</span>
     <div class="pstep hot"><div class="l">крок 3 · акцент</div><div class="t">модель</div></div>
   </div>
+
+  <!-- Необов'язкова перевірка після розділу: згорнута, студент відкриває її сам. 1–2 питання. -->
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Що стається з розподілом softmax, якщо збільшити T?</div>
+      <div class="opts"><button class="opt">Він стає пласкішим</button><button class="opt">Він стає гострішим</button><button class="opt">Нічого не змінюється</button></div>
+      <div class="ans">Велике T зменшує різницю між z<sub>i</sub>/T, тому ймовірності вирівнюються.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 3. ІНТЕРАКТИВНЕ ДЕМО ============ -->
@@ -158,6 +167,7 @@ print(softmax([2.0, 1.0, 0.1], T=0.5))</code></pre>
 
 </main>
 </div>
+<script src="glossary.js"></script>
 <script src="common.js"></script>
 <script>
 /* Тут доступні хелпери з common.js: $, $$, esc, fmt, store, cssVar, redraws, hlPy. */

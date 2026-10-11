@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Глосарій NLP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+/* Сторінка будується з glossary.js; common.js тут не підключено (немає розділів і змісту). */
+.gwrap{max-width:860px;margin:0 auto;padding:40px 24px 96px}
+.gwrap h1{font-size:2em;margin-bottom:12px}
+.gwrap .lead{max-width:60ch;margin:0 0 28px}
+.gctl{position:sticky;top:57px;z-index:10;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0;background:var(--bg);border-bottom:1px solid var(--line-soft)}
+.gctl input{flex:1 1 240px;min-width:0;font:inherit;font-size:.95em;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:8px 16px}
+.gctl input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.gcount{font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted);margin-left:auto}
+.gletter{font-family:"Unbounded",sans-serif;font-size:.9em;color:var(--blue);margin:32px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.gentry{padding:14px 16px;margin:0 -16px;border-radius:var(--radius);scroll-margin-top:130px}
+.gentry:target{background:var(--surface);box-shadow:0 0 0 2px var(--blue)}
+.gentry h3{margin:0;font-size:1.05em;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.gentry h3 a.self{color:inherit;text-decoration:none}
+.gentry h3 a.self:hover{text-decoration:underline}
+.gentry h3 .en{font-family:"IBM Plex Mono",monospace;font-weight:400;font-size:.72em;color:var(--muted)}
+.gentry p{margin:6px 0;color:var(--ink-2);max-width:68ch}
+.gentry var{font-family:"IBM Plex Sans",sans-serif}
+.gmeta{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.85em;color:var(--muted)}
+.gmeta a{text-decoration:none}.gmeta a:hover{text-decoration:underline}
+.gempty{color:var(--muted);padding:24px 0}
+@media (max-width:640px){.gctl{top:49px}.gwrap h1{font-size:1.6em}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Глосарій</span>
+  <span class="spacer"></span>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+</header>
+
+<div class="gwrap">
+  <div class="eyebrow">Обробка природної мови · <b>довідник</b></div>
+  <h1>Глосарій термінів</h1>
+  <p class="lead">Одне визначення на термін для всіх лекцій. У тексті лекцій ці терміни підкреслені пунктиром: наведіть або торкніться, щоб побачити визначення.</p>
+  <div class="gctl">
+    <input type="search" id="q" placeholder="Пошук: логіт, attention, TF…" aria-label="Пошук термінів" autocomplete="off">
+    <span id="lecF"></span>
+    <span class="gcount" id="cnt"></span>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script src="glossary.js"></script>
+<script>
+const $=s=>document.querySelector(s),root=document.documentElement;
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+// Тема: та сама логіка й той самий ключ "theme", що й у лекціях (common.js).
+const darkMQ=matchMedia("(prefers-color-scheme: dark)");
+function setTheme(t){if(t)root.setAttribute("data-theme",t);else root.removeAttribute("data-theme");store.set("theme",t);$("#themeBtn").textContent="◐ Тема"+(t?": "+(t==="dark"?"темна":"світла"):"")}
+$("#themeBtn").onclick=()=>setTheme((root.getAttribute("data-theme")||(darkMQ.matches?"dark":"light"))==="dark"?"light":"dark");
+setTheme(store.get("theme")||"");
+
+const lecOf=g=>g.src.slice(0,2);
+// Сортуємо й групуємо за першою літерою, без дужок на кшталт «[UNK]».
+const sortKey=k=>GLOSSARY[k].term.replace(/^[^\p{L}\p{N}]+/u,"");
+const keys=Object.keys(GLOSSARY).sort((a,b)=>sortKey(a).localeCompare(sortKey(b),"uk",{sensitivity:"base"}));
+const lecs=[...new Set(keys.map(k=>lecOf(GLOSSARY[k])))].sort();
+let lec="";
+$("#lecF").innerHTML=["",...lecs].map(l=>`<button class="btn" type="button" data-l="${l}" aria-pressed="${!l}">${l?"Лекція "+l:"Усі"}</button>`).join(" ");
+const plain=h=>h.replace(/<[^>]+>/g,"");
+function render(){
+  const q=$("#q").value.trim().toLowerCase();
+  const shown=keys.filter(k=>{const g=GLOSSARY[k];
+    return (!lec||lecOf(g)===lec)&&(!q||[g.term,g.en||"",plain(g.def),k].some(s=>s.toLowerCase().includes(q)))});
+  let html="",letter="";
+  for(const k of shown){const g=GLOSSARY[k],L=sortKey(k)[0].toLocaleUpperCase("uk");
+    if(L!==letter){letter=L;html+=`<div class="gletter">${L}</div>`}
+    const see=(g.see||[]).filter(s=>GLOSSARY[s]).map(s=>`<a href="#${s}">${GLOSSARY[s].term}</a>`).join(", ");
+    html+=`<article class="gentry" id="${k}"><h3><a class="self" href="#${k}">${g.term}</a>${g.en&&g.en!==g.term?`<span class="en">${g.en}</span>`:""}</h3><p>${g.def}</p>`+
+      `<div class="gmeta"><a href="${g.src}">Пояснено в лекції ${lecOf(g)} →</a>${see?`<span>Див. також: ${see}</span>`:""}</div></article>`}
+  $("#list").innerHTML=html||'<p class="gempty">Нічого не знайдено.</p>';
+  $("#cnt").textContent=`${shown.length} / ${keys.length}`;
+}
+$("#q").addEventListener("input",render);
+$("#lecF").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;lec=b.dataset.l;
+  document.querySelectorAll("#lecF button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));render()});
+// «Див. також» і посилання з лекцій: якщо термін сховано фільтром, скидаємо фільтр.
+addEventListener("hashchange",()=>{const k=location.hash.slice(1);if(GLOSSARY[k]&&!document.getElementById(k)){$("#q").value="";lec="";document.querySelectorAll("#lecF button").forEach(x=>x.setAttribute("aria-pressed",String(!x.dataset.l)));render();document.getElementById(k).scrollIntoView()}});
+addEventListener("keydown",e=>{if(e.key==="/"&&document.activeElement!==$("#q")){e.preventDefault();$("#q").focus()}});
+render();
+if(location.hash)document.getElementById(location.hash.slice(1))?.scrollIntoView();
+</script>
+</body>
+</html>

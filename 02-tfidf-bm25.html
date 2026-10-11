@@ -108,10 +108,10 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
   <div class="hero-grid">
     <div>
       <p class="lead">Як комп'ютер бачить текст, як зробити з нього числа і як побудувати пошук, який досі працює у production у 2026 році.</p>
-      <p>Задача пошуку (<span class="term" title="Information Retrieval">IR</span>) ділиться на два підходи:</p>
+      <p>Задача пошуку (<span class="term" data-g="ir">IR</span>) ділиться на два підходи:</p>
       <div class="vs">
-        <div class="card"><div class="k">Full-text / lexical</div><h4>За ключовими словами</h4><p>Статистика над токенами. Не знає значення слів, але точно знає, які слова є в документі. Це TF-IDF і BM25.</p></div>
-        <div class="card b"><div class="k">Semantic</div><h4>За сенсом</h4><p>Нейронна мережа кодує зміст тексту у dense-вектор. Шукає за синонімами і переносним значенням. Це тема наступних лекцій.</p></div>
+        <div class="card"><div class="k">Full-text / lexical</div><h4>За ключовими словами</h4><p>Статистика над <span class="term" data-g="token">токенами</span>. Не знає значення слів, але точно знає, які слова є в документі. Це <span class="term" data-g="tfidf">TF-IDF</span> і <span class="term" data-g="bm25">BM25</span>.</p></div>
+        <div class="card b"><div class="k">Semantic</div><h4>За сенсом</h4><p>Нейронна мережа кодує зміст тексту у <span class="term" data-g="dense-vector">dense-вектор</span>. Шукає за синонімами і переносним значенням. Це тема наступних лекцій.</p></div>
       </div>
       <div class="hero-vis" id="heroVis" aria-hidden="true"></div>
     </div>
@@ -134,13 +134,13 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 <section class="slide" id="s1" data-title="Навіщо класика у 2026">
   <div class="eyebrow">Розділ 1</div>
   <h2>Навіщо класичні алгоритми, коли є нейронні мережі?</h2>
-  <p class="lead">Lexical search не помер. Він стоїть під капотом Elasticsearch, OpenSearch, Lucene, Solr, Postgres full-text і майже кожної <span class="term" title="Retrieval-Augmented Generation">RAG</span>-системи як перший етап відбору кандидатів.</p>
+  <p class="lead"><span class="term" data-g="lexical-search">Lexical search</span> не помер. Він стоїть під капотом Elasticsearch, OpenSearch, Lucene, Solr, Postgres full-text і майже кожної <span class="term" data-g="rag">RAG</span>-системи як перший етап відбору кандидатів.</p>
   <div class="cards">
     <div class="card"><div class="k">01 · Дешево</div><h4>Не потрібне тренування</h4><p>Немає датасету, немає GPU, немає ручної розмітки. Індекс будується за секунди на CPU.</p></div>
-    <div class="card"><div class="k">02 · Точно</div><h4>Досі сильний baseline</h4><p>На бенчмарку BEIR BM25 обходить багато нейронних моделей на незнайомих доменах (zero-shot).</p></div>
-    <div class="card"><div class="k">03 · Терміни</div><h4>Абревіатури і коди</h4><p>Артикул «XR-2200-B» або тікет «PROJ-4821» ембедінг не знає. Точний збіг токена знає завжди.</p></div>
+    <div class="card"><div class="k">02 · Точно</div><h4>Досі сильний baseline</h4><p>На бенчмарку BEIR BM25 обходить багато нейронних моделей на незнайомих доменах (<span class="term" data-g="zero-shot">zero-shot</span>).</p></div>
+    <div class="card"><div class="k">03 · Терміни</div><h4>Абревіатури і коди</h4><p>Артикул «XR-2200-B» або тікет «PROJ-4821» <span class="term" data-g="embedding">ембедінг</span> не знає. Точний збіг токена знає завжди.</p></div>
     <div class="card"><div class="k">04 · Прозоро</div><h4>Легко пояснити</h4><p>Чому документ у топі? Бо у ньому є ці слова з такою вагою. Кожен доданок скору можна показати.</p></div>
-    <div class="card"><div class="k">05 · Швидко</div><h4>Мільйони документів</h4><p>Інвертований індекс дає відповідь за мілісекунди. Нейронний пошук потребує окремої векторної БД.</p></div>
+    <div class="card"><div class="k">05 · Швидко</div><h4>Мільйони документів</h4><p><span class="term" data-g="inverted-index">Інвертований індекс</span> дає відповідь за мілісекунди. Нейронний пошук потребує окремої векторної БД.</p></div>
     <div class="card"><div class="k">06 · Гібрид</div><h4>Hybrid search</h4><p>У production зазвичай поєднують: BM25 відбирає кандидатів за точним збігом, нейронна модель їх перевпорядковує.</p></div>
   </div>
 </section>
@@ -149,7 +149,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 <section class="slide" id="s2" data-title="Текст очима комп'ютера">
   <div class="eyebrow">Розділ 2</div>
   <h2>Текстові дані: що бачить комп'ютер?</h2>
-  <p>Для нас текст — це символи, що складаються у слова, речення і сенс. Для комп'ютера текст — це послідовність байтів. Стандарт <strong>Unicode</strong> присвоює кожному символу номер (code point), а кодування <strong>UTF-8</strong> записує цей номер у 1–4 байти.</p>
+  <p>Для нас текст — це символи, що складаються у слова, речення і сенс. Для комп'ютера текст — це послідовність байтів. Стандарт <strong>Unicode</strong> присвоює кожному символу номер (code point), а кодування <strong><span class="term" data-g="utf8">UTF-8</span></strong> записує цей номер у 1–4 байти.</p>
 
   <div class="demo">
     <div class="head"><h4>Текст як байти</h4><span class="tag">interactive</span><span class="hint">Введіть будь-який текст. Спробуйте латиницю, кирилицю, японську і емоджі та порівняйте кількість байтів на символ.</span></div>
@@ -182,7 +182,7 @@ visualize_unicode_bytes('こんにちは')
 <section class="slide" id="s3" data-title="Токенізація">
   <div class="eyebrow">Розділ 3</div>
   <h2>Рішення: токенізація</h2>
-  <p><strong>Токенізація</strong> — це перетворення тексту на змістовні одиниці, <strong>токени</strong>. Мета — стиснути текст у набір блоків, кожен з яких несе частину сенсу.</p>
+  <p><strong><span class="term" data-g="tokenization">Токенізація</span></strong> — це перетворення тексту на змістовні одиниці, <strong>токени</strong>. Мета — стиснути текст у набір блоків, кожен з яких несе частину сенсу.</p>
   <p>Токеном може бути що завгодно: байт, символ, набір символів (subword), слово, словосполучення, речення чи абзац. Формат токена обирає розробник під задачу. Сьогодні токен = слово.</p>
 
   <div class="demo">
@@ -206,19 +206,27 @@ wakati = MeCab.Tagger("-Owakati")
 wakati.parse("これは日本語のテキストです。").split()
 # ['これ', 'は', '日本', '語', 'の', 'テキスト', 'です', '。']</code></pre>
 
-  <div class="callout"><p><strong>Корпус</strong> — це набір текстів. Текстовий датасет, не обов'язково розмічений. Просто список документів довільної форми, стилю і теми. Далі всі метрики рахуються відносно корпусу.</p></div>
+  <div class="callout"><p><strong>Корпус</strong> — це набір текстів. Текстовий датасет, не обов'язково розмічений. Просто список документів довільної форми, стилю і теми. Далі всі метрики рахуються відносно <span class="term" data-g="corpus">корпусу</span>.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Токенізатор scikit-learn <code>(?u)\w\w+</code> отримав речення «I love NLP!». Які токени лишаться?</div>
+      <div class="opts"><button class="opt">I · love · NLP · !</button><button class="opt">love · NLP</button><button class="opt">I · love · NLP</button></div>
+      <div class="ans">Регулярний вираз шукає щонайменше два символи слова поспіль, тому однолітерне «I» зникає, а пунктуація не потрапляє взагалі.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 4. BAG OF WORDS ============ -->
 <section class="slide" id="s4" data-title="Bag of Words і TF">
   <div class="eyebrow">Розділ 4</div>
   <h2>Як представити токени числами?</h2>
-  <p>Найпростіший спосіб: порахувати, скільки разів кожен токен зустрічається у документі. Це <strong>Bag of Words</strong>: порядок слів ігноруємо, лишаємо тільки лічильники. Чим частіше слово у документі, тим, імовірно, воно важливіше для нього.</p>
+  <p>Найпростіший спосіб: порахувати, скільки разів кожен токен зустрічається у документі. Це <strong><span class="term" data-g="bow">Bag of Words</span></strong>: порядок слів ігноруємо, лишаємо тільки лічильники. Чим частіше слово у документі, тим, імовірно, воно важливіше для нього.</p>
 
   <div class="formula"><var>TF</var>(<var>t</var>,<var>d</var>) =
     <span class="frac"><span class="txt">кількість входжень токена <var>t</var> у документі <var>d</var></span><span class="txt">загальна кількість токенів у документі <var>d</var></span></span>
   </div>
-  <p>Часто TF (Term Frequency) беруть просто як сирий лічильник <var>f</var>(<var>t</var>,<var>d</var>) без ділення. Обидва варіанти називають TF. Це джерело плутанини, і ми до неї повернемось у BM25.</p>
+  <p>Часто <span class="term" data-g="tf">TF</span> (Term Frequency) беруть просто як сирий лічильник <var>f</var>(<var>t</var>,<var>d</var>) без ділення. Обидва варіанти називають TF. Це джерело плутанини, і ми до неї повернемось у BM25.</p>
 
   <div class="demo">
     <div class="head"><h4>Матриця частот (CountVectorizer)</h4><span class="tag">interactive</span><span class="hint">Кожний рядок — документ корпусу. Редагуйте тексти і дивіться, як змінюється словник і матриця. Слова рахуються в межах кожного документа окремо.</span></div>
@@ -232,7 +240,7 @@ NLP може використовувати як статистичні моде
     <div class="result" id="bowSum"></div>
   </div>
 
-  <p>Результат — <strong>sparse</strong> (розріджений) вектор розмірності <var>N</var>, де <var>N</var> — розмір словника, тобто кількість унікальних токенів у всьому корпусі. Більшість значень у ньому нулі.</p>
+  <p>Результат — <strong><span class="term" data-g="sparse-vector">sparse</span></strong> (розріджений) вектор розмірності <var>N</var>, де <var>N</var> — розмір <span class="term" data-g="vocabulary">словника</span>, тобто кількість унікальних токенів у всьому корпусі. Більшість значень у ньому нулі.</p>
 
   <div class="demo">
     <div class="head"><h4>Sparse і dense вектори</h4><span class="tag">interactive</span><span class="hint">100 компонентів кожного вектора. Яскравість клітинки = значення. Перегенеруйте кілька разів.</span></div>
@@ -260,7 +268,7 @@ print(X_count.toarray())                      # [[0 0 0 1 1 0 0 0 1 1 0 0 0 0] .
 <section class="slide" id="s5" data-title="IDF і TF-IDF">
   <div class="eyebrow">Розділ 5</div>
   <h2>Як врахувати, що слово повторюється у всьому корпусі?</h2>
-  <p>У матриці вище слово «навчання» є у кожному документі. Воно нічого не «підсвічує»: за ним не можна відрізнити один документ від іншого. Для цього вигадали <strong>IDF, Inverse Document Frequency</strong>: чим у більшій частці документів зустрічається токен, тим менша його вага.</p>
+  <p>У матриці вище слово «навчання» є у кожному документі. Воно нічого не «підсвічує»: за ним не можна відрізнити один документ від іншого. Для цього вигадали <strong><span class="term" data-g="idf">IDF</span>, Inverse Document Frequency</strong>: чим у більшій частці документів зустрічається токен, тим менша його вага.</p>
   <div class="formula"><var>IDF</var>(<var>t</var>) = log
     <span class="frac"><span><var>N</var></span><span><var>df</var>(<var>t</var>)</span></span>
     = log <span class="frac"><span class="txt">кількість документів у корпусі</span><span class="txt">кількість документів, у яких є токен <var>t</var></span></span>
@@ -332,7 +340,7 @@ tf_idf(10, 6, 100, 90)      # 0.0626</code></pre>
     <span class="frac"><span><var>q</var> · <var>d</var></span><span>‖<var>q</var>‖ · ‖<var>d</var>‖</span></span>
     = <span class="frac"><span>Σ <var>q<sub>i</sub></var><var>d<sub>i</sub></var></span><span>√Σ<var>q<sub>i</sub></var>² · √Σ<var>d<sub>i</sub></var>²</span></span>
   </div>
-  <div class="callout"><p>Загалом косинус лежить у [−1, 1]. Але TF-IDF ваги невід'ємні, тому для TF-IDF векторів косинусна подібність завжди у <strong>[0, 1]</strong>: «протилежних» текстів тут не буває. Є тільки «спільних слів немає» (0) і «набір слів однаковий» (1).</p></div>
+  <div class="callout"><p>Загалом косинус лежить у [−1, 1]. Але TF-IDF ваги невід'ємні, тому для TF-IDF векторів <span class="term" data-g="cosine">косинусна подібність</span> завжди у <strong>[0, 1]</strong>: «протилежних» текстів тут не буває. Є тільки «спільних слів немає» (0) і «набір слів однаковий» (1).</p></div>
 
   <div class="demo">
     <div class="head"><h4>Два документи у просторі з двох слів</h4><span class="tag">interactive</span><span class="hint">Словник із двох слів: «scary» і «movie». Задайте лічильники для двох документів і подивіться, як реагують L2 і косинус. Зробіть документ B у 3 рази довшим за A з тими ж пропорціями.</span></div>
@@ -379,8 +387,16 @@ def tfidf_search(query, top_n=5):
 for text, score in tfidf_search("scary movie"):
     print(f"{score:.4f}  {text[:80]}...")</code></pre>
   <details class="more"><summary>Що робить TfidfVectorizer за замовчуванням</summary><div class="body">
-    <p>Приводить текст до нижнього регістру, токенізує регулярним виразом <code>(?u)\b\w\w+\b</code> (пунктуація ігнорується, токен — це мінімум 2 літери чи цифри), рахує IDF як log((1+N)/(1+df))+1 і нормалізує кожен вектор документа до одиничної довжини (L2). Через це косинусна подібність зводиться до звичайного скалярного добутку. Стоп-слова, N-грами і уніфікацію акцентів можна ввімкнути параметрами.</p>
+    <p>Приводить текст до нижнього регістру, токенізує регулярним виразом <code>(?u)\b\w\w+\b</code> (пунктуація ігнорується, токен — це мінімум 2 літери чи цифри), рахує IDF як log((1+N)/(1+df))+1 і нормалізує кожен вектор документа до одиничної довжини (L2). Через це косинусна подібність зводиться до звичайного <span class="term" data-g="dot-product">скалярного добутку</span>. <span class="term" data-g="stopwords">Стоп-слова</span>, <span class="term" data-g="ngram">N-грами</span> і уніфікацію акцентів можна ввімкнути параметрами.</p>
   </div></details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Запит і документ не мають жодного спільного токена. Яка косинусна подібність їхніх TF-IDF векторів?</div>
+      <div class="opts"><button class="opt">0: вектори ортогональні</button><button class="opt">−1: вектори протилежні</button><button class="opt">Залежить від довжини документа</button></div>
+      <div class="ans">Скалярний добуток рахується лише по спільних токенах. TF-IDF не буває від'ємним, тому без спільних слів кут 90° і косинус 0.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 7. METRICS ============ -->
@@ -409,6 +425,14 @@ for text, score in tfidf_search("scary movie"):
     </div>
     <p style="font-size:.85em;color:var(--muted);margin-bottom:0">Порядок у топ-K precision і recall не враховують. Метрики, чутливі до порядку (MRR, nDCG), розглянемо на практиці.</p>
   </div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">У топ-5 видачі 2 релевантні документи, а всього в корпусі для цього запиту їх 4. Чому дорівнюють precision@5 і recall@5?</div>
+      <div class="opts"><button class="opt">precision = 0.4, recall = 0.5</button><button class="opt">precision = 0.5, recall = 0.4</button><button class="opt">precision = 0.4, recall = 0.4</button></div>
+      <div class="ans">precision@5 = 2/5 = 0.4: частка релевантних серед показаних. recall@5 = 2/4 = 0.5: частка знайдених серед усіх релевантних.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 8. PREPROCESSING ============ -->
@@ -436,7 +460,7 @@ for text, score in tfidf_search("scary movie"):
     <div class="card"><div class="k">Розмітка і шум</div><h4>HTML, посилання, емоджі</h4><p>Зустрічаються по всьому корпусу і не допомагають пошуку. Прибираємо регулярними виразами або BeautifulSoup.</p></div>
     <div class="card"><div class="k">Регістр</div><h4>Hello = HELLO = hello</h4><p>Для статистики згадка слова — це вже маячок. Регістр не важливий, тож усе у нижній регістр.</p></div>
     <div class="card"><div class="k">Стоп-слова</div><h4>«і», «але», «the», «is»</h4><p>Є у більшості текстів, тому їхній IDF і так близький до нуля. Стоп-словом може бути й доменне слово: назва університету в документах про цей університет.</p></div>
-    <div class="card"><div class="k">Словоформи</div><h4>Стемінг vs лематизація</h4><p>Стемінг зрізає закінчення за правилами: швидко, але може дати неіснуюче слово («beauti»). Лематизація приводить до словникової форми через морфологію: точніше, але повільніше. Для української стандарт — pymorphy2/pymorphy3.</p></div>
+    <div class="card"><div class="k">Словоформи</div><h4>Стемінг vs лематизація</h4><p><span class="term" data-g="stemming">Стемінг</span> зрізає закінчення за правилами: швидко, але може дати неіснуюче слово («beauti»). <span class="term" data-g="lemmatization">Лематизація</span> приводить до словникової форми через морфологію: точніше, але повільніше. Для української стандарт — pymorphy2/pymorphy3.</p></div>
   </div>
   <div class="callout"><p>Навіть якщо стемер зріже «університет» і «університетський» до неіснуючого «університ», для пошуку це не проблема. Один «токен» тепер позначає два споріднені слова, і документ отримує їхню сукупну вагу.</p></div>
 <pre class="code" data-lang="python"><code class="py">import re
@@ -460,6 +484,14 @@ lemmatizer = WordNetLemmatizer()
 print([lemmatizer.lemmatize(t, pos='v') for t in tokens])  # ['runners', 'run', 'gardens', '!']
 
 print(list(ngrams(tokens, 2)))                          # [('runners', 'running'), ('running', 'gardens'), ...]</code></pre>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Корпус пройшов через нижній регістр і стемінг, а запити йдуть у пошук як є. Що станеться із запитом «Running»?</div>
+      <div class="opts"><button class="opt">Нічого, TF-IDF не чутливий до регістру</button><button class="opt">Він знайде більше документів, бо форма повна</button><button class="opt">Він не збіжеться з токеном «run» у словнику, і документи не знайдуться</button></div>
+      <div class="ans">Обробка мусить бути однаковою для корпусу і запиту. Інакше запит і документи живуть у різних словниках.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 9. OTHER USES ============ -->
@@ -692,6 +724,7 @@ bm25.get_top_n("scary movie".split(), docs, n=5)       # топ-5 докумен
 </main>
 </div>
 
+<script src="glossary.js"></script>
 <script src="common.js"></script>
 <script>
 /* ===================== helpers ===================== */

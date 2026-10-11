@@ -163,9 +163,9 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
   <h1>BPE токенізатори: як моделі бачать текст</h1>
   <div class="hero-grid">
     <div>
-      <p class="lead">Проста токенізація на слова ламається, щойно з'являється незнайоме слово. Субслівні токенізатори — <strong>BPE</strong> і <strong>WordPiece</strong> — розв'язують це, розбиваючи слова на частини. Розберемо, як вони влаштовані, як навчаються і чому саме токенізація визначає ціну, швидкість та можливості сучасних LLM.</p>
+      <p class="lead">Проста <span class="term" data-g="tokenization">токенізація</span> на слова ламається, щойно з'являється незнайоме слово. Субслівні токенізатори — <strong><span class="term" data-g="bpe">BPE</span></strong> і <strong><span class="term" data-g="wordpiece">WordPiece</span></strong> — розв'язують це, розбиваючи слова на частини. Розберемо, як вони влаштовані, як навчаються і чому саме токенізація визначає ціну, швидкість та можливості сучасних <span class="term" data-g="llm">LLM</span>.</p>
       <div class="vs">
-        <div class="card"><div class="k">Слова</div><h4>Проста токенізація</h4><p>Один токен = одне слово. Словник вибухає, а будь-яке невідоме слово стає <code>&lt;UNK&gt;</code> — модель його не бачить.</p></div>
+        <div class="card"><div class="k">Слова</div><h4>Проста токенізація</h4><p>Один <span class="term" data-g="token">токен</span> = одне слово. Словник вибухає, а будь-яке невідоме слово стає <span class="term" data-g="unk"><code>&lt;UNK&gt;</code></span> — модель його не бачить.</p></div>
         <div class="card b"><div class="k">Субслова</div><h4>BPE / WordPiece</h4><p>Один токен = частина слова. Словник фіксований, а будь-яке слово збирається зі знайомих частин. Невідомих слів більше немає.</p></div>
       </div>
       <div class="hero-vis" id="heroVis" aria-hidden="true"></div>
@@ -208,10 +208,10 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
     <div class="pstep"><div class="l">5 · нейромережа</div><div class="t">вектори → результат</div></div>
   </div>
 
-  <p>Ключове слово тут — <strong>індекс</strong>. Токенізатор не «розуміє» слова, він лише дає кожному токену ціле число — номер рядка у великій таблиці чисел, яку називають <strong>матрицею ембедінгів</strong>.</p>
+  <p>Ключове слово тут — <strong>індекс</strong>. Токенізатор не «розуміє» слова, він лише дає кожному токену ціле число — номер рядка у великій таблиці чисел, яку називають <strong><span class="term" data-g="embedding-matrix">матрицею ембедінгів</span></strong>.</p>
 
   <h3>Що таке матриця ембедінгів</h3>
-  <p>Матриця ембедінгів — це звичайна таблиця чисел. <strong>Кожен рядок — один токен словника, кожен стовпець — один вимір значення.</strong> Її розмір — це <em>розмір словника × d</em>, де d — розмірність вектора.</p>
+  <p>Матриця <span class="term" data-g="embedding">ембедінгів</span> — це звичайна таблиця чисел. <strong>Кожен рядок — один токен <span class="term" data-g="vocabulary">словника</span>, кожен стовпець — один вимір значення.</strong> Її розмір — це <em>розмір словника × d</em>, де d — розмірність вектора.</p>
   <div class="formula"><var>матриця ембедінгів</var> <span class="txt">=</span> [ розмір словника × <var>d</var> ] <span class="txt">· d = 768 у BERT, 12288 у GPT-3</span></div>
   <p>Вектор довжини d — це «значення» токена: набір чисел, який описує його положення у просторі значень відносно інших токенів. Саме ці вектори, а не текст, «бачить» нейромережа.</p>
 
@@ -227,19 +227,27 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
   <h3>Чому токенізація визначає все</h3>
   <p>Раз у матриці рівно один рядок на кожен токен словника, звідси випливають три наслідки, які ми розгорнемо далі в лекції:</p>
   <div class="cards">
-    <div class="card"><div class="k">Розмір</div><h4>Словник → матриця</h4><p>Чим більший словник, тим більша матриця, більше пам'яті й параметрів. Тому словник хочуть тримати компактним — саме для цього і придумали субслова.</p></div>
+    <div class="card"><div class="k">Розмір</div><h4>Словник → матриця</h4><p>Чим більший словник, тим більша матриця, більше пам'яті й параметрів. Тому словник хочуть тримати компактним — саме для цього і придумали <span class="term" data-g="subword">субслова</span>.</p></div>
     <div class="card"><div class="k">Невідоме</div><h4>Немає рядка — немає вектора</h4><p>Якщо токена немає у словнику, для нього немає рядка, отже й вектора. Це корінь проблеми <code>[UNK]</code>, з якої все починається.</p></div>
-    <div class="card"><div class="k">Ціна</div><h4>Більше токенів — дорожче</h4><p>Кількість токенів, на які розбивається текст, визначає ціну й швидкість моделі. Токенізація — це не дрібниця, а фундамент мовної моделі.</p></div>
+    <div class="card"><div class="k">Ціна</div><h4>Більше токенів — дорожче</h4><p>Кількість токенів, на які розбивається текст, визначає ціну й швидкість моделі. Токенізація — це не дрібниця, а фундамент <span class="term" data-g="language-model">мовної моделі</span>.</p></div>
   </div>
   <div class="callout q"><div class="qm">Від токенізації до моделі</div><p>Ось чому ми починаємо розмову про мовні моделі саме з токенізації: щоб збудувати модель, треба спершу визначити словник, а отже — і матрицю ембедінгів, з якої модель «читатиме» значення кожного токена. Далі розберемо, як зробити цей словник компактним і повним одночасно.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Що токенізатор насправді передає нейромережі?</div>
+      <div class="opts"><button class="opt">Вектори сенсу кожного слова</button><button class="opt">Цілі числа, тобто номери рядків у матриці ембедінгів</button><button class="opt">Рядки тексту, розбиті на частини</button></div>
+      <div class="ans">Токенізатор нічого не «розуміє»: він видає id. Вектори з'являються, коли модель бере рядок матриці ембедінгів за цим id.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 1. SIMPLE TOKENIZATION ============ -->
 <section class="slide" id="s1" data-title="Проблема слів">
   <div class="eyebrow">Розділ 1</div>
   <h2>Проста токенізація і її межа</h2>
-  <p>З простою токенізацією ми вже стикалися в лекції про TF-IDF. Це поділ тексту на слова за пробілами з відділенням пунктуації у окремі токени. Далі кожне унікальне слово отримує свій стовпець у матриці — і розмірність вектора дорівнює розміру словника.</p>
-  <p>Проблема в тому, що <strong>словник скінченний, а мова — ні</strong>. Усе, чого не було в навчальному корпусі, для моделі просто не існує:</p>
+  <p>З простою токенізацією ми вже стикалися в лекції про <span class="term" data-g="tfidf">TF-IDF</span>. Це поділ тексту на слова за пробілами з відділенням пунктуації у окремі токени. Далі кожне унікальне слово отримує свій стовпець у матриці — і розмірність вектора дорівнює розміру словника.</p>
+  <p>Проблема в тому, що <strong>словник скінченний, а мова — ні</strong>. Усе, чого не було в навчальному <span class="term" data-g="corpus">корпусі</span>, для моделі просто не існує:</p>
   <div class="cards">
     <div class="card"><div class="k">Морфологія</div><h4>Форми одного слова</h4><p>Українська має відмінки, роди, числа. «Студент», «студента», «студентів» — це три різні токени з нульовим спільним сигналом.</p></div>
     <div class="card"><div class="k">Нові слова</div><h4>Неологізми і сленг</h4><p>«LLM» чи «Jev» з'являються швидше, ніж оновлюється словник моделі.</p></div>
@@ -268,7 +276,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 
   <h3>Те саме і з Word2Vec / GloVe</h3>
   <p>Word2Vec і GloVe будують матрицю ембедінгів «токен → вектор». Якщо слова немає у словнику, то немає і рядка в матриці, отже немає і вектора. Модель не може ані описати невідоме слово, ані поділити його на щось: для неї це одна неподільна одиниця.</p>
-  <div class="callout"><p>Часткове полегшення дає <strong>fastText</strong>: він будує вектор слова як суму векторів його символьних N-грамів, тож може скласти вектор навіть для незнайомого слова. Це перший місток до субслівної ідеї, але справжні нейронні моделі пішли далі — до повноцінної субслівної токенізації.</p></div>
+  <div class="callout"><p>Часткове полегшення дає <strong>fastText</strong>: він будує вектор слова як суму векторів його символьних <span class="term" data-g="ngram">N-грамів</span>, тож може скласти вектор навіть для незнайомого слова. Це перший місток до субслівної ідеї, але справжні нейронні моделі пішли далі — до повноцінної субслівної токенізації.</p></div>
   <details class="more"><summary>Код із ноутбука: Word2Vec і невідомі слова</summary><div class="body">
 <pre class="code" data-lang="python"><code class="py">from gensim.models import Word2Vec
 
@@ -318,7 +326,7 @@ model.wv.key_to_index.get("unbelievable")   # None</code></pre>
 <section class="slide" id="s3" data-title="WordPiece і [UNK]">
   <div class="eyebrow">Розділ 3</div>
   <h2>WordPiece: так робить BERT</h2>
-  <p>BERT — одна з перших трансформерів, що стали основою сучасних LLM, — використовує токенізатор <strong>WordPiece</strong>. Ідея схожа на BPE, але пару для злиття обирають не за частотою, а за тим, наскільки злиття <strong>підвищує правдоподібність</strong> тексту в простій мовній моделі.</p>
+  <p><span class="term" data-g="bert">BERT</span> — одна з перших <span class="term" data-g="transformer">трансформерів</span>, що стали основою сучасних LLM, — використовує токенізатор <strong>WordPiece</strong>. Ідея схожа на BPE, але пару для злиття обирають не за частотою, а за тим, наскільки злиття <strong>підвищує правдоподібність</strong> тексту в простій мовній моделі.</p>
   <div class="formula"><var>score</var>(<var>a</var>,<var>b</var>) = <span class="frac"><span class="txt">частота пари (a, b)</span><span>частота(a) · частота(b)</span></span> <span class="txt">— обираємо пару з найвищим score</span></div>
   <p>Інтуїція: якщо <code>play</code> і <code>ing</code> зустрічаються разом набагато частіше, ніж передбачала б випадковість, то <code>ing</code> справді тягнеться до <code>play</code>, і злиття в <code>playing</code> корисне. А невигідне злиття на кшталт <code>pla</code> + <code>ying</code> високої оцінки не отримає.</p>
   <p>Позначка <code>##</code> у WordPiece означає «це продовження слова, а не його початок». <code>fox</code> + <code>##es</code> — це одне слово, розбите на дві частини.</p>
@@ -345,14 +353,14 @@ tokenizer.tokenize("Їжак")   # ['[UNK]']  ← великої «Ї» у сл�
 tokenizer.tokenize("Привіт 🌍")
 # ['П', '##р', '##и', '##в', '##і', '##т', '[UNK]']  ← емоджі теж поза словником</code></pre>
   </div></details>
-  <div class="callout"><p>WordPiece все ще може видати <code>[UNK]</code>: якщо слово не вдається зібрати зі знайомих частин, токенізатор здається. Саме цю межу прибирає <strong>byte-level</strong> підхід у наступному розділі.</p></div>
+  <div class="callout"><p>WordPiece все ще може видати <code>[UNK]</code>: якщо слово не вдається зібрати зі знайомих частин, токенізатор здається. Саме цю межу прибирає <strong><span class="term" data-g="byte-level">byte-level</span></strong> підхід у наступному розділі.</p></div>
 </section>
 
 <!-- ============ 4. BPE + BYTE FALLBACK ============ -->
 <section class="slide" id="s4" data-title="BPE і byte fallback">
   <div class="eyebrow">Розділ 4</div>
   <h2>BPE і byte-level fallback</h2>
-  <p><strong>BPE</strong> (Byte Pair Encoding) придумали для машинного перекладу (Sennrich та ін., 2016), а GPT-2 зробив його <strong>байтовим</strong>. Ідея byte-level: перед будь-якою роботою текст перетворюють на байти UTF-8. Оскільки всіх байтів рівно 256, <strong>усі вони є токенами словника</strong> — отже, будь-який текст, будь-який символ, будь-яке емоджі гарантовано кодуються. Це і називають <em class="term" title="якщо символ невідомий, використовуються його байти">byte fallback</em>.</p>
+  <p><strong>BPE</strong> (Byte Pair Encoding) придумали для машинного перекладу (Sennrich та ін., 2016), а GPT-2 зробив його <strong>байтовим</strong>. Ідея byte-level: перед будь-якою роботою текст перетворюють на байти <span class="term" data-g="utf8">UTF-8</span>. Оскільки всіх байтів рівно 256, <strong>усі вони є токенами словника</strong> — отже, будь-який текст, будь-який символ, будь-яке емоджі гарантовано кодуються. Це і називають <em class="term" title="якщо символ невідомий, використовуються його байти">byte fallback</em>.</p>
 
   <div class="demo">
     <div class="head"><h4>Символи, код-поінти і байти</h4><span class="tag">interactive</span><span class="hint">Введіть будь-який текст. Латиниця — 1 байт на символ, кирилиця — 2, емоджі — до 4. Саме ці байти бачить byte-level токенізатор.</span></div>
@@ -394,7 +402,7 @@ tokenizer.tokenize("їжак")          # ['Ñ', 'Ĺ', 'Ð', '¶', 'Ð°', 'Ðº
   <p>BPE — це жадібний алгоритм. Почніть із найменших одиниць (символів або байтів) і на кожному кроці зливайте <strong>найчастішу пару</strong> сусідніх токенів у новий токен. Повторюйте, поки не досягнете цільового розміру словника або поки не залишиться пар, частіших за поріг.</p>
   <div class="stage"><div class="n">Крок 1<small>ініціалізація</small></div><div>Розбити корпус на мінімальні одиниці. Усі унікальні символи (або всі 256 байтів) стають початковим словником.</div></div>
   <div class="stage"><div class="n">Крок 2<small>підрахунок</small></div><div>Порахувати частоту кожної пари сусідніх токенів у корпусі.</div></div>
-  <div class="stage"><div class="n">Крок 3<small>мьорж</small></div><div>Злити найчастішу пару в новий токен, додати його у словник і запам'ятати правило злиття (мьорж).</div></div>
+  <div class="stage"><div class="n">Крок 3<small>мьорж</small></div><div>Злити найчастішу пару в новий токен, додати його у словник і запам'ятати правило злиття (<span class="term" data-g="merge">мьорж</span>).</div></div>
   <div class="stage"><div class="n">Крок 4<small>повтор</small></div><div>Застосувати мьорж до корпусу і повернутися до кроку 2. Зупинка — за розміром словника або мінімальною частотою.</div></div>
 
   <div class="demo">
@@ -481,6 +489,14 @@ while len(vocab) &lt; vocab_size:
         else:
             i += 1</code></pre>
   </div></details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Корпус: «hug» ×10, «pug» ×5, «hugs» ×5. Старт із символів. Яку пару BPE зіллє першою?</div>
+      <div class="opts"><button class="opt">h + u (15 разів)</button><button class="opt">p + u (5 разів)</button><button class="opt">u + g (20 разів)</button></div>
+      <div class="ans">Пара u+g є в усіх трьох словах: 10 + 5 + 5 = 20. Це найчастіша пара, тому першим мьоржем стане «ug».</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 6. TRAIN YOUR OWN ============ -->
@@ -491,10 +507,10 @@ while len(vocab) &lt; vocab_size:
   <div class="stage"><div class="n">1 · Імпорти<small>tokenizers</small></div><div>Модель <code>BPE</code>, тренер <code>BpeTrainer</code>, претокенізатор <code>ByteLevel</code>, декодер.</div></div>
   <div class="stage"><div class="n">2 · Корпус<small>файл .txt</small></div><div>Тренування приймає список файлів. Можна передати цілу папку — бібліотека обробить усе, якщо вистачить ресурсів.</div></div>
   <div class="stage"><div class="n">3 · Порожній токенізатор<small>BPE(byte_fallback=True)</small></div><div>Ще не навчений об'єкт, у який підключимо байтовий претокенізатор і декодер.</div></div>
-  <div class="stage"><div class="n">4 · Тренер<small>BpeTrainer</small></div><div>Цільовий розмір словника, мінімальна частота, спеціальні токени й початковий алфавіт байтів.</div></div>
+  <div class="stage"><div class="n">4 · Тренер<small>BpeTrainer</small></div><div>Цільовий розмір словника, мінімальна частота, <span class="term" data-g="special-tokens">спеціальні токени</span> й початковий алфавіт байтів.</div></div>
   <div class="stage"><div class="n">5 · Навчання і збереження<small>train → save</small></div><div><code>train()</code> приймає шляхи до файлів, <code>train_from_iterator()</code> — ітератор текстів. Результат — <code>tokenizer.json</code>.</div></div>
 
-  <div class="callout q"><div class="qm">Навіщо спеціальні токени</div><p>Список <code>[UNK]</code>, <code>[CLS]</code>, <code>[SEP]</code>, <code>[PAD]</code>, <code>[MASK]</code> задають заздалегідь. Вони <strong>ніколи не мьоржаться</strong> з іншими токенами й не змінюються під час навчання. Їхня роль — розмічати структуру: <code>[CLS]</code>/<code>[SEP]</code> ділять контекстне вікно на ділянки, <code>[MASK]</code> потрібен BERT для маскованого навчання (модель відгадує приховані 15% токенів). Так само для мультимодальних моделей існують токени <code>&lt;start-of-image&gt;</code> / <code>&lt;end-of-image&gt;</code>.</p></div>
+  <div class="callout q"><div class="qm">Навіщо спеціальні токени</div><p>Список <code>[UNK]</code>, <code>[CLS]</code>, <code>[SEP]</code>, <code>[PAD]</code>, <code>[MASK]</code> задають заздалегідь. Вони <strong>ніколи не мьоржаться</strong> з іншими токенами й не змінюються під час навчання. Їхня роль — розмічати структуру: <code>[CLS]</code>/<code>[SEP]</code> ділять <span class="term" data-g="context-window">контекстне вікно</span> на ділянки, <code>[MASK]</code> потрібен BERT для маскованого навчання (модель відгадує приховані 15% токенів). Так само для мультимодальних моделей існують токени <code>&lt;start-of-image&gt;</code> / <code>&lt;end-of-image&gt;</code>.</p></div>
 
   <details class="more" open><summary>Код із ноутбука: повний цикл тренування</summary><div class="body">
 <pre class="code" data-lang="python"><code class="py">from pathlib import Path
@@ -549,7 +565,7 @@ print(loaded.decode(encoded.ids))   # 'brown fox'</code></pre>
     <p style="font-size:.88em;color:var(--ink-2);margin-bottom:0" id="cmpNote"></p>
   </div>
 
-  <div class="callout"><p>Зверніть увагу: багатомовний XLM-R, навчений на 100 мовах, розбиває українські слова значно ефективніше за GPT-2, який майже не бачив кирилиці. А BERT іноді взагалі не може закодувати слово — і видає <code>[UNK]</code>. Один алгоритм, три різні наслідки.</p></div>
+  <div class="callout"><p>Зверніть увагу: багатомовний <span class="term" data-g="xlm-r">XLM-R</span>, навчений на 100 мовах, розбиває українські слова значно ефективніше за GPT-2, який майже не бачив кирилиці. А BERT іноді взагалі не може закодувати слово — і видає <code>[UNK]</code>. Один алгоритм, три різні наслідки.</p></div>
 
   <h3>Пісочниця: наш власний токенізатор</h3>
   <p>Тепер застосуємо BPE, навчений у розділі 5, до довільного тексту. Перемкніть режим на byte-level, щоб побачити гарантоване кодування будь-яких символів байтами.</p>
@@ -569,7 +585,7 @@ print(loaded.decode(encoded.ids))   # 'brown fox'</code></pre>
 <section class="slide" id="s8" data-title="Метрики токенізації">
   <div class="eyebrow">Розділ 8</div>
   <h2>Наскільки ефективна токенізація?</h2>
-  <p>Ефективність токенізації найчастіше міряють метрикою <strong>«токени на слово»</strong> (tokens per word). Вона показує, скільки токенів припадає на одне слово. Чим менше — тим ефективніше: коротший вхід, швидша генерація, дешевша ціна.</p>
+  <p>Ефективність токенізації найчастіше міряють метрикою <strong><span class="term" data-g="tokens-per-word">«токени на слово»</span></strong> (tokens per word). Вона показує, скільки токенів припадає на одне слово. Чим менше — тим ефективніше: коротший вхід, швидша генерація, дешевша ціна.</p>
   <div class="formula"><var>токени на слово</var> = <span class="frac"><span class="txt">кількість токенів</span><span class="txt">кількість слів і знаків пунктуації</span></span>
     <span style="display:inline-block;width:26px"></span>
     <var>символів на токен</var> = <span class="frac"><span class="txt">кількість символів</span><span class="txt">кількість токенів</span></span>
@@ -616,6 +632,14 @@ tokenizer_xlmr = Tokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
 tokens_to_words_ratio(ukr_text, tokenizer_xlmr)   # ≈ 2.22
 tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
   </div></details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Текст із 40 слів токенізатор розбив на 100 токенів. Скільки токенів на слово?</div>
+      <div class="opts"><button class="opt">2.5</button><button class="opt">0.4</button><button class="opt">40</button></div>
+      <div class="ans">Токени на слово = 100 / 40 = 2.5. Для англійської у GPT-2 це ≈1.6 (див. калькулятор нижче), тож такий текст, найімовірніше, іншою мовою або з незвичного домену.</div>
+    </div>
+  </details>
 </section>
 
 <!-- ============ 9. MULTILINGUAL COST ============ -->
@@ -746,6 +770,7 @@ tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
 </main>
 </div>
 
+<script src="glossary.js"></script>
 <script src="common.js"></script>
 <script>
 /* ===================== helpers ===================== */
