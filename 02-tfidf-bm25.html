@@ -102,7 +102,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 <main id="main">
 
 <!-- ============ 0. HERO ============ -->
-<section class="slide" id="s0" data-title="Вступ">
+<section class="slide" id="s0" data-title="Вступ" data-narr="audio/02-tfidf-bm25/s0">
   <div class="eyebrow">Обробка природної мови</div>
   <h1>Від тексту до TF-IDF і BM25</h1>
   <div class="hero-grid">
@@ -131,7 +131,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 </section>
 
 <!-- ============ 1. WHY ============ -->
-<section class="slide" id="s1" data-title="Навіщо класика у 2026">
+<section class="slide" id="s1" data-title="Навіщо класика у 2026" data-narr="audio/02-tfidf-bm25/s1">
   <div class="eyebrow">Розділ 1</div>
   <h2>Навіщо класичні алгоритми, коли є нейронні мережі?</h2>
   <p class="lead"><span class="term" data-g="lexical-search">Lexical search</span> не помер. Він стоїть під капотом Elasticsearch, OpenSearch, Lucene, Solr, Postgres full-text і майже кожної <span class="term" data-g="rag">RAG</span>-системи як перший етап відбору кандидатів.</p>
@@ -146,7 +146,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 </section>
 
 <!-- ============ 2. TEXT AS BYTES ============ -->
-<section class="slide" id="s2" data-title="Текст очима комп'ютера">
+<section class="slide" id="s2" data-title="Текст очима комп'ютера" data-narr="audio/02-tfidf-bm25/s2">
   <div class="eyebrow">Розділ 2</div>
   <h2>Текстові дані: що бачить комп'ютер?</h2>
   <p>Для нас текст — це символи, що складаються у слова, речення і сенс. Для комп'ютера текст — це послідовність байтів. Стандарт <strong>Unicode</strong> присвоює кожному символу номер (code point), а кодування <strong><span class="term" data-g="utf8">UTF-8</span></strong> записує цей номер у 1–4 байти.</p>
@@ -179,7 +179,7 @@ visualize_unicode_bytes('こんにちは')
 </section>
 
 <!-- ============ 3. TOKENIZATION ============ -->
-<section class="slide" id="s3" data-title="Токенізація">
+<section class="slide" id="s3" data-title="Токенізація" data-narr="audio/02-tfidf-bm25/s3">
   <div class="eyebrow">Розділ 3</div>
   <h2>Рішення: токенізація</h2>
   <p><strong><span class="term" data-g="tokenization">Токенізація</span></strong> — це перетворення тексту на змістовні одиниці, <strong>токени</strong>. Мета — стиснути текст у набір блоків, кожен з яких несе частину сенсу.</p>
@@ -218,7 +218,7 @@ wakati.parse("これは日本語のテキストです。").split()
 </section>
 
 <!-- ============ 4. BAG OF WORDS ============ -->
-<section class="slide" id="s4" data-title="Bag of Words і TF">
+<section class="slide" id="s4" data-title="Bag of Words і TF" data-narr="audio/02-tfidf-bm25/s4">
   <div class="eyebrow">Розділ 4</div>
   <h2>Як представити токени числами?</h2>
   <p>Найпростіший спосіб: порахувати, скільки разів кожен токен зустрічається у документі. Це <strong><span class="term" data-g="bow">Bag of Words</span></strong>: порядок слів ігноруємо, лишаємо тільки лічильники. Чим частіше слово у документі, тим, імовірно, воно важливіше для нього.</p>
@@ -265,7 +265,7 @@ print(X_count.toarray())                      # [[0 0 0 1 1 0 0 0 1 1 0 0 0 0] .
 </section>
 
 <!-- ============ 5. IDF / TF-IDF ============ -->
-<section class="slide" id="s5" data-title="IDF і TF-IDF">
+<section class="slide" id="s5" data-title="IDF і TF-IDF" data-narr="audio/02-tfidf-bm25/s5">
   <div class="eyebrow">Розділ 5</div>
   <h2>Як врахувати, що слово повторюється у всьому корпусі?</h2>
   <p>У матриці вище слово «навчання» є у кожному документі. Воно нічого не «підсвічує»: за ним не можна відрізнити один документ від іншого. Для цього вигадали <strong><span class="term" data-g="idf">IDF</span>, Inverse Document Frequency</strong>: чим у більшій частці документів зустрічається токен, тим менша його вага.</p>
@@ -327,7 +327,7 @@ tf_idf(10, 6, 100, 90)      # 0.0626</code></pre>
 </section>
 
 <!-- ============ 6. SEARCH ============ -->
-<section class="slide" id="s6" data-title="Пошук: косинусна подібність">
+<section class="slide" id="s6" data-title="Пошук: косинусна подібність" data-narr="audio/02-tfidf-bm25/s6">
   <div class="eyebrow">Розділ 6</div>
   <h2>Як шукати за TF-IDF векторами?</h2>
   <p>Маємо векторизований корпус і векторизатор, який робить такий же вектор для нового запиту. Запит і документи тепер точки в одному просторі розмірності «розмір словника». Лишилось порівняти вектори.</p>
@@ -400,7 +400,7 @@ for text, score in tfidf_search("scary movie"):
 </section>
 
 <!-- ============ 7. METRICS ============ -->
-<section class="slide" id="s7" data-title="Метрики пошуку">
+<section class="slide" id="s7" data-title="Метрики пошуку" data-narr="audio/02-tfidf-bm25/s7">
   <div class="eyebrow">Розділ 7</div>
   <h2>Як оцінити якість пошуку без ручної перевірки?</h2>
   <p>Тестовий датасет для пошуку має дві частини: корпус документів і набір запитів, до кожного з яких відомий список релевантних документів. Тоді можна порахувати метрики, схожі на метрики класифікації, але тільки для топ-<var>K</var> результатів. Основні з них — <span class="term" data-g="precision-k">precision@K</span> і <span class="term" data-g="recall-k">recall@K</span>.</p>
@@ -436,7 +436,7 @@ for text, score in tfidf_search("scary movie"):
 </section>
 
 <!-- ============ 8. PREPROCESSING ============ -->
-<section class="slide" id="s8" data-title="Попередня обробка">
+<section class="slide" id="s8" data-title="Попередня обробка" data-narr="audio/02-tfidf-bm25/s8">
   <div class="eyebrow">Розділ 8</div>
   <h2>Як обробити текст перед TF-IDF і навіщо?</h2>
   <p>Кожен унікальний токен — це +1 вимір вектора. Розмітка, регістр, стоп-слова і форми слова роздувають словник і розмивають сигнал. Обробка нижче має накладатися <strong>і на корпус, і на запити</strong>, інакше вони не зійдуться у одному словнику.</p>
@@ -495,7 +495,7 @@ print(list(ngrams(tokens, 2)))                          # [('runners', 'running'
 </section>
 
 <!-- ============ 9. OTHER USES ============ -->
-<section class="slide" id="s9" data-title="Інші застосування TF-IDF">
+<section class="slide" id="s9" data-title="Інші застосування TF-IDF" data-narr="audio/02-tfidf-bm25/s9">
   <div class="eyebrow">Розділ 9</div>
   <h2>TF-IDF — це не тільки пошук</h2>
   <p>TF-IDF вектор — це звичайний числовий вектор. Його можна передати будь-якій класичній моделі машинного навчання як табличні ознаки.</p>
@@ -540,7 +540,7 @@ print(feature_names[np.argsort(row)[::-1][:3]])     # ['steak' 'pepper' 'salt']<
 </section>
 
 <!-- ============ 10. BM25 ============ -->
-<section class="slide" id="s10" data-title="BM25">
+<section class="slide" id="s10" data-title="BM25" data-narr="audio/02-tfidf-bm25/s10">
   <div class="eyebrow">Розділ 10 · <b>Best Matching 25</b></div>
   <h2>BM25: production-версія лексичного пошуку</h2>
   <p class="lead">BM25 — це функція ранжування з <span class="term" title="Robertson, Spärck Jones, 1970-90-ті">імовірнісної моделі релевантності</span>. Це дефолт у Lucene, Elasticsearch і OpenSearch. Вона не векторизує документи. Вона напряму рахує оцінку для пари «запит – документ».</p>
@@ -681,7 +681,7 @@ bm25.get_top_n("scary movie".split(), docs, n=5)       # топ-5 докумен
 </section>
 
 <!-- ============ 11. SUMMARY ============ -->
-<section class="slide" id="s11" data-title="Підсумок і перевірка">
+<section class="slide" id="s11" data-title="Підсумок і перевірка" data-narr="audio/02-tfidf-bm25/s11">
   <div class="eyebrow">Розділ 11</div>
   <h2>Підсумок</h2>
   <div class="cards">
@@ -726,11 +726,21 @@ bm25.get_top_n("scary movie".split(), docs, n=5)       # топ-5 докумен
 
 <script src="glossary.js"></script>
 <script src="common.js"></script>
+<script src="narration.js"></script>
 <script>
 /* ===================== helpers ===================== */
 const skTokenize=s=>(s.toLowerCase().match(/[\p{L}\p{N}_]{2,}/gu)||[]);
 const nltkTokenize=s=>(s.match(/[\p{L}\p{N}]+(?:['’][\p{L}]+)?|[^\s\p{L}\p{N}]/gu)||[]);
 function bindRange(id,outId,fn,dec){const el=$('#'+id),out=outId?$('#'+outId):null;const h=()=>{if(out)out.textContent=dec!=null?(+el.value).toFixed(dec):el.value;fn(+el.value)};el.addEventListener('input',h);return h}
+// озвучка (narration.js): хуки отримують лише числа, тому текст і пункт списку задаємо індексом.
+// narrText: хук #id(i, ms) друкує texts[i] за ms мілісекунд; texts[0] — початковий текст поля.
+// narrSelect: хук #id(i) вибирає i-й пункт списку.
+const NH=window.narrHooks=window.narrHooks||{};
+function narrText(id,extra=[]){const el=$('#'+id),texts=[el.defaultValue,...extra];
+  const put=v=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}))};
+  NH[id]=(i,ms)=>{const t=texts[i]??'';clearInterval(el._narrT);if(!(ms>0))return put(t);
+    let n=0;put('');el._narrT=setInterval(()=>{put(t.slice(0,++n));if(n>=t.length)clearInterval(el._narrT)},ms/Math.max(1,t.length))}}
+function narrSelect(id){const el=$('#'+id);NH[id]=i=>{el.selectedIndex=i;el.dispatchEvent(new Event('change',{bubbles:true}))}}
 
 
 /* ===================== hero visual ===================== */
@@ -755,6 +765,7 @@ function bindRange(id,outId,fn,dec){const el=$('#'+id),out=outId?$('#'+outId):nu
     sum.innerHTML=`<span class="big a">${chars.length}</span><span class="expl">символів</span><span class="big">${total}</span><span class="expl">байтів. Для комп'ютера існує лише другий рядок.</span>`;
   }
   inp.addEventListener('input',run);run();
+  narrText('uniIn');
 })();
 
 /* ===================== 3. tokenizer ===================== */
@@ -768,6 +779,7 @@ function bindRange(id,outId,fn,dec){const el=$('#'+id),out=outId?$('#'+outId):nu
     sum.innerHTML=`<span class="big a">${toks.length}</span><span class="expl">токенів</span><span class="big">${uniq}</span><span class="expl">унікальних (без урахування регістру)</span>`;
   }
   inp.addEventListener('input',run);mode.addEventListener('change',run);run();
+  narrText('tokIn');narrSelect('tokMode');
 })();
 
 /* ===================== 4. bag of words + 5. tf-idf table ===================== */
@@ -798,7 +810,7 @@ function tfidfTableRender(){
   $('#tfidfNote').textContent=zero.length?`Токени з IDF = 0 (є у кожному документі): ${zero.join(', ')}. Вони обнулилися у всіх документах і більше не впливають на пошук.`:'Жоден токен не зустрічається у всіх документах одразу, тож усі мають ненульовий IDF.';
 }
 $('#bowDocs').addEventListener('input',()=>{bowCompute();bowRender()});$('#bowNorm').addEventListener('change',bowRender);
-bowCompute();bowRender();
+bowCompute();bowRender();narrText('bowDocs');
 
 /* sparse vs dense strips */
 (function(){
@@ -863,6 +875,7 @@ const C={a:'var(--tfidf)',b:'var(--bm25)',c:'var(--aqua)'};
       series:[{fn:x=>f(n,x),cls:'s1',color:C.a,name:'IDF'}],markers:[{x:d,y:val,color:C.a}]});
   }
   [N,df].forEach(e=>e.addEventListener('input',run));mode.addEventListener('change',run);redraws.push(run);run();
+  narrSelect('idfMode');
   const L=$('#tfLen'),Ct=$('#tfCnt'),TN=$('#tfN'),TD=$('#tfDf');
   function run2(){
     const len=+L.value,c=Math.min(+Ct.value,len),n=+TN.value;TD.max=n;const d=Math.min(+TD.value,n);
@@ -937,6 +950,7 @@ function resRow(r,q,rank,cls,scoreLabel){const qt=[...new Set(skTokenize(q))];co
   const q=$('#srchQ'),k=$('#srchK'),out=$('#srchOut');
   function run(){const res=IDX.tfidf(q.value).sort((a,b)=>b.s-a.s).slice(0,+k.value);out.innerHTML=res.every(r=>r.s===0)?'<p style="color:var(--muted)">Жоден токен запиту не зустрічається у корпусі. Косинус з усіма документами дорівнює 0.</p>':res.map((r,i)=>resRow(r,q.value,i+1)).join('')}
   q.addEventListener('input',run);k.addEventListener('change',run);run();
+  narrText('srchQ',['boring plot','great acting']);narrSelect('srchK');
 })();
 
 /* ===================== 7. precision@k ===================== */
@@ -953,6 +967,8 @@ function resRow(r,q,rank,cls,scoreLabel){const qt=[...new Set(skTokenize(q))];co
   }
   slots.addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b)return;const i=+b.dataset.i;rel.has(i)?rel.delete(i):rel.add(i);run()});
   [K,R].forEach(e=>e.addEventListener('input',run));run();
+  // озвучка (narration.js): позначити релевантні позиції бітовою маскою (біт i−1 — позиція i)
+  NH.pkMarks=m=>{rel.clear();for(let i=1;i<=10;i++)if(m>>(i-1)&1)rel.add(i);run()};
 })();
 
 /* ===================== 8. preprocessing ===================== */
@@ -1002,6 +1018,9 @@ const porter=(function(){
     out.innerHTML=html;
   }
   inp.addEventListener('input',run);ids.forEach(i=>$('#'+i).addEventListener('change',run));$('#ppN').addEventListener('change',run);run();
+  // озвучка (narration.js): повернути текст, прапорці й N-грами до початкових
+  NH.ppReset=()=>{inp.value=inp.defaultValue;ids.forEach(i=>$('#'+i).checked=$('#'+i).defaultChecked);$('#ppN').selectedIndex=0;run()};
+  narrSelect('ppN');
 })();
 
 /* ===================== 9. keyword tags ===================== */
@@ -1015,6 +1034,7 @@ const porter=(function(){
       return `<div class="tagrow ${i===BASE.length?'b':''}" title="${sc.map(([w,s])=>`${w}: ${s.toFixed(2)}`).join('\n')}"><div class="t">${esc(docs[i])}</div><div class="tags">${sc.map(([w])=>`<span>${w}</span>`).join('')}</div></div>`}).join('');
   }
   add.addEventListener('input',run);n.addEventListener('change',run);run();
+  narrText('kwAdd',['The chef launched a rocket-shaped cake into orbit.']);narrSelect('kwN');
 })();
 </script>
 
@@ -1055,6 +1075,7 @@ const bmTF=(f,k1,b,len,avg)=>f*(k1+1)/(f+k1*(1-b+b*len/avg));
     $('#cmpA').innerHTML=A.map((r,i)=>resRow(r,q.value,i+1)).join('');
     $('#cmpB').innerHTML=B.map((r,i)=>resRow(r,q.value,i+1,posA.get(r.i)!==i?'moved':'')).join('')}
   q.addEventListener('input',run5);[ck,cb].forEach(e=>e.addEventListener('input',run5));run5();
+  narrText('cmpQ',['scary','long boring movie']);
 })();
 
 </script>
