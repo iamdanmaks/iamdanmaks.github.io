@@ -3,3 +3,8 @@
 # Files starting with "_" or "." (e.g. _template.html, .env) are skipped by Jekyll automatically.
 exclude:
   - "*.md"
+  # Narration sources (scripts, voice, lexicon, generator) are build inputs, not site content.
+  # Keep the trailing slash: Jekyll also prefix-matches, so plain "narration" would drop narration.js.
+  - "narration/"
+  - "tools/"
+  - "audio/*.align.json"
