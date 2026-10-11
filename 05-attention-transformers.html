@@ -54,12 +54,6 @@ section.slide>.pipe,section.slide>.arch{max-width:none}
 .qkv .box .h.q{color:var(--tfidf)}.qkv .box .h.k{color:var(--bm25)}.qkv .box .h.v{color:var(--aqua)}
 .qkv .box .s{font-size:.82em;color:var(--ink-2);margin-top:4px}
 
-/* softmax bars */
-.softbars{margin:14px 0}
-.softbar{display:grid;grid-template-columns:130px 1fr 64px;gap:10px;align-items:center;font-size:.88em;margin:7px 0}
-.softbar .tr{height:22px;background:var(--surface-2);border-radius:6px;overflow:hidden}
-.softbar .fl{height:100%;border-radius:6px;transition:width .1s}
-.softbar .n{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
 
 
 /* bert input embeddings */
@@ -94,24 +88,9 @@ table.tbl td.mono{font-family:"IBM Plex Mono",monospace;font-size:.9em}
 
 /* ===================== lecture 05 additions ===================== */
 :root{--q:var(--tfidf);--k:var(--bm25);--v:var(--aqua)}
-section.slide>.tblwrap,section.slide>.xref{max-width:none}
+section.slide>.tblwrap{max-width:none}
 
-/* cross-reference to other lectures */
-.xref{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:12px 16px;margin:18px 0;font-size:.92em;color:var(--ink-2)}
-.xref .chip{flex:none;font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.06em;text-transform:uppercase;color:var(--violet);border:1px solid color-mix(in srgb,var(--violet) 45%,transparent);border-radius:999px;padding:2px 9px;margin-top:2px;text-decoration:none;white-space:nowrap}
-.xref .chip:hover{background:color-mix(in srgb,var(--violet) 12%,transparent)}
-.xref p{margin:0}
 
-/* player controls */
-.pctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 14px}
-.pctl .btn{font-size:.78em}
-.pctl .stepinfo{font-family:"IBM Plex Mono",monospace;font-size:.78em;color:var(--muted);margin-left:4px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex-wrap:wrap}
-.seg button{font:inherit;font-size:.78em;background:var(--surface);color:var(--ink-2);border:0;padding:6px 12px;cursor:pointer;border-right:1px solid var(--line-soft)}
-.seg button:last-child{border-right:0}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-.explain{font-size:.9em;color:var(--ink-2);background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;margin-top:12px;min-height:3.2em}
-.explain b{color:var(--ink)}
 
 /* generic svg viz */
 svg.viz{width:100%;height:auto;display:block;font-family:"IBM Plex Mono",monospace;overflow:visible}
@@ -134,11 +113,6 @@ svg.viz .ctx{fill:var(--bm25-soft);stroke:var(--bm25);stroke-width:2}
 .race .pane h5{margin:0 0 4px;font-family:"Unbounded",sans-serif;font-weight:500;font-size:.82em}
 .race .pane .cnt{font-family:"IBM Plex Mono",monospace;font-size:.8em;color:var(--muted)}
 .race .pane .cnt b{color:var(--ink);font-weight:500}
-.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
-.stat{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px}
-.stat .l{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:"IBM Plex Mono",monospace}
-.stat .v{font-family:"IBM Plex Mono",monospace;font-size:1.25em;font-weight:500;font-variant-numeric:tabular-nums}
-.stat .v.a{color:var(--tfidf)}.stat .v.b{color:var(--bm25)}.stat .v.c{color:var(--aqua)}
 
 /* matrices (step-by-step calculator) */
 .mxrow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:8px 0}
@@ -301,6 +275,8 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 .mini{display:grid;grid-template-columns:repeat(6,14px);gap:2px;margin:10px 0}
 .mini i{width:14px;height:14px;border-radius:2px;background:var(--surface-2);display:block}
 .mini i.on{background:var(--bm25)}
+/* цілі посилань з лекції 06: не ховати верх демо під липкою шапкою */
+#lookupDemo,#dkDemo{scroll-margin-top:76px}
 </style>
 </head>
 <body>
@@ -460,7 +436,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
     <div class="card b" style="border-top:3px solid var(--bm25)"><div class="k">Увага · м'який пошук</div><p style="margin-top:6px">Запит порівнюється з <em>усіма</em> ключами. Схожість стає вагою, і результат дорівнює <strong>зваженій сумі всіх значень</strong>. «Кошеня» отримає здебільшого значення «кіт», а не помилку.</p></div>
   </div>
 
-  <div class="demo">
+  <div class="demo" id="lookupDemo">
     <div class="head"><h4>Увага як м'який пошук у просторі</h4><span class="tag">interactive</span><span class="hint">Перетягніть синю точку-запит <b>Q</b>. Скор дорівнює скалярному добутку Q·K, далі softmax перетворює скори на ваги. Зелений ромб — результат Σ wᵢ·Vᵢ (тут для наочності Vᵢ = Kᵢ). Повзунок «різкість» множить скори: що він більший, то ближче увага до жорсткого пошуку.</span></div>
     <div class="lookup">
       <div><svg class="viz" id="lkSvg" viewBox="0 0 360 360" style="touch-action:none;max-width:420px;margin:0 auto"></svg></div>
@@ -564,7 +540,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
   </table></div>
   <p>Матриця W<sub>Q</sub> має форму d<sub>model</sub> × d<sub>k</sub>: вона перетворює вектор токена з 768 чисел на запит з 64 чисел. Скалярний добуток <var>q</var>·<var>k</var> — це сума d<sub>k</sub> добутків, тому від d<sub>k</sub> залежить, наскільки великими виходять скори.</p>
   <p>Якщо компоненти <var>q</var> і <var>k</var> мають середнє 0 і дисперсію 1, то їхній <span class="term" data-g="dot-product">скалярний добуток</span> — сума <var>d<sub>k</sub></var> доданків, і його стандартне відхилення дорівнює <strong>√d<sub>k</sub></strong>. Що більша розмірність, то більший розкид скорів, і <span class="term" data-g="softmax">softmax</span> «насичується»: майже вся вага йде одному ключу, а градієнти для решти зникають.</p>
-  <div class="demo">
+  <div class="demo" id="dkDemo">
     <div class="head"><h4>Випадкові Q і K різної розмірності</h4><span class="tag">interactive</span><span class="hint">Один запит і 8 ключів з N(0, 1). Змінюйте d<sub>k</sub> і вмикайте або вимикайте масштабування. Зі шкалою розподіл залишається «живим» за будь-якої розмірності, без неї він стає one-hot.</span></div>
     <div class="ctl">
       <label class="grow">Розмірність <var>d<sub>k</sub></var> <span class="v" id="dkV">64</span><input type="range" id="dk" min="0" max="8" step="1" value="4"></label>

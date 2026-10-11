@@ -1,0 +1,1526 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Голови трансформера: від класифікації до генерації</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+/* Стилі лише цієї лекції. Спільна база — common.css */
+section.slide>.pipe,section.slide>.tblwrap{max-width:none}
+.mono{font-family:"IBM Plex Mono",monospace}
+.muted{color:var(--muted)}
+.ctl label:not(.chk){display:block}
+.ctl label:not(.chk)>input[type=range]{display:block;margin-top:6px}
+.vizbox{overflow-x:auto}
+svg.viz{width:100%;height:auto;display:block;font-family:"IBM Plex Mono",monospace;overflow:visible}
+svg.viz text{fill:var(--ink);font-size:13px}
+svg.viz text.mut{fill:var(--muted);font-size:11px}
+
+table.tbl{border-collapse:collapse;width:100%;font-size:.88em;font-variant-numeric:tabular-nums}
+table.tbl th,table.tbl td{padding:6px 10px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+table.tbl th{font-weight:500;color:var(--muted);font-size:.85em;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
+table.tbl td.mono{font-size:.9em}
+.tblwrap{overflow-x:auto}
+.note{font-size:.85em;color:var(--muted)}
+.stat .v small{display:block;font-size:.55em;font-weight:400;color:var(--muted);margin-top:2px}
+
+/* токени-фішки: .tk (+ .sp спецтокен, .new щойно згенерований, .off приглушений) */
+.toks{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.tk{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 9px;text-align:center;line-height:1.35;transition:opacity .3s,background .3s,border-color .3s}
+.tk small{display:block;font-size:.7em;color:var(--muted)}
+.tk.sp{background:var(--blue-soft);border-color:color-mix(in srgb,var(--blue) 45%,var(--line));color:var(--blue)}
+.tk.new{background:color-mix(in srgb,var(--aqua) 18%,var(--surface));border-color:var(--aqua)}
+.tk.off{opacity:.35}
+
+/* 1. one body, different heads */
+.heads-chips{margin:0 0 10px}
+
+/* 2. pooling mask */
+.pool-wrap{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:24px;align-items:start}
+.pmx{display:grid;gap:2px;font-family:"IBM Plex Mono",monospace;font-size:.7em;overflow-x:auto}
+.pmx .c{width:24px;height:24px;border-radius:3px;background:var(--surface-2)}
+.pmx .c.vis{background:color-mix(in srgb,var(--blue) 55%,var(--surface-2))}
+.pmx .c.mask{background:repeating-linear-gradient(45deg,var(--surface-2) 0 4px,var(--bg) 4px 8px)}
+.pmx .c.used{box-shadow:inset 0 0 0 2px var(--orange)}
+.pmx .c.vis.used{background:color-mix(in srgb,var(--orange) 70%,var(--surface-2))}
+.pmx .rl{text-align:right;padding-right:6px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;justify-content:flex-end}
+.pmx .rl.used{color:var(--orange);font-weight:600}
+.pmx .cl{writing-mode:vertical-rl;transform:rotate(180deg);color:var(--muted);text-align:left;height:64px;display:flex;align-items:center}
+.ctlrow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:12px}
+.ctlrow .lbl{font-size:.8em;color:var(--muted)}
+
+/* 1. pooling on numbers */
+.poolt{border-collapse:separate;border-spacing:3px;font-family:"IBM Plex Mono",monospace;font-size:.82em;font-variant-numeric:tabular-nums}
+.poolt th{color:var(--muted);font-weight:400;text-align:right;padding-right:10px;white-space:nowrap}
+.poolt td{min-width:58px;text-align:center;padding:5px 6px;border-radius:5px;transition:opacity .25s}
+.poolt tr.off td{opacity:.25}
+.poolt td.pick{box-shadow:inset 0 0 0 2px var(--ink)}
+.poolt tr.res th{color:var(--orange);font-weight:600}
+.poolt tr.res td{outline:2px solid var(--orange)}
+.poolt tr.sep td,.poolt tr.sep th{padding:0;height:6px}
+/* 2. softmax vs sigmoid */
+.ml{display:grid;grid-template-columns:110px minmax(110px,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px 14px;align-items:center;font-size:.86em}
+.ml .hd{font-family:"IBM Plex Mono",monospace;font-size:.78em;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.ml input[type=range]{max-width:none}
+.mbar{position:relative;height:22px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.mbar .fl{height:100%;border-radius:6px;transition:width .1s}
+.mbar span{position:absolute;right:6px;top:2px;font-family:"IBM Plex Mono",monospace;font-size:.85em}
+.mbar .thr{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.ml .lv{font-family:"IBM Plex Mono",monospace;font-size:.85em;color:var(--muted)}
+@media (max-width:640px){.ml{grid-template-columns:90px minmax(0,1fr)}.ml .hd.x{display:none}.ml .mbar{grid-column:span 1}}
+
+/* 3. BIO */
+.bio{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.bio button{font:inherit;font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);border:1.5px solid var(--line);border-radius:7px;padding:4px 10px;cursor:pointer;color:var(--ink);text-align:center;line-height:1.35}
+.bio button small{display:block;font-size:.72em;font-weight:600}
+.bio button.PER{border-color:var(--blue);background:var(--blue-soft)}.bio button.PER small{color:var(--blue)}
+.bio button.LOC{border-color:var(--aqua);background:color-mix(in srgb,var(--aqua) 15%,var(--surface))}.bio button.LOC small{color:var(--aqua)}
+.bio button.ORG{border-color:var(--orange);background:var(--orange-soft)}.bio button.ORG small{color:var(--orange)}
+.bio button.bad{box-shadow:0 0 0 3px color-mix(in srgb,var(--rose) 45%,transparent)}
+.ents{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.ent{font-size:.85em;border-radius:999px;padding:3px 12px;border:1px solid var(--line);background:var(--surface)}
+.ent b{font-family:"IBM Plex Mono",monospace;font-size:.82em;margin-right:6px}
+.ent.PER b{color:var(--blue)}.ent.LOC b{color:var(--aqua)}.ent.ORG b{color:var(--orange)}
+.algn{border-collapse:separate;border-spacing:3px;font-family:"IBM Plex Mono",monospace;font-size:.8em}
+.algn th{color:var(--muted);font-weight:400;text-align:right;padding-right:8px;white-space:nowrap;font-size:.9em}
+.algn td{text-align:center;padding:4px 7px;border-radius:5px;background:var(--surface-2);white-space:nowrap}
+.algn td.ign{color:var(--muted);background:repeating-linear-gradient(45deg,var(--surface-2) 0 4px,var(--bg) 4px 8px)}
+.algn td.lab{background:var(--orange-soft);color:var(--ink)}
+.algn td.w0{border-bottom:2px solid var(--blue)}.algn td.w1{border-bottom:2px solid var(--aqua)}
+
+/* 4. QA span */
+.qa{display:grid;gap:3px;overflow-x:auto;padding-bottom:4px;font-family:"IBM Plex Mono",monospace;font-size:.76em}
+.qa .bc{height:70px;display:flex;align-items:flex-end;justify-content:center}
+.qa .bc i{display:block;width:16px;border-radius:3px 3px 0 0;transition:height .3s}
+.qa .bc.e{align-items:flex-start}.qa .bc.e i{border-radius:0 0 3px 3px}
+.qa .t{text-align:center;padding:4px 4px;border-radius:5px;background:var(--surface-2);white-space:nowrap;transition:background .3s}
+.qa .t.ans{background:color-mix(in srgb,var(--aqua) 30%,var(--surface));outline:1.5px solid var(--aqua)}
+.qa .t.cls{background:var(--blue-soft);color:var(--blue)}
+.qa .rl{color:var(--muted);text-align:right;padding-right:6px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap}
+.spans{font-size:.88em;margin-top:10px}
+.spans .row{display:grid;grid-template-columns:28px minmax(0,1fr) 80px;gap:8px;padding:4px 0;border-top:1px solid var(--line-soft)}
+.spans .row:first-child{border-top:0}
+.spans .row.best{font-weight:600}
+.spans .row .n{font-family:"IBM Plex Mono",monospace;text-align:right}
+
+/* 6. chooser + freeze */
+.stack{display:flex;height:44px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin:10px 0 4px}
+.stack div{display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:.62em;color:var(--muted);background:var(--surface-2);border-right:1px solid var(--line-soft);transition:background .25s,color .25s;min-width:3px;overflow:hidden;white-space:nowrap}
+.stack div:last-child{border-right:0}
+.stack div.on{background:var(--aqua);color:#fff}
+.stack div.on.hd{background:var(--orange)}
+.stack-l{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:.7em;color:var(--muted)}
+
+/* 7-10. distribution bars with token names */
+.dist .softbar{grid-template-columns:120px 1fr 64px}
+.dist .softbar .w{font-family:"IBM Plex Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dist .softbar.cut .w{text-decoration:line-through;color:var(--muted)}
+.dist .softbar .tr{position:relative}
+.dist .softbar .ghost{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--line);opacity:.55}
+.dist .softbar .fl{position:relative}
+.dist .softbar.pick .w{font-weight:600;color:var(--aqua)}
+.prompt{font-family:"IBM Plex Mono",monospace;font-size:.95em;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;margin:8px 0;line-height:1.7}
+.prompt .gen{background:color-mix(in srgb,var(--aqua) 22%,transparent);border-radius:4px;padding:0 3px}
+.prompt .gen.last{outline:1.5px solid var(--aqua)}
+
+/* 9a. цикл генерації: вхід → декодер → вибір → назад у вхід */
+.genloop{position:relative;padding-right:26px;margin:10px 0}
+.genloop>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.genloop>svg path{fill:none;stroke:var(--aqua);stroke-width:2;stroke-dasharray:5 4;stroke-linejoin:round}
+.genloop>svg polygon{fill:var(--aqua)}
+.gl-cap{font-size:.85em;color:var(--muted);margin-bottom:6px}
+.gl-cap b{color:var(--ink);font-weight:500}
+.gl-in{display:flex;flex-wrap:wrap;gap:18px 8px}
+.gl-in .tk{position:relative}
+.gl-in .tk::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:18px;margin-left:-1px;background:var(--line)}
+.gl-in.flow .tk::after{animation:glFlow .7s ease-out}
+@keyframes glFlow{from{background:var(--blue)}to{background:var(--line)}}
+.gl-in .tk small.g{color:var(--aqua)}
+.gl-in .tk .kv{display:block;margin:3px -5px -1px;font-size:.62em;font-style:normal;letter-spacing:.04em;border-radius:3px;padding:0 4px;background:var(--surface-2);color:var(--muted);border:1px dashed var(--line)}
+.gl-in .tk .kv.calc{background:color-mix(in srgb,var(--aqua) 22%,transparent);color:var(--ink);border:1px solid var(--aqua);animation:glCalc .6s ease-out}
+.genloop.nocache .gl-in .tk .kv.calc{background:color-mix(in srgb,var(--orange) 22%,transparent);border-color:var(--orange)}
+@keyframes glCalc{0%{transform:scale(1.25)}100%{transform:none}}
+.gl-legend{font-size:.78em;color:var(--muted);margin-top:8px;display:flex;gap:14px;flex-wrap:wrap}
+.gl-legend i{display:inline-block;width:12px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+.gl-legend .a{background:color-mix(in srgb,var(--aqua) 22%,transparent);border:1px solid var(--aqua)}
+.gl-legend .o{background:color-mix(in srgb,var(--orange) 22%,transparent);border:1px solid var(--orange)}
+.gl-legend .h{background:var(--surface-2);border:1px dashed var(--line)}
+.genloop.nocache .gl-legend .a,.genloop:not(.nocache) .gl-legend .o{display:none}
+.gl-in .tk.slot{border:1.5px dashed var(--aqua);background:transparent;color:var(--aqua)}
+.gl-in .tk.slot::after{display:none}
+.gl-in .tk.fresh{animation:glFresh .9s ease-out}
+@keyframes glFresh{0%{transform:translateY(46px);opacity:0;border-color:var(--aqua)}50%{transform:none;opacity:1;border-color:var(--aqua);box-shadow:0 0 0 3px color-mix(in srgb,var(--aqua) 30%,transparent)}100%{border-color:var(--line);box-shadow:none}}
+.gl-model{margin-top:18px;padding:7px 12px;border:1px solid color-mix(in srgb,var(--blue) 45%,var(--line));background:var(--blue-soft);border-radius:8px;font-size:.88em;text-align:center}
+.gl-back{text-align:right;font-size:.88em;color:var(--muted);min-height:1.6em}
+.gl-back .tk{display:inline-block;margin:0 4px}
+.samples{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;min-height:30px}
+
+/* 8. next-token loss */
+.ntl{display:grid;gap:3px;overflow-x:auto;padding-bottom:4px;font-family:"IBM Plex Mono",monospace;font-size:.76em}
+.ntl .rl{color:var(--muted);text-align:right;padding-right:8px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap}
+.ntl .t{text-align:center;padding:4px 6px;border-radius:5px;background:var(--surface-2);white-space:nowrap;cursor:pointer;transition:background .2s,opacity .2s}
+.ntl .t.tg{background:var(--orange-soft)}
+.ntl .t.ctx{background:var(--blue-soft);color:var(--blue)}
+.ntl .t.cur{outline:2px solid var(--violet)}
+.ntl .t.dim{opacity:.35}
+.ntl .pb{height:56px;display:flex;align-items:flex-end;justify-content:center;cursor:pointer}
+.ntl .pb i{display:block;width:18px;background:var(--aqua);border-radius:3px 3px 0 0;transition:height .35s}
+.ntl .ls{text-align:center;color:var(--ink-2)}
+
+/* 11. scale chart */
+svg.viz .pt{stroke:var(--surface);stroke-width:2;cursor:pointer}
+svg.viz .grid line{stroke:var(--grid)}
+svg.viz .lbl{font-size:11px;fill:var(--ink-2)}
+
+
+/* 6. логіт як скалярний добуток */
+.lh-wrap{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start;margin-top:8px}
+@media (max-width:760px){.lh-wrap{grid-template-columns:minmax(0,1fr)}}
+
+@media (max-width:900px){.pool-wrap{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.dist .softbar,.softbar{grid-template-columns:96px 1fr 52px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Лекція 06 · Голови і генерація</span>
+  <span class="spacer"></span>
+  <button class="btn" id="lectureBtn" aria-pressed="false" title="Збільшує шрифт і робить кожен розділ окремим слайдом"><span class="dot"></span>Режим лекції</button>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Зміст"><ol id="toc"></ol></nav>
+<main id="main">
+
+<!-- ============ 0. HERO ============ -->
+<section class="slide" id="s0" data-title="Вступ" data-narr="audio/06-heads-decoders/s0">
+  <div class="eyebrow">Обробка природної мови · Лекція 06 · <b>Голови і генерація</b></div>
+  <h1>Голови трансформера: від класифікації до генерації тексту</h1>
+  <div class="hero-grid">
+    <div>
+      <p class="lead">У лекції 05 ми бачили, що поверх <span class="term" data-g="bert">BERT</span> ставлять маленький шар під задачу: <span class="term" data-g="task-head">голову</span>. Сьогодні розберемо, що в цих головах не видно з першого погляду, а потім перейдемо до голови, на якій тримаються всі сучасні мовні моделі.</p>
+      <p>Перша частина — практика голів <span class="term" data-g="encoder">енкодера</span>: як отримати один вектор тексту і чому це залежить від маски уваги, коли потрібна сигмоїда замість softmax, як вирівняти мітки NER із субсловами, як знайти відповідь у тексті. Друга частина — вступ до <span class="term" data-g="llm">LLM</span>: як <span class="term" data-g="decoder">декодер</span> навчається, як генерує текст і як виросли сучасні моделі. Наприкінці ми зведемо дві частини разом: побачимо, як LLM розв'язує ті самі задачі, що й голови енкодера, і коли маленький енкодер усе одно кращий. Як із базової моделі роблять асистента і як донавчати великі моделі, розберемо в наступній лекції.</p>
+    </div>
+    <aside class="agenda">
+      <h3>Сьогодні</h3>
+      <ol>
+        <li>Голова: три рішення</li>
+        <li>Класифікація тексту і пулінг</li>
+        <li>Мітки токенів: NER</li>
+        <li>Відповідь у тексті</li>
+        <li>Як обрати голову і що донавчати</li>
+        <li>Мовна голова</li>
+        <li>Навчання на наступному токені</li>
+        <li>Авторегресивна генерація і KV-кеш</li>
+        <li>Стратегії декодування</li>
+        <li>Від GPT до сучасних LLM</li>
+        <li>Ті самі задачі на LLM: енкодер чи декодер</li>
+        <li>Код: голови енкодера і генерація</li>
+        <li>Підсумок і тест</li>
+      </ol>
+    </aside>
+  </div>
+  <div class="xref"><a class="chip" href="./05-attention-transformers.html#s9">↩ Лекція 05</a><p>Що всередині тіла: стопка однакових блоків, у кожному увага змішує токени, а FFN обробляє кожен токен окремо. Сьогодні тіло — готова частина, і нас цікавить лише те, що стоїть після нього.</p></div>
+</section>
+
+<!-- ============ 1. BODY AND HEAD ============ -->
+<section class="slide" id="s1" data-title="Голова: три рішення" data-narr="audio/06-heads-decoders/s1">
+  <div class="eyebrow">Розділ 1 · <b>місток з лекції 05</b></div>
+  <h2>Голова: три рішення</h2>
+  <p class="lead">У лекції 05 голова була одним лінійним шаром на [CLS]. Насправді кожна голова — це три рішення: які вектори взяти, на що їх перетворити і яку loss функцію рахувати. На цих трьох рішеннях побудована вся лекція: і голови енкодера, і мовна голова, з якої генерують текст LLM.</p>
+
+  <div class="xref"><a class="chip" href="./05-attention-transformers.html#s15">↩ Лекція 05</a><p><code>AutoModel</code> повертає <code>last_hidden_state</code> форми [B, T, 768]: <span class="term" data-g="hidden-state">прихований стан</span> кожного токена після останнього шару. Цю частину моделі називають <strong>тілом</strong> (backbone). Класи <code>AutoModelFor…</code> додають поверх тіла голову.</p></div>
+
+  <div class="cards">
+    <div class="card"><div class="k">1 · Вхід голови</div><h4>Які вектори взяти?</h4><p>Один вектор на текст (вектор [CLS], середнє всіх, останній токен), вектор кожного токена або лише токени контексту.</p></div>
+    <div class="card"><div class="k">2 · Шар</div><h4>На що перетворити?</h4><p>Зазвичай це один лінійний шар Linear(<var>d</var> → <var>K</var>): <var>K</var> класів, <var>K</var> міток, 2 числа (початок і кінець відповіді) або стільки чисел, скільки токенів у <span class="term" data-g="vocabulary">словнику</span>. Ці числа — <span class="term" data-g="logit">логіти</span>.</p></div>
+    <div class="card"><div class="k">3 · Loss функція</div><h4>Як навчати?</h4><p><span class="term" data-g="cross-entropy">Крос-ентропія</span> для одного класу, бінарна крос-ентропія для кількох міток, середньоквадратична похибка (MSE) для числа. Loss функція задає, чого саме вчиться вся модель.</p></div>
+  </div>
+
+  <div class="callout"><p><strong>Голова справді маленька.</strong> У BERT-base голова на два класи — це матриця 768 × 2 і два зсуви, тобто 1 538 параметрів. У тілі їх 109 мільйонів. Тому голову ініціалізують випадково, і вона навчається за кілька сотень кроків, а тіло за цей час лише трохи підлаштовується під задачу.</p></div>
+
+  <h3>Перше рішення: пулінг</h3>
+  <p>Тіло повертає по вектору на кожен токен, тобто матрицю [<var>T</var> × <var>d</var>]. Голова класифікації — це Linear(<var>d</var> → <var>K</var>), і вона чекає <strong>один</strong> вектор довжини <var>d</var>. До того ж тексти бувають різної довжини: 5 токенів або 500. <span class="term" data-g="pooling">Пулінг</span> (pooling) з будь-якої кількості векторів робить один вектор фіксованого розміру <var>d</var>. Навчуваних параметрів у нього зазвичай немає: це просто правило, як звести вектори разом.</p>
+  <p>Базових правил три. Можна <strong>взяти один вектор</strong>, наприклад першого токена. Можна <strong>усереднити</strong> всі вектори покомпонентно (mean pooling). Або взяти <strong>максимум</strong> по кожному виміру окремо (max pooling). Токени <span class="term" data-g="padding">паддінгу</span> в пулінг не потрапляють: їх виключають тією самою маскою, що й в увазі. Для середнього це виглядає так:</p>
+  <div class="formula"><var class="c1">v</var> = <span class="frac"><span><span class="sum">Σ<small><var>t</var></small></span> <var class="c2">m</var><sub><var>t</var></sub> · <var>h</var><sub><var>t</var></sub></span><span><span class="sum">Σ<small><var>t</var></small></span> <var class="c2">m</var><sub><var>t</var></sub></span></span>,&nbsp;&nbsp; <span class="txt"><var class="c2">m</var><sub><var>t</var></sub> = 1 для справжнього токена, 0 для [PAD]; <var>h</var><sub><var>t</var></sub> — вектор токена <var>t</var> з виходу тіла</span></div>
+
+  <div class="demo" id="plDemo">
+    <div class="head"><h4>Пулінг на числах</h4><span class="tag">interactive</span><span class="hint">Відгук із трьох слів у батчі, доповнений двома [PAD] до довжини 6. Кожен рядок — вектор токена з виходу тіла (тут 4 виміри замість 768). Оберіть правило пулінгу і подивіться на нижній рядок: це і є один вектор тексту, який піде в голову. Вимкніть маску, щоб побачити, як паддінг псує результат. Числа ілюстративні.</span></div>
+    <div class="ctlrow"><div class="seg" id="plOp"><button data-v="first" aria-pressed="false">перший токен</button><button data-v="mean" aria-pressed="true">середнє</button><button data-v="max" aria-pressed="false">максимум</button></div>
+      <label class="chk"><input type="checkbox" id="plMask" checked> не враховувати [PAD] (маска)</label></div>
+    <div class="tblwrap"><table class="poolt" id="plTbl"></table></div>
+    <div class="explain" id="plExpl"></div>
+  </div>
+
+  <p>Тепер зберемо все разом. Тіло однакове для будь-якої задачі, а три рішення голови визначають, що модель видає на виході.</p>
+  <div class="demo" id="headsDemo">
+    <div class="head"><h4>Одне тіло, різні голови</h4><span class="tag">interactive</span><span class="hint">Тіло моделі однакове для всіх задач і дає по вектору на кожен токен. Перемикайте голову вгорі: кожна бере частину цих векторів і перетворює їх на відповідь — клас тексту, мітки слів (B-PER — ім'я людини, B-LOC — назва місця, O — інше слово), вектор для пошуку чи наступний токен. Нижня частина схеми при цьому не змінюється.</span></div>
+    <div class="seg heads-chips" id="heroHeads"></div>
+    <div class="vizbox"><svg class="viz" id="heroSvg" viewBox="0 0 760 270" style="max-width:860px" role="img" aria-label="Схема: токени, тіло трансформера, вектори токенів і голова задачі"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 2. SEQUENCE CLASSIFICATION ============ -->
+<section class="slide" id="s2" data-title="Класифікація тексту" data-narr="audio/06-heads-decoders/s2">
+  <div class="eyebrow">Розділ 2 · <b>один вектор на текст</b></div>
+  <h2>Класифікація тексту: звідки взяти один вектор</h2>
+  <p class="lead">Щоб класифікувати текст, треба стиснути <var>T</var> векторів в один за допомогою пулінгу. Яке правило пулінгу обрати, залежить від <span class="term" data-g="attention-mask">маски уваги</span> моделі.</p>
+
+  <p>Яке правило обрати, залежить від моделі:</p>
+  <div class="cards" id="poolCards">
+    <div class="card"><div class="k">[CLS]</div><h4>Спеціальний перший токен</h4><p>В енкодері [CLS] через <span class="term" data-g="self-attention">самоувагу</span> бачить увесь текст. Під час донавчання голова вчить його збирати саме те, що потрібно для задачі. Так класифікує BERT.</p></div>
+    <div class="card"><div class="k">Середнє</div><h4>Mean pooling</h4><p>Середнє векторів усіх токенів, крім <span class="term" data-g="padding">паддінгу</span>. Стійкіше за [CLS], коли модель не донавчали на задачі, тому так рахують ембедінги речень (sentence-transformers, E5).</p></div>
+    <div class="card"><div class="k">Останній токен</div><h4>Для декодерів</h4><p>У декодері токен бачить лише себе і попередні. Увесь текст бачив тільки останній токен, тому Llama, Qwen і GPT для класифікації беруть саме його вектор.</p></div>
+  </div>
+
+  <div class="demo" id="poolDemo">
+    <div class="head"><h4>Що бачить вектор, який ми беремо</h4><span class="tag">interactive</span><span class="hint">Оберіть модель і спосіб пулінгу. Кожен рядок матриці — вектор одного токена, сині клітинки — токени, на які він міг дивитися в увазі. Помаранчевим позначено рядки, які бере пулінг. Відгук «Фільм нудний, але фінал чудовий» змінює тональність наприкінці. Подивіться, чи бачить це обраний вектор.</span></div>
+    <div class="ctlrow"><span class="lbl">Модель</span><div class="seg" id="poolArch"><button data-v="enc" aria-pressed="true">енкодер (BERT)</button><button data-v="dec" aria-pressed="false">декодер (GPT, Llama)</button></div></div>
+    <div class="ctlrow"><span class="lbl">Пулінг</span><div class="seg" id="poolMode"><button data-v="first" aria-pressed="true">перший токен</button><button data-v="mean" aria-pressed="false">середнє</button><button data-v="last" aria-pressed="false">останній токен</button></div></div>
+    <div class="pool-wrap">
+      <div class="pmx" id="poolMx"></div>
+      <div>
+        <div class="result"><span class="big b" id="poolCov">100%</span><span class="expl">тексту бачить вектор, що йде в голову (в середньому)</span></div>
+        <div class="explain" id="poolExpl"></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Один клас, кілька міток чи число</h3>
+  <p>Шар голови однаковий, а от функція на виході й loss функція залежать від того, що ми передбачаємо.</p>
+  <div class="cards" id="taskCards">
+    <div class="card"><div class="k">Багатокласова</div><h4>Рівно один клас</h4><p><span class="term" data-g="softmax">Softmax</span> по <var>K</var> логітах, ймовірності в сумі дають 1, відповідь — найбільша. Loss функція: крос-ентропія. Тональність, тема, намір користувача.</p></div>
+    <div class="card"><div class="k">Багатоміткова</div><h4>Скільки завгодно міток</h4><p>Для <span class="term" data-g="multi-label">багатоміткової класифікації</span> беруть сигмоїду на кожен логіт окремо і поріг (зазвичай 0.5). Loss функція: бінарна крос-ентропія. Теги статті, види токсичності.</p></div>
+    <div class="card"><div class="k">Регресія</div><h4>Одне число</h4><p>Один вихід (<code>num_labels=1</code>), без активації. Loss функція: MSE. Оцінка схожості речень від 0 до 5, прогноз рейтингу.</p></div>
+  </div>
+
+  <div class="demo" id="mlDemo">
+    <div class="head"><h4>Softmax чи сигмоїда</h4><span class="tag">interactive</span><span class="hint">Новина «Уряд виділив два мільярди гривень на ремонт стадіонів» стосується водночас політики, економіки і спорту. Рухайте логіти чотирьох тем. Softmax змушує теми конкурувати: ймовірності в сумі дають 1, і три правильні теми ділять її між собою. Сигмоїда оцінює кожну тему окремо і порівнює з порогом.</span></div>
+    <div class="ml" id="mlRows"></div>
+    <div class="ctl" style="margin-top:14px"><label>Поріг сигмоїди <span class="v" id="mlThrV">0.50</span><input type="range" id="mlThr" min="0.1" max="0.9" step="0.05" value="0.5"></label></div>
+    <div class="explain" id="mlExpl"></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Типова помилка</div><p>Задача багатоміткова, а модель навчили з softmax. Тоді дві правильні мітки ділять ймовірність навпіл, і жодна не проходить поріг. У transformers для кількох міток передайте <code>problem_type="multi_label_classification"</code>, і бібліотека сама візьме сигмоїду з бінарною крос-ентропією.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Модель має передбачати рейтинг відгуку від 1 до 5 як число. Яку голову взяти?</div>
+      <div class="opts"><button class="opt">Linear(d → 5) із сигмоїдою на кожен вихід</button><button class="opt">Linear(d → 1) без активації і MSE як loss функцію</button><button class="opt">Мовну голову, щоб модель написала цифру</button></div>
+      <div class="ans">Для числа потрібен один вихід і регресійна loss функція. Варіант із п'ятьма класами теж можливий, але тоді модель не знає, що 4 ближче до 5, ніж до 1.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 3. TOKEN CLASSIFICATION ============ -->
+<section class="slide" id="s3" data-title="Мітки токенів: NER" data-narr="audio/06-heads-decoders/s3">
+  <div class="eyebrow">Розділ 3 · <b>вектор на кожен токен</b></div>
+  <h2>Класифікація токенів: NER і BIO-розмітка</h2>
+  <p class="lead">Тут пулінгу немає: той самий лінійний шар застосовують до вектора кожного токена окремо. Складнощі тут не в голові, а в мітках: як позначити сутність із кількох слів і що робити із субсловами.</p>
+
+  <div class="xref"><a class="chip" href="./05-attention-transformers.html#s12">↩ Лекція 05</a><p>Мітки <span class="term" data-g="ner">NER</span> ми вже бачили: <code>B-</code> — перше слово сутності, <code>I-</code> — її продовження, <code>O</code> — слово поза сутностями. Після дефіса стоїть тип: PER, LOC, ORG, часто ще MISC. Набір типів задає датасет, а в медичних чи юридичних задачах він свій.</p></div>
+  <p>Навіщо окремий префікс B-, якщо можна просто писати PER? Він показує, де починається нова сутність. Без нього в переліку без ком «Шевченко Куліш Костомаров» три окремі особи злилися б в одну. З ним кожне прізвище отримує свій <code>B-PER</code>, і межі видно. Така схема називається <span class="term" data-g="bio">BIO</span>. Так само, мітками для кожного слова, розв'язують розмітку частин мови, пошук помилок у тексті та вилучення полів з документів.</p>
+
+  <div class="demo" id="bioDemo">
+    <div class="head"><h4>Зберіть сутності з BIO-міток</h4><span class="tag">interactive</span><span class="hint">Клацайте по словах, щоб змінити мітку: O → B-PER → I-PER → B-LOC → I-LOC → B-ORG → I-ORG → O. Нижче показано сутності, які з цих міток збере постобробка. Рожевою рамкою позначено помилку: I- після мітки іншого типу або після O.</span></div>
+    <div class="pctl"><button class="btn" id="bioGold">Правильна розмітка</button><button class="btn" id="bioClear">Усе O</button><button class="btn" id="bioBad">Типові помилки</button></div>
+    <div class="bio" id="bioToks"></div>
+    <div class="ents" id="bioEnts"></div>
+    <div class="explain" id="bioExpl"></div>
+  </div>
+
+  <h3>Слова розмічені, а модель бачить субслова</h3>
+  <p>Людина розмічає слова, а токенізатор ріже їх на <span class="term" data-g="subword">субслова</span>. Отже, міток менше, ніж токенів, і їх треба вирівняти. Токенізатор повертає <code>word_ids()</code>: номер слова для кожного токена.</p>
+  <div class="demo" id="algnDemo">
+    <div class="head"><h4>Вирівнювання міток із субтокенами</h4><span class="tag">interactive</span><span class="hint">Слово «Моринцях» розпалося на три токени, «Шевченко» на два. Оберіть стратегію. Мітка −100 означає «не рахувати loss на цьому токені». Так позначають спецтокени і, найчастіше, продовження слів. Розбиття на токени тут ілюстративне.</span></div>
+    <div class="seg" id="algnMode"><button data-v="first" aria-pressed="true">мітка лише першому субтокену</button><button data-v="all" aria-pressed="false">мітка всім субтокенам</button></div>
+    <div class="tblwrap" style="margin-top:12px"><table class="algn" id="algnTbl"></table></div>
+    <div class="explain" id="algnExpl"></div>
+  </div>
+  <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s7">↩ Лекція 03</a><p>Що гірше токенізатор знає мову, то більше субтокенів на слово і то більше міток −100. Для української варто брати модель із мультимовним словником (<span class="term" data-g="xlm-r">XLM-R</span>), інакше одне ім'я перетвориться на п'ять-шість шматків.</p></div>
+
+  <div class="callout warn"><div class="qm">Метрика</div><p>Не рахуйте точність по токенах: більшість токенів мають мітку O, і модель, яка завжди відповідає O, отримає 85–90%. Для NER рахують F1 <em>по сутностях</em>: сутність вважається знайденою, лише якщо збігаються і межі, і тип (бібліотека <code>seqeval</code>).</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Навіщо продовженням слова ставлять мітку −100?</div>
+      <div class="opts"><button class="opt">Щоб модель передбачала для них клас «невідомо»</button><button class="opt">Це id токена [PAD]</button><button class="opt">Крос-ентропія в PyTorch пропускає позиції з −100, тож кожне слово впливає на loss один раз</button></div>
+      <div class="ans"><code>CrossEntropyLoss</code> має <code>ignore_index=-100</code> за замовчуванням. Без цього довгі слова, розбиті на багато субтокенів, важили б у навчанні більше за короткі.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 4. SPAN QA ============ -->
+<section class="slide" id="s4" data-title="Відповідь у тексті" data-narr="audio/06-heads-decoders/s4">
+  <div class="eyebrow">Розділ 4 · <b>два числа на токен</b></div>
+  <h2>Відповідь у тексті: голова початку й кінця</h2>
+  <p class="lead">Голова дає лише start- і end-логіт на кожен токен. Відповідь — пара «початок ≤ кінець» з найбільшою сумою оцінок. Якщо ж [CLS] набирає більше за будь-який фрагмент, модель каже, що відповіді в тексті немає.</p>
+
+  <p>Вхід і голову ми бачили в лекції 05: пара <code>[CLS] питання [SEP] контекст [SEP]</code> і Linear(768 → 2). Оцінка фрагмента від <var>i</var> до <var>j</var> дорівнює <var>s</var><sub><var>i</var></sub> + <var>e</var><sub><var>j</var></sub>. Без обмежень <var>i</var> ≤ <var>j</var> і максимальної довжини найкращою «відповіддю» легко стає кінець, що стоїть раніше за початок, або пів абзацу. Такі моделі навчають на SQuAD та подібних датасетах. У SQuAD 2.0 є питання без відповіді: для них модель вчиться ставити найвищі оцінки на [CLS].</p>
+
+  <div class="demo" id="qaDemo">
+    <div class="head"><h4>Пошук найкращого фрагмента</h4><span class="tag">interactive</span><span class="hint">Оберіть питання. Сині стовпчики над токенами — start-логіти, помаранчеві під токенами — end-логіти. Програма перебирає всі пари «початок ≤ кінець» не довші за ліміт і бере пару з найбільшою сумою. Якщо оцінка [CLS] вища за найкращий фрагмент, модель каже, що відповіді немає. Логіти ілюстративні.</span></div>
+    <div class="seg" id="qaQ"><button data-v="0" aria-pressed="true">Коли народився?</button><button data-v="1" aria-pressed="false">Де народився?</button><button data-v="2" aria-pressed="false">Хто його батько?</button></div>
+    <div class="ctl" style="margin-top:12px"><label>Максимальна довжина відповіді <span class="v" id="qaLV">5</span> токенів<input type="range" id="qaL" min="1" max="8" step="1" value="5"></label></div>
+    <div class="qa" id="qaGrid"></div>
+    <div class="spans" id="qaSpans"></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Межа підходу</div><p>Екстрактивна модель може відповісти лише фрагментом наявного тексту. Вона не перекаже своїми словами, не поєднає два абзаци і не скаже «так» чи «ні». Зате вона ніколи не вигадує відповідь, якої в тексті немає. Сьогодні таку роботу частіше доручають LLM разом із пошуком (<span class="term" data-g="rag">RAG</span>), але екстрактивні моделі досі корисні там, де потрібна точна цитата.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Скільки чисел на кожен токен повертає голова екстрактивної QA-моделі?</div>
+      <div class="opts"><button class="opt">Два: start- і end-логіт</button><button class="opt">Одне: ймовірність, що токен входить у відповідь</button><button class="opt">Стільки, скільки токенів у словнику</button></div>
+      <div class="ans">Linear(d → 2): одне число оцінює токен як початок відповіді, друге — як кінець. Відповідь — фрагмент з найбільшою сумою.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 6. CHOOSING A HEAD ============ -->
+<section class="slide" id="s5" data-title="Як обрати голову" data-narr="audio/06-heads-decoders/s5">
+  <div class="eyebrow">Розділ 5 · <b>практика</b></div>
+  <h2>Як обрати голову і що донавчати</h2>
+  <p class="lead">Голову обирають за формою відповіді, а не за назвою задачі. Спершу запитайте себе, що має бути на виході: клас, кілька міток, число, мітка кожного токена, фрагмент тексту, оцінка пари, вектор чи новий текст.</p>
+
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>На виході</th><th>Вектори → шар</th><th>Loss функція</th><th>Метрика</th></tr></thead>
+    <tbody>
+      <tr><td>один клас</td><td>[CLS] або останній токен → Linear(<var>d</var> → <var>K</var>), softmax</td><td>крос-ентропія</td><td>accuracy; macro-F1, якщо класи незбалансовані</td></tr>
+      <tr><td>кілька міток</td><td>те саме, сигмоїда на кожен вихід</td><td>бінарна крос-ентропія</td><td>micro- і macro-F1 при обраному порозі</td></tr>
+      <tr><td>число</td><td>[CLS] або середнє → Linear(<var>d</var> → 1)</td><td>MSE</td><td>кореляція Пірсона чи Спірмена, MAE</td></tr>
+      <tr><td>мітка кожного токена</td><td>кожен токен → Linear(<var>d</var> → <var>K</var>)</td><td>крос-ентропія, −100 для продовжень слів</td><td>F1 по сутностях (seqeval)</td></tr>
+      <tr><td>фрагмент тексту</td><td>токени контексту і [CLS] → Linear(<var>d</var> → 2)</td><td>крос-ентропія для start і для end</td><td>Exact Match, F1 по словах</td></tr>
+      <tr><td>оцінка пари</td><td>[CLS] пари «A [SEP] B» → Linear(<var>d</var> → 1)</td><td>бінарна крос-ентропія</td><td>NDCG, MRR</td></tr>
+      <tr><td>вектор для пошуку</td><td>середнє векторів, шару немає</td><td>контрастивна: правильна пара проти решти в батчі</td><td>recall@K, NDCG</td></tr>
+      <tr><td>новий текст</td><td>кожен токен → Linear(<var>d</var> → |<var>V</var>|)</td><td>крос-ентропія з наступним токеном</td><td>перплексія; для відповідей — оцінки людей або іншої LLM</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>Голова визначає не лише формат виходу. Від неї залежать <strong>формат розмітки</strong> (клас на текст чи мітка на слово), <strong>loss функція</strong>, а отже, й те, чого навчиться тіло, <strong>метрика</strong> і <strong>ціна інференсу</strong>: одна голова працює з одним проходом на текст, а кросенкодеру потрібен прохід на кожну пару.</p>
+
+  <div class="callout"><p><strong>Пари текстів і пошук — окрема тема.</strong> Два рядки таблиці стосуються пошуку. <span class="term" data-g="bi-encoder">Біенкодер</span> кодує запит і документ окремо, середнім векторів, і порівнює їх косинусом. Документи можна закодувати заздалегідь, тож пошук серед мільйонів займає мілісекунди. <span class="term" data-g="cross-encoder">Кросенкодер</span> подає пару в модель разом і повертає одне число. Він точніший, але потребує проходу на кожну пару, тому ним лише переранжовують кілька десятків кандидатів. Як навчати такі моделі і будувати з них пошук, розберемо в окремій лекції про <span class="term" data-g="semantic-search">семантичний пошук</span>.</p></div>
+
+  <div class="callout q"><div class="qm">Навіщо це все, якщо є LLM?</div><p>Останній рядок таблиці — мовна голова, з неї почнеться друга половина лекції. Велика мовна модель уміє дати відповідь у кожному рядку: досить попросити її написати клас, мітки чи фрагмент тексту. Тож чи потрібні окремі голови? У розділі 11 ми повернемося до цієї таблиці. Ви побачите, що всередині LLM-рішень ховаються ті самі три рішення голови, і що для вузької задачі з розміткою донавчений енкодер часто в сотні разів дешевший.</p></div>
+
+  <h3>Що донавчати: голову, верхні шари чи все</h3>
+  <p>Нова голова починає з випадкових ваг, а тіло вже вміє багато. Є три типові варіанти <span class="term" data-g="fine-tuning">донавчання</span>:</p>
+  <div class="cards" id="ftCards">
+    <div class="card"><div class="k">Заморозити тіло</div><h4>Учити лише голову</h4><p>Швидко, дешево, працює з кількома сотнями прикладів. Але тіло не підлаштовується під задачу, тож стеля якості нижча. Цей прийом ще називають лінійним зондуванням (linear probing).</p></div>
+    <div class="card"><div class="k">Частково</div><h4>Верхні шари + голова</h4><p>Нижні шари вміють загальне (морфологія, синтаксис), верхні — специфічніше. Розморожують 2–4 верхні блоки. Це компроміс, коли даних небагато.</p></div>
+    <div class="card"><div class="k">Повне донавчання</div><h4>Усі ваги</h4><p>Найкраща якість на тисячах прикладів. Потрібна мала швидкість навчання (2·10⁻⁵ для BERT), інакше модель «забуває» знання з <span class="term" data-g="pretraining">попереднього навчання</span>.</p></div>
+  </div>
+
+  <div class="demo" id="frzDemo">
+    <div class="head"><h4>Скільки параметрів ми тренуємо</h4><span class="tag">interactive</span><span class="hint">Модель BERT-base із головою на два класи. Повзунок розморожує верхні блоки, прапорець — матрицю ембедінгів. Зелене тренується, сіре заморожене. Для навчуваних ваг треба зберігати ще градієнти і два стани оптимізатора Adam, тобто разом 16 байтів на параметр. Для заморожених вистачає 4 байтів.</span></div>
+    <div class="ctl">
+      <label class="grow">Розморожено верхніх блоків <span class="v" id="frzV">0</span> з 12<input type="range" id="frz" min="0" max="12" step="1" value="0"></label>
+      <label class="chk"><input type="checkbox" id="frzEmb"> ембедінги теж</label>
+    </div>
+    <div class="stack" id="frzStack"></div>
+    <div class="stack-l"><span>ембедінги</span><span>блоки 1 → 12</span><span>голова</span></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">навчуваних параметрів</div><div class="v c" id="frzN"></div></div>
+      <div class="stat"><div class="l">частка моделі</div><div class="v" id="frzP"></div></div>
+      <div class="stat"><div class="l">пам'ять на ваги й Adam</div><div class="v b" id="frzM"></div></div>
+    </div>
+  </div>
+
+  <div class="callout" id="ftRule"><p><strong>Емпіричне правило.</strong> Сотні прикладів: заморожене тіло або LLM з промптом. Тисячі прикладів: повне донавчання енкодера. Велика LLM: повне донавчання надто дороге, тому використовують методи на кшталт LoRA (про них — у наступній лекції). Пам'ять на активації тут не враховано, а на довгих текстах вона часто більша за пам'ять на ваги.</p></div>
+</section>
+
+<!-- ============ 7. LM HEAD ============ -->
+<section class="slide" id="s6" data-title="Мовна голова" data-narr="audio/06-heads-decoders/s6">
+  <div class="eyebrow">Розділ 6 · <b>декодер</b></div>
+  <h2>Мовна голова: вектор → наступний токен</h2>
+  <p class="lead"><span class="term" data-g="lm-head">Мовна голова</span> — це та сама класифікація токенів, що й у NER з розділу 3, тільки класів стільки, скільки токенів у словнику. Для кожної позиції вона відповідає на питання: «який токен буде наступним?»</p>
+
+  <p>Почнімо з того, що голова видає. Для будь-якого початку фрази вона дає ймовірність кожного токена словника стати наступним:</p>
+  <div class="demo" id="lmDemo">
+    <div class="head"><h4>Що пропонує мовна голова</h4><span class="tag">interactive</span><span class="hint">Оберіть початок фрази. Показано вісім найімовірніших наступних токенів після softmax по всьому словнику і сумарну ймовірність решти. Числа ілюстративні: вони показують форму розподілу, а не відповідь конкретної моделі. Зверніть увагу, що після «Столиця України —» розподіл гострий, а після «Мені подобається» майже рівний.</span></div>
+    <div class="seg" id="lmPre"></div>
+    <div class="prompt" id="lmPrompt"></div>
+    <div class="dist softbars" id="lmBars"></div>
+    <div class="explain" id="lmExpl"></div>
+  </div>
+
+  <p>Як голова отримує ці числа? Беремо вектор позиції <var>t</var> з виходу тіла, множимо на матрицю голови і отримуємо по логіту на кожен токен <span class="term" data-g="vocabulary">словника</span>. Softmax перетворює логіти на ймовірності. Ось розміри для GPT-2:</p>
+  <div class="pipe">
+    <div class="pstep"><div class="l">вектор позиції t</div><div class="t">h: 768 чисел</div></div><span class="arrow">→</span>
+    <div class="pstep hot"><div class="l">мовна голова</div><div class="t">Linear(768 → 50 257)</div></div><span class="arrow">→</span>
+    <div class="pstep"><div class="l">логіти</div><div class="t">50 257 чисел</div></div><span class="arrow">→</span>
+    <div class="pstep"><div class="l">нормування</div><div class="t">softmax</div></div><span class="arrow">→</span>
+    <div class="pstep emb"><div class="l">наступний токен</div><div class="t">50 257 ймовірностей</div></div>
+  </div>
+  <div class="formula"><var>p</var>(<var>x</var><sub><var>t</var>+1</sub> | <var>x</var><sub>≤<var>t</var></sub>) = <span class="c2">softmax</span>( <var class="c1">h</var><sub><var>t</var></sub> · <var class="c3">W</var><sup>⊤</sup> ),&nbsp;&nbsp; <var class="c3">W</var> ∈ ℝ<sup>|<var>V</var>| × <var>d</var></sup></div>
+  <p>Умова «<var>x</var><sub>≤<var>t</var></sub>» у формулі — це каузальна маска декодера (GPT, Llama, Qwen): вектор позиції <var>t</var> знає лише токени 1…<var>t</var>, тож підглянути відповідь він не може.</p>
+
+  <h3>Ті самі рішення, інші відповіді</h3>
+  <p>Нічого особливого в мовній голові немає. Порівняйте її з головою NER за трьома рішеннями з розділу 1 і ще одним, яке ховалося в постобробці:</p>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Рішення</th><th>NER (розділ 3)</th><th>Мовна голова</th></tr></thead>
+    <tbody>
+      <tr><td>1 · вхід</td><td>вектор кожного токена</td><td>те саме; під час генерації — лише останній, бо тільки він бачив увесь текст</td></tr>
+      <tr><td>2 · шар</td><td>Linear(<var>d</var> → <var>K</var>), <var>K</var> — кілька міток</td><td>Linear(<var>d</var> → |<var>V</var>|), десятки чи сотні тисяч класів; зсуву зазвичай немає</td></tr>
+      <tr><td>3 · loss функція</td><td>крос-ентропія з розміченими мітками</td><td>крос-ентропія з наступним токеном; розмічати нічого не треба, мітки — той самий текст, зсунутий на позицію (розділ 7)</td></tr>
+      <tr><td>4 · що робити з логітами</td><td>зібрати сутності з BIO-міток</td><td>обрати токен — це декодування (розділ 9); обраний токен повертається на вхід і впливає на всі наступні прогнози</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Логіт — це скалярний добуток</h3>
+  <p>Часто <var>W</var> — це та сама <span class="term" data-g="embedding-matrix">матриця ембедінгів</span>, що й на вході. Такий прийом називають <span class="term" data-g="weight-tying">зв'язуванням ваг</span>. Тоді логіт токена — це <span class="term" data-g="dot-product">скалярний добуток</span> вектора <var>h</var> з ембедінгом цього токена: модель шукає токен, чий вектор найкраще «відповідає» поточному стану. Скалярний добуток розкладається на довжини і кут:</p>
+  <div class="formula"><var>z</var><sub><var>i</var></sub> = <var class="c1">h</var> · <var class="c3">e</var><sub><var>i</var></sub> = ‖<var class="c1">h</var>‖ · ‖<var class="c3">e</var><sub><var>i</var></sub>‖ · cos <var class="c2">θ</var><sub><var>i</var></sub>,&nbsp;&nbsp; <span class="txt"><var class="c2">θ</var><sub><var>i</var></sub> — кут між <var>h</var> і ембедінгом токена <var>i</var></span></div>
+  <p>Звідси два важелі, якими тіло моделі керує прогнозом:</p>
+  <div class="vs" id="lhVs">
+    <div class="card"><div class="k">Напрям h</div><h4>Хто виграє</h4><p>Найбільші логіти отримують токени, чиї ембедінги дивляться в той самий бік, що й <var>h</var>. Повернули <var>h</var> — змінився лідер.</p></div>
+    <div class="card b"><div class="k">Довжина ‖h‖</div><h4>Наскільки впевнено</h4><p>Що довший <var>h</var>, то більша різниця між логітами і то гостріший розподіл. Порядок токенів при цьому не змінюється.</p></div>
+  </div>
+
+  <div class="demo" id="lhDemo">
+    <div class="head"><h4>Напрям і довжина вектора h</h4><span class="tag">interactive</span><span class="hint">Площина замість простору із сотень вимірів. Точки — ембедінги восьми токенів, помаранчева стрілка — вектор h останньої позиції, а логіт кожного токена — скалярний добуток h з його ембедінгом. Оберіть контекст, і тіло моделі поверне h у потрібний бік, або крутіть напрям самі. Потім змінюйте довжину h: розподіл стане гострішим чи рівнішим, але порядок токенів не зміниться. Ембедінги ілюстративні.</span></div>
+    <div class="ctlrow"><span class="lbl">Контекст</span><div class="seg" id="lhCtx"><button data-v="0" aria-pressed="true">Кіт сидить на …</button><button data-v="1" aria-pressed="false">Столиця України — …</button><button data-v="2" aria-pressed="false">Два плюс два дорівнює …</button></div></div>
+    <div class="ctl">
+      <label>Напрям <var>h</var> <span class="v" id="lhAV">60°</span><input type="range" id="lhA" min="0" max="355" step="5" value="60"></label>
+      <label>Довжина ‖<var>h</var>‖ = <span class="v" id="lhNV">3.0</span><input type="range" id="lhN" min="0.2" max="6" step="0.1" value="3"></label>
+    </div>
+    <div class="lh-wrap">
+      <div class="vizbox"><svg class="viz" id="lhSvg" viewBox="0 0 320 320" style="max-width:340px" role="img" aria-label="Ембедінги токенів на площині і вектор h"></svg></div>
+      <div><div class="dist softbars" id="lhBars"></div><div class="explain" id="lhExpl"></div></div>
+    </div>
+  </div>
+
+  <div class="callout"><p><strong>Уся робота тіла декодера</strong> зводиться до одного: повернути вектор останньої позиції в правильний бік і зробити його потрібної довжини. Довжина <var>h</var> діє як вбудована <span class="term" data-g="temperature">температура</span> з розділу 9: подвоїти <var>h</var> — те саме, що поділити логіти на <var>T</var> = 0.5. Різниця лише в тому, хто крутить ручку: довжину модель вивчила сама, а температуру обирає той, хто генерує текст.</p></div>
+
+  <h3>Логіти на кожній позиції</h3>
+  <p>Голова працює на кожній позиції, тому модель повертає логіти форми [<var>B</var>, <var>T</var>, |<var>V</var>|]: розподіл наступного токена після кожного префікса тексту. Що з них потрібно, залежить від режиму:</p>
+  <div class="vs" id="modeVs">
+    <div class="card"><div class="k">Навчання · [B, T, |V|]</div><h4>Усі T розподілів</h4><p>Кожна позиція — окремий приклад зі своєю міткою. Саме тому один текст дає сотні прикладів.</p></div>
+    <div class="card b"><div class="k">Генерація · [B, 1, |V|]</div><h4>Лише останній</h4><p>Наступний токен дописують у кінець, тож решта розподілів не потрібна. Бібліотеки рахують голову тільки для останньої позиції.</p></div>
+  </div>
+
+  <details class="more">
+    <summary>Скільки коштує мовна голова</summary>
+    <div class="body">
+      <p>Тензор логітів величезний. Для Llama 3 8B і промпту на 8 тисяч токенів це 8 000 × 128 256 ≈ мільярд чисел, близько 4 ГБ у float32. Тому під час генерації голову рахують лише для останньої позиції (у transformers за це відповідає параметр <code>logits_to_keep</code>). А під час навчання великих моделей loss часто рахують шматками, щоб не тримати всі логіти в пам'яті одночасно.</p>
+      <div class="tblwrap"><table class="tbl">
+        <thead><tr><th>Модель</th><th>Словник × d</th><th>Мовна голова</th><th>Уся модель</th><th>Ваги зв'язані?</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">GPT-2 small</td><td>50 257 × 768</td><td>38.6 млн</td><td>124 млн</td><td>так: голова = ембедінги, 31% моделі</td></tr>
+          <tr><td class="mono">Qwen2.5-0.5B</td><td>151 936 × 896</td><td>136 млн</td><td>494 млн</td><td>так: 28% моделі</td></tr>
+          <tr><td class="mono">Llama 3 8B</td><td>128 256 × 4 096</td><td>525 млн</td><td>8.0 млрд</td><td>ні: ще 525 млн в ембедінгах</td></tr>
+        </tbody>
+      </table></div>
+      <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s9">↩ Лекція 03</a><p>Більший словник означає коротші тексти (менше токенів на слово), але й дорожчу мовну голову: її логіти треба рахувати на кожному кроці генерації. У маленьких моделях голова з ембедінгами займає до третини всіх параметрів.</p></div>
+    </div>
+  </details>
+
+  <details class="more">
+    <summary>Логіт-лінза: що модель «передбачила б» на середніх шарах</summary>
+    <div class="body">
+      <p>Мовну голову можна застосувати не лише до виходу останнього шару, а й до проміжного вектора, наприклад після 10-го блоку з 32. Цей прийом назвали логіт-лінзою (logit lens, 2020). Він показує, який токен модель назвала б наступним, якби зупинилася на цьому шарі.</p>
+      <p>На ранніх шарах найімовірнішим зазвичай виявляється поточний вхідний токен або щось випадкове. Ближче до верху правильний наступний токен піднімається в топ, і розподіл загострюється. Тобто тіло поступово дописує у вектор позиції відповідь на питання «що далі», а голова лише зчитує її. Для точніших висновків до кожного шару навчають власну маленьку голову (tuned lens, 2023).</p>
+    </div>
+  </details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Вектор <var>h</var> на останній позиції подвоїли, не змінюючи його напряму. Що станеться з розподілом наступного токена?</div>
+      <div class="opts"><button class="opt">Нічого: softmax нормує ймовірності</button><button class="opt">Найімовірніший токен лишиться тим самим, але розподіл стане гострішим, як при T = 0.5</button><button class="opt">Виграє інший токен, бо логіти зміняться</button></div>
+      <div class="ans">Усі логіти помножаться на 2. Порядок токенів не зміниться, а різниці між логітами подвояться, тож softmax зосередить більше ймовірності на лідері. Це те саме, що поділити логіти на температуру 0.5.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 8. CAUSAL LM TRAINING ============ -->
+<section class="slide" id="s7" data-title="Навчання на наступному токені" data-narr="audio/06-heads-decoders/s7">
+  <div class="eyebrow">Розділ 7 · <b>causal LM</b></div>
+  <h2>Як навчається декодер: один текст — сотні прикладів</h2>
+  <p class="lead">Декодер навчається на сирому тексті без розмітки: мітка для кожної позиції — це просто наступний токен. Завдяки каузальній масці один прохід по тексту з <var>T</var> токенів дає <var>T</var> − 1 прикладів одночасно.</p>
+
+  <p>Ця задача називається <span class="term" data-g="causal-lm">каузальним мовним моделюванням</span>. Мітки — ті самі <code>input_ids</code>, зсунуті на одну позицію. На вході модель завжди бачить справжні попередні токени, а не власні прогнози. Цей прийом називають <span class="term" title="teacher forcing: під час навчання на вхід подають правильний попередній токен, а не той, що згенерувала модель">teacher forcing</span>. Loss — середня крос-ентропія по позиціях:</p>
+  <div class="formula"><var>L</var> = − <span class="frac"><span>1</span><span><var>T</var> − 1</span></span> <span class="sum">Σ<small><var>t</var></small></span> log <var>p</var>(<var class="c2">x</var><sub><var>t</var>+1</sub> | <var class="c1">x</var><sub>1</sub> … <var class="c1">x</var><sub><var>t</var></sub>),&nbsp;&nbsp;&nbsp; <span class="c3">PPL</span> = <var>e</var><sup><var>L</var></sup></div>
+  <p><span class="term" data-g="perplexity">Перплексія</span> (PPL) зручніша для людини: вона показує, зі скількох рівноймовірних варіантів модель у середньому «вибирає» наступний токен. Модель, що вгадує навмання з 50 тисяч токенів, має PPL = 50 000. Хороша LLM на звичайному тексті має одиниці або кілька десятків.</p>
+
+  <div class="demo" id="ntlDemo">
+    <div class="head"><h4>Loss на кожному токені</h4><span class="tag">interactive</span><span class="hint">Верхній рядок — вхід, нижній — мітки, тобто той самий текст, зсунутий на одну позицію. Стовпчик показує, яку ймовірність модель дала правильному наступному токену, а число під ним — loss −ln p. Оберіть модель. Клацніть стовпчик, щоб побачити, який контекст був доступний для цього прогнозу. Ймовірності ілюстративні.</span></div>
+    <div class="seg" id="ntlModel"><button data-v="0" aria-pressed="false">випадкові ваги</button><button data-v="1" aria-pressed="false">біграмна модель</button><button data-v="2" aria-pressed="true">навчена LLM</button></div>
+    <div class="ntl" id="ntlGrid" style="margin-top:12px"></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">середній loss L</div><div class="v b" id="ntlL"></div></div>
+      <div class="stat"><div class="l">перплексія e^L</div><div class="v a" id="ntlP"></div></div>
+      <div class="stat"><div class="l">прикладів з одного проходу</div><div class="v c" id="ntlN"></div></div>
+    </div>
+    <div class="explain" id="ntlExpl"></div>
+  </div>
+
+  <div class="xref"><a class="chip" href="./05-attention-transformers.html#s11">↩ Лекція 05</a><p>BERT вчився на <span class="term" data-g="mlm">MLM</span>: відновлював 15% прихованих токенів, дивлячись в обидва боки. Декодер передбачає кожен токен, дивлячись лише назад. Сигнал навчання є на всіх позиціях, а не на 15%, і модель одразу вміє генерувати: просто продовжуйте передбачати наступний токен.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Скільки прикладів «контекст → наступний токен» дає один прохід декодера по тексту з 1 000 токенів?</div>
+      <div class="opts"><button class="opt">Один: прогноз після останнього токена</button><button class="opt">999: кожна позиція, крім останньої, передбачає наступну</button><button class="opt">150: як 15% у MLM</button></div>
+      <div class="ans">Каузальна маска гарантує, що позиція t не бачить майбутнього. Тому всі 999 прогнозів чесні й рахуються паралельно за один прохід.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 9. AUTOREGRESSIVE GENERATION ============ -->
+<section class="slide" id="s8" data-title="Авторегресивна генерація" data-narr="audio/06-heads-decoders/s8">
+  <div class="eyebrow">Розділ 8 · <b>генерація</b></div>
+  <h2>Авторегресивна генерація: токен за токеном</h2>
+  <p class="lead"><span class="term" data-g="autoregressive">Авторегресивна генерація</span> — це цикл. Модель дає розподіл наступного токена, ми обираємо один токен, дописуємо його до входу й повторюємо. Цикл зупиняється на спеціальному токені кінця тексту або на ліміті довжини.</p>
+
+  <div class="pipe">
+    <div class="pstep"><div class="l">вхід</div><div class="t">промпт + уже згенероване</div></div><span class="arrow">→</span>
+    <div class="pstep emb"><div class="l">декодер + мовна голова</div><div class="t">розподіл на останній позиції</div></div><span class="arrow">→</span>
+    <div class="pstep hot"><div class="l">декодування</div><div class="t">обрати один токен</div></div><span class="arrow">→</span>
+    <div class="pstep"><div class="l">цикл</div><div class="t">дописати → повторити до <span class="term" data-g="eos">&lt;eos&gt;</span></div></div>
+  </div>
+
+  <div class="demo" id="genDemo">
+    <div class="head"><h4>Генерація крок за кроком</h4><span class="tag">animation</span><span class="hint">Натисніть «Згенерувати» або проходьте по кроках. На кожному кроці всі токени входу, і слова промпту, і вже згенеровані, проходять через декодер і разом визначають розподіл наступного токена. Ми беремо найімовірніший (жадібний вибір) і дописуємо його в кінець входу: на наступному кроці він стає таким самим входом, як слова промпту. Плашка KV під кожним токеном показує, чи модель обчислює його ключ і значення на цьому кроці, чи бере їх із кешу. Перемкніть «з KV-кешем» / «без кешу»: з кешем на кожному кроці обчислюється лише один новий токен, без кешу — весь текст знову. Лічильники внизу підсумовують цю роботу. Розподіли ілюстративні.</span></div>
+    <div class="pctl"><button class="btn" id="genPlay">▶ Згенерувати</button><button class="btn" id="genStep">Крок →</button><button class="btn" id="genReset">↺</button><div class="seg" id="genMode"><button data-v="1" aria-pressed="true">з KV-кешем</button><button data-v="0" aria-pressed="false">без кешу</button></div><span class="stepinfo" id="genInfo"></span></div>
+    <div class="genloop" id="genLoop">
+      <div class="gl-cap" id="genCap"></div>
+      <div class="gl-in" id="genIn"></div>
+      <div class="gl-model" id="genModel"></div>
+      <div class="dist softbars" id="genBars"></div>
+      <div class="gl-back" id="genBack"></div>
+      <div class="gl-legend"><span><i class="a"></i><i class="o"></i>K і V обчислено на цьому кроці</span><span><i class="h"></i>K і V взято з кешу</span></div>
+      <svg id="genArc" aria-hidden="true"></svg>
+    </div>
+    <div class="statrow">
+      <div class="stat"><div class="l">токенів на вході зараз</div><div class="v" id="genLen"></div></div>
+      <div class="stat"><div class="l">обчислено без кешу</div><div class="v b" id="genNo"></div></div>
+      <div class="stat"><div class="l">обчислено з KV-кешем</div><div class="v c" id="genYes"></div></div>
+    </div>
+  </div>
+
+  <h3>KV-кеш: не рахувати минуле двічі</h3>
+  <p>Через каузальну маску ранні токени ніколи не дивляться на пізніші. Тому їхні ключі й значення (<span class="term" data-g="qkv">K і V</span>) не змінюються, коли текст росте. Їх зберігають у <span class="term" data-g="kv-cache">KV-кеші</span>, і на кожному кроці модель рахує Q, K і V лише для одного нового токена.</p>
+  <div class="cards">
+    <div class="card"><div class="k">Prefill</div><h4>Промпт за один прохід</h4><p>Увесь промпт обробляється паралельно, як під час навчання, і заповнює кеш. Від цього етапу залежить, скільки чекати першого токена відповіді.</p></div>
+    <div class="card"><div class="k">Decode</div><h4>Далі по одному токену</h4><p>Кожен новий токен — окремий прохід через усі шари. Цей етап задає швидкість, з якою з'являється текст (токенів за секунду).</p></div>
+    <div class="card"><div class="k">Ціна</div><h4>Кеш займає пам'ять</h4><p>Llama 3 8B зберігає 128 КБ на токен (32 шари × 8 голів K і V × 128 × 2 байти × 2). Контекст на 8 тисяч токенів займає 1 ГБ відеопам'яті на кожен запит.</p></div>
+  </div>
+
+  <div class="demo" id="kvDemo">
+    <div class="head"><h4>Скільки коштує відповідь</h4><span class="tag">interactive</span><span class="hint">Рухайте довжину промпту і кількість нових токенів. Без кешу на кожному кроці модель переобчислює весь текст, і робота росте квадратично. З кешем кожен токен обчислюється один раз. Пам'ять кешу розраховано для Llama 3 8B.</span></div>
+    <div class="ctl">
+      <label class="grow">Промпт <var>P</var> <span class="v" id="kvPV">500</span> токенів<input type="range" id="kvP" min="10" max="8000" step="10" value="500"></label>
+      <label class="grow">Нових токенів <var>n</var> <span class="v" id="kvNV">300</span><input type="range" id="kvN" min="1" max="4000" step="1" value="300"></label>
+    </div>
+    <div class="statrow">
+      <div class="stat"><div class="l">без кешу: обчислень токенів</div><div class="v b" id="kvNo"></div></div>
+      <div class="stat"><div class="l">з кешем</div><div class="v c" id="kvYes"></div></div>
+      <div class="stat"><div class="l">економія</div><div class="v" id="kvX"></div></div>
+      <div class="stat"><div class="l">пам'ять кешу (Llama 3 8B)</div><div class="v a" id="kvMem"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10. DECODING STRATEGIES ============ -->
+<section class="slide" id="s9" data-title="Стратегії декодування" data-narr="audio/06-heads-decoders/s9">
+  <div class="eyebrow">Розділ 9 · <b>як обрати токен</b></div>
+  <h2>Стратегії декодування: жадібно, з температурою, top-k, top-p</h2>
+  <p class="lead">Модель дає розподіл, а вибір токена — окреме рішення. Від нього залежить, чи буде текст точним і передбачуваним, чи різноманітним і творчим.</p>
+
+  <p>Це той самий крок після логітів, що був у кожної голови першої половини: argmax для класу, поріг для сигмоїди, пошук найкращого фрагмента для відповіді. Для класифікатора argmax — очевидний вибір. Для мовної голови він уже не очевидний: вибір повторюється сотні разів, і кожен обраний токен змінює всі наступні розподіли.</p>
+
+  <div class="cards">
+    <div class="card"><div class="k">Greedy</div><h4>Завжди найімовірніший</h4><p><span class="term" data-g="greedy-decoding">Жадібне декодування</span> детерміноване: той самий промпт дає той самий текст. Добре для коротких фактичних відповідей, але в довгому тексті часто зациклюється на повторах.</p></div>
+    <div class="card"><div class="k">Temperature</div><h4>Гострота розподілу</h4><p>Логіти ділять на <span class="term" data-g="temperature">температуру</span> <var>T</var>. Мала <var>T</var> загострює розподіл, велика вирівнює. При <var>T</var> → 0 семплінг стає жадібним.</p></div>
+    <div class="card"><div class="k">Top-k</div><h4>Лише k кандидатів</h4><p><span class="term" data-g="top-k">Top-k</span> відкидає все, крім <var>k</var> найімовірніших токенів, і нормує решту. Відсікає «хвіст» безглуздих варіантів, але <var>k</var> однакове і для гострого, і для плаского розподілу.</p></div>
+    <div class="card"><div class="k">Top-p</div><h4>Ядро розподілу</h4><p><span class="term" data-g="top-p">Top-p</span> лишає найменший набір токенів, чия сумарна ймовірність ≥ <var>p</var>. Коли модель упевнена, лишається 1–2 токени, коли ні — десятки.</p></div>
+  </div>
+  <div class="formula"><var>p</var><sub><var>i</var></sub> = <span class="frac"><span><var>e</var><sup><var>z<sub>i</sub></var> / <var class="c1">T</var></sup></span><span><span class="sum">Σ<small><var>j</var></small></span><var>e</var><sup><var>z<sub>j</sub></var> / <var class="c1">T</var></sup></span></span>&nbsp;&nbsp;→&nbsp;&nbsp;<span class="c2">top-k</span> / <span class="c2">top-p</span>: обнулити решту і перенормувати&nbsp;&nbsp;→&nbsp;&nbsp;<span class="c3">випадковий вибір</span></div>
+
+  <div class="callout"><p><strong>Температура — не новий механізм.</strong> Пригадайте демо <a href="05-attention-transformers.html#lookupDemo">«Увага як м'який пошук» з лекції 05</a> і пограйтеся з ним ще раз. Повзунок «різкість» там дорівнює 1/<var>T</var>: він множить скори Q·K перед softmax. Велика різкість, тобто мала <var>T</var>, перетворює увагу на жорсткий пошук одного ключа. Мала різкість розподіляє вагу між усіма ключами. <a href="05-attention-transformers.html#dkDemo">Ділення на √d<sub>k</sub></a> — теж температура, тільки фіксована: <var>T</var> = √d<sub>k</sub>.</p>
+  <p>Відрізняється те, що відбувається після softmax. В <span class="term" data-g="attention">увазі</span> ваги змішують вектори V, а різкість вбудована в модель і не змінюється після навчання. Тут softmax стоїть на виході: ми беремо з розподілу один токен, а <var>T</var> обираємо самі під час генерації, без перенавчання. Температура семплінгу не змінює увагу всередині моделі, лише остаточний розподіл над словником.</p></div>
+
+  <div class="demo" id="smDemo">
+    <div class="head"><h4>Семплер наступного токена</h4><span class="tag">interactive</span><span class="hint">Продовжуємо фразу «На вихідних я поїду в…». Сірий фон смужки — початковий розподіл моделі, кольорова смужка — розподіл після температури, top-k і top-p. Закреслені токени відкинуто. Натисніть «Вибрати 20 разів», щоб побачити, що реально випадатиме. Порядок обробки такий самий, як у transformers: спершу температура, потім top-k, потім top-p.</span></div>
+    <div class="ctl">
+      <label>Температура <var>T</var> = <span class="v" id="smTV">1.0</span><input type="range" id="smT" min="0.05" max="2" step="0.05" value="1"></label>
+      <label>top-k = <span class="v" id="smKV">вимк.</span><input type="range" id="smK" min="0" max="10" step="1" value="0"></label>
+      <label>top-p = <span class="v" id="smPV">1.00</span><input type="range" id="smP" min="0.05" max="1" step="0.05" value="1"></label>
+    </div>
+    <div class="pctl"><button class="btn" id="smGreedy">Жадібно</button><button class="btn" id="smChat">Чат: T 0.7, top-p 0.9</button><button class="btn" id="smWild">Хаос: T 1.8</button><button class="btn" id="smRun">🎲 Вибрати 20 разів</button></div>
+    <div class="dist softbars" id="smBars"></div>
+    <div class="samples" id="smOut"></div>
+    <div class="explain" id="smExpl"></div>
+  </div>
+
+  <div class="callout" id="smTips"><p><strong>Практичні налаштування.</strong> Факти, код, класифікація, вилучення даних: жадібно або <var>T</var> = 0–0.3. Чат-асистент: <var>T</var> ≈ 0.7 і top-p ≈ 0.9. Творче письмо: <var>T</var> ≈ 1. Від повторів допомагає штраф за повторення (<code>repetition_penalty</code>), який зменшує логіти вже використаних токенів.</p></div>
+
+  <details class="more">
+    <summary>Beam search: пошук найімовірнішої послідовності</summary>
+    <div class="body">
+      <p>Жадібний вибір найкращого токена на кожному кроці не гарантує найімовірнішого речення: іноді гірший перший токен веде до значно кращого продовження. <span class="term" data-g="beam-search">Beam search</span> тримає <var>B</var> найкращих гіпотез (зазвичай 4–5), на кожному кроці розширює кожну і знову лишає <var>B</var> найкращих за сумою log-ймовірностей.</p>
+      <p>Так традиційно працюють машинний переклад і сумаризація з моделями encoder-decoder. Для чатів beam search майже не використовують: найімовірніший текст виходить сухим і повторюваним.</p>
+    </div>
+  </details>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Модель дала токену «Київ» ймовірність 0.95. Що залишиться в наборі кандидатів при top-p = 0.9?</div>
+      <div class="opts"><button class="opt">Десять найімовірніших токенів</button><button class="opt">Усі токени з ймовірністю понад 0.1</button><button class="opt">Лише «Київ»: його ймовірність уже більша за 0.9</button></div>
+      <div class="ans">Top-p бере найменший набір, сума якого ≥ p. Тут вистачає одного токена, тому вибір фактично стає жадібним. Саме так top-p підлаштовується під упевненість моделі.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 11. SCALE ============ -->
+<section class="slide" id="s10" data-title="Від GPT до сучасних LLM" data-narr="audio/06-heads-decoders/s10">
+  <div class="eyebrow">Розділ 10 · <b>2018–2025</b></div>
+  <h2>Від GPT до сучасних LLM</h2>
+  <p class="lead">Архітектура декодера з 2018 року майже не змінилася. Змінився масштаб, у тисячі разів більше параметрів і даних, і кілька інженерних деталей, які роблять навчання стабільнішим, а генерацію дешевшою.</p>
+
+  <div class="demo" id="scDemo">
+    <div class="head"><h4>Масштаб моделей</h4><span class="tag">interactive</span><span class="hint">Вертикальна вісь логарифмічна: кожна поділка в 10 разів більша за попередню. Перемикайте показник. «Токенів на параметр» показує, скільки даних модель побачила відносно свого розміру. Chinchilla (2022) показала, що для фіксованого бюджету оптимально близько 20, але сучасні малі моделі вчать набагато довше, бо потім їх дешевше запускати. Клацніть точку, щоб прочитати деталі.</span></div>
+    <div class="seg" id="scMetric"><button data-v="p" aria-pressed="true">параметри</button><button data-v="t" aria-pressed="false">токени навчання</button><button data-v="r" aria-pressed="false">токенів на параметр</button></div>
+    <div class="vizbox" style="margin-top:10px"><svg class="viz" id="scSvg" viewBox="0 0 760 340" role="img" aria-label="Діаграма розміру мовних моделей за роками"></svg></div>
+    <div class="explain" id="scExpl">Клацніть точку на діаграмі.</div>
+  </div>
+
+  <p>Закономірність, що якість росте передбачувано разом із параметрами, даними та обчисленнями, назвали <span class="term" data-g="scaling-laws">законами масштабування</span>. Вона й виправдала мільярдні вкладення у великі моделі.</p>
+
+  <h3>Що змінилося всередині блоку</h3>
+  <div class="cards">
+    <div class="card"><div class="k">Нормалізація</div><h4>Pre-LN і RMSNorm</h4><p>Нормалізацію ставлять перед підшаром, а не після, і замість <span class="term" data-g="layernorm">LayerNorm</span> використовують простіший RMSNorm. Глибокі стопки на 80–120 шарів так навчаються стабільно.</p></div>
+    <div class="card"><div class="k">Позиції</div><h4>RoPE</h4><p><span class="term" data-g="rope">Обертальні позиційні кодування</span> замість навчених векторів позицій. Їх можна розтягнути на довший контекст, ніж під час навчання: 128 тисяч токенів і більше.</p></div>
+    <div class="card"><div class="k">Увага</div><h4>GQA</h4><p>Grouped-query attention: кілька голів запитів ділять одну пару K і V. У Llama 3 8B 32 голови Q і лише 8 голів K/V, тож KV-кеш у 4 рази менший.</p></div>
+    <div class="card"><div class="k">FFN</div><h4>SwiGLU і MoE</h4><p><span class="term" data-g="ffn">FFN</span> отримав «вентиль» (SwiGLU). У <span class="term" data-g="moe">Mixture of Experts</span> він розбитий на десятки експертів, і роутер вмикає кілька з них для кожного токена: DeepSeek-V3 має 671 млрд параметрів, але на токен працює 37 млрд.</p></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Навчання в контексті</div><p>GPT-3 (2020) показала, що велика модель може виконати нову задачу за кількома прикладами прямо в промпті, без зміни ваг. Це назвали <span class="term" data-g="in-context-learning">навчанням у контексті</span> (in-context learning). Модель просто продовжує шаблон, найімовірнішим продовженням якого є правильна відповідь:</p>
+<pre class="code" data-lang="prompt" style="margin:10px 0 0"><code>Переклади англійською.
+кіт → cat
+собака → dog
+сир →</code></pre></div>
+</section>
+
+<!-- ============ 11b. BRIDGE: SAME TASKS ON A DECODER ============ -->
+<section class="slide" id="s11" data-title="Ті самі задачі на LLM" data-narr="audio/06-heads-decoders/s11">
+  <div class="eyebrow">Розділ 11 · <b>місток між половинами</b></div>
+  <h2>Ті самі задачі на LLM: енкодер чи декодер</h2>
+  <p class="lead">LLM може розв'язати кожну задачу з першої половини лекції: досить записати відповідь як текст. Але всередині таких рішень ті самі три рішення голови. А для вузької задачі з розміткою донавчений енкодер часто робить ту саму роботу в сотні разів дешевше.</p>
+
+  <p>Повернімося до таблиці з розділу 5 і подивімося, як із кожним рядком упорається декодер. Почнемо з класифікації: тут видно все найважливіше.</p>
+
+  <h3>Три способи класифікувати текст за допомогою LLM</h3>
+  <div class="cards" id="llWays">
+    <div class="card"><div class="k">1 · Генерація</div><h4>Попросити написати клас</h4><p>Промпт «Тональність: позитивна чи негативна?» і звичайна генерація. Найпростіше, але відповідь доводиться розбирати: модель може написати «Скоріше негативна, бо…». До того ж це кілька проходів моделі замість одного.</p></div>
+    <div class="card"><div class="k">2 · Логіти міток</div><h4>Обрізати мовну голову</h4><p>Один прохід, і на останній позиції беремо логіти лише слів-міток. Softmax по них дає ймовірності класів. Це і є голова класифікації Linear(<var>d</var> → <var>K</var>), тільки її <var>K</var> рядків — ембедінги слів-міток із мовної голови.</p></div>
+    <div class="card"><div class="k">3 · Нова голова</div><h4>Пулінг останнім токеном</h4><p>Мовну голову відкидають і ставлять нову Linear(<var>d</var> → <var>K</var>) на вектор останнього токена, як у розділі 2. Потрібна розмітка, як для енкодера, а донавчають зазвичай через <span class="term" title="LoRA: ваги моделі заморожені, навчаються лише маленькі поправки до матриць уваги; докладно в наступній лекції">LoRA</span>.</p></div>
+  </div>
+
+  <div class="demo" id="llDemo">
+    <div class="head"><h4>Мовна голова як голова класифікації</h4><span class="tag">interactive</span><span class="hint">Промпт закінчується словом «Тональність:», а смужки показують розподіл наступного токена за всім словником. Для простоти вважаємо, що кожне слово — один токен. Увімкніть «лише рядки міток»: від мовної голови залишаться три рядки (позитивна, негативна, нейтральна), і softmax перенормує ймовірності лише між ними. Сірий фон смужки — ймовірність до обрізання. Зверніть увагу, скільки ймовірності модель віддала синонімам і словам з великої літери, і що стається зі змішаним відгуком. Ймовірності ілюстративні.</span></div>
+    <div class="ctlrow"><span class="lbl">Відгук</span><div class="seg" id="llRev"><button data-v="0" aria-pressed="true">коробка м'ята</button><button data-v="1" aria-pressed="false">чудовий сервіс</button><button data-v="2" aria-pressed="false">нудний, але фінал чудовий</button></div></div>
+    <label class="chk"><input type="checkbox" id="llOnly"> лише рядки міток: Linear(d → 3)</label>
+    <div class="prompt" id="llPrompt"></div>
+    <div class="dist softbars" id="llBars"></div>
+    <div class="result"><span class="big" id="llBig"></span><span class="expl" id="llBigE"></span></div>
+    <div class="explain" id="llExpl"></div>
+  </div>
+
+  <p>Два висновки з цього демо. Перший: мітки треба обирати так, щоб модель природно їх писала, і рахувати ймовірність лише по них, а не по всьому словнику. Другий: якщо найімовірнішого слова, як-от «змішана», немає серед міток, модель погано відповідає вашій схемі класів. Тоді або змінюють мітки, або донавчають голову на розмітці.</p>
+
+  <h3>Решта таблиці</h3>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Задача</th><th>Голова енкодера</th><th>Як це робить LLM</th><th>На що зважати</th></tr></thead>
+    <tbody>
+      <tr><td>мітка кожного токена</td><td>Linear(<var>d</var> → <var>K</var>) на кожен токен</td><td>генерує список сутностей, наприклад у JSON</td><td>сутності треба знайти в тексті назад, а модель може змінити їхнє написання. Голова на кожен токен декодера працює гірше: токен не бачить слів праворуч</td></tr>
+      <tr><td>фрагмент тексту</td><td>start- і end-логіти</td><td>пише відповідь своїми словами</td><td>може перефразувати, поєднати кілька абзаців, але може й вигадати. Точну цитату не гарантує</td></tr>
+      <tr><td>вектор для пошуку</td><td>середнє векторів енкодера</td><td>вектор останнього токена декодера: E5-Mistral, Qwen3-Embedding</td><td>якісніші вектори, але модель на мільярди параметрів і вектори на тисячі вимірів</td></tr>
+      <tr><td>оцінка пари</td><td>кросенкодер: [CLS] пари → число</td><td>логіт «yes» проти «no» на останній позиції (Qwen3-Reranker)</td><td>той самий трюк із логітами міток, тільки міток дві</td></tr>
+    </tbody>
+  </table></div>
+  <p>У кожному рядку LLM-рішення складається з тих самих трьох рішень. Які вектори взяти? Останній токен, бо лише він бачив увесь текст. На що перетворити? Рядки мовної голови або новий лінійний шар. Яку loss функцію рахувати? Крос-ентропію з наступним токеном або loss функцію нової голови. Деякі моделі для векторів (LLM2Vec, NV-Embed) навіть вимикають каузальну маску і донавчають декодер як енкодер, щоб кожен токен бачив увесь текст.</p>
+
+  <h3>Коли донавчений енкодер усе ще кращий</h3>
+  <div class="vs">
+    <div class="card"><div class="k">Енкодер з головою</div><h4>Вузька задача, багато текстів</h4><p><strong>Ціна:</strong> 100–300 млн параметрів і один прохід на текст. <strong>Затримка:</strong> мілісекунди, працює навіть на процесорі. <strong>Розмітка:</strong> на кількох тисячах прикладів часто точніший за LLM із промптом. <strong>Контроль:</strong> ймовірності класів, поріг, стабільний формат виходу. Екстрактивна модель не вигадує відповідь.</p></div>
+    <div class="card b"><div class="k">LLM</div><h4>Мало даних, багато різних задач</h4><p><strong>Розмітки немає:</strong> задача працює з описом і кількома прикладами в промпті. <strong>Задача змінюється:</strong> новий клас — це новий рядок у промпті, а не нове навчання. <strong>Потрібен текст:</strong> пояснення, відповідь своїми словами, поєднання кількох джерел. <strong>Одна модель на все:</strong> не треба тримати десять окремих класифікаторів.</p></div>
+  </div>
+
+  <div class="demo" id="ccDemo">
+    <div class="head"><h4>Скільки коштує класифікувати потік текстів</h4><span class="tag">interactive</span><span class="hint">Порівнюємо три способи класифікувати однаковий потік текстів: донавчений енкодер на 110 млн параметрів, LLM на 8 млрд із промптом (інструкція і кілька прикладів) і та сама LLM з новою головою, донавченою через LoRA. Обчислення оцінюємо грубо: 2 × параметри × токени на вході, на відеокарті з реальною швидкістю 100 трлн операцій за секунду. Рухайте кількість текстів, їхню довжину і кількість прикладів у промпті.</span></div>
+    <div class="ctl">
+      <label class="grow">Текстів на день <span class="v" id="ccNV">1 млн</span><input type="range" id="ccN" min="3" max="8" step="0.1" value="6"></label>
+      <label class="grow">Довжина тексту <span class="v" id="ccTV">100</span> токенів<input type="range" id="ccT" min="20" max="1000" step="10" value="100"></label>
+      <label class="grow">Прикладів у промпті <span class="v" id="ccKV">5</span><input type="range" id="ccK" min="0" max="20" step="1" value="5"></label>
+    </div>
+    <div class="statrow">
+      <div class="stat"><div class="l">енкодер 110 млн</div><div class="v c" id="ccEnc"></div></div>
+      <div class="stat"><div class="l">LLM 8 млрд з промптом</div><div class="v b" id="ccLlm"></div></div>
+      <div class="stat"><div class="l">LLM 8 млрд + LoRA-голова</div><div class="v a" id="ccLora"></div></div>
+    </div>
+    <div class="explain" id="ccExpl"></div>
+  </div>
+
+  <div class="callout" id="llMix"><p><strong>Як їх поєднують на практиці.</strong> Часто починають з LLM: вона одразу працює без розмітки і допомагає зрозуміти задачу. Коли потік текстів росте, LLM розмічає кілька тисяч прикладів, а на них донавчають маленький енкодер. Це варіант <span class="term" title="дистиляція: навчання маленької моделі відтворювати відповіді великої">дистиляції</span>. У продакшн іде енкодер, а LLM лишається для складних і нових випадків.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Ви берете ймовірності токенів «позитивна» і «негативна» на останній позиції промпту і робите softmax лише по них. Яку голову ви фактично використали?</div>
+      <div class="opts"><button class="opt">Нову голову з випадковими вагами</button><button class="opt">Linear(d → 2), чиї рядки — рядки мовної голови для слів-міток</button><button class="opt">Пулінг середнім по всіх токенах</button></div>
+      <div class="ans">Логіт токена — скалярний добуток h з рядком мовної голови. Залишивши два рядки, ми отримали звичайну голову класифікації на вектор останнього токена, тільки її ваги не вчили, а взяли з мовної голови.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 12. CODE: ENCODER HEADS ============ -->
+<section class="slide" id="s12" data-title="Код: голови енкодера" data-narr="audio/06-heads-decoders/s12">
+  <div class="eyebrow">Розділ 12 · <b>код</b></div>
+  <h2>Голови енкодера в 🤗 transformers</h2>
+  <p>Кожен фрагмент запускається окремо (потрібні <code>transformers</code> і <code>torch</code>). Імпорти й токенізатор з першого фрагмента використовуються далі.</p>
+
+  <div class="codelabel">NER: вирівнювання міток і голова на кожен токен</div>
+<pre class="code" data-lang="python"><code class="py">from transformers import AutoTokenizer, AutoModelForTokenClassification
+
+labels = ["O", "B-PER", "I-PER", "B-LOC", "I-LOC", "B-ORG", "I-ORG"]
+id2label = dict(enumerate(labels))
+label2id = {l: i for i, l in id2label.items()}
+
+name = "FacebookAI/xlm-roberta-base"
+tokenizer = AutoTokenizer.from_pretrained(name)
+model = AutoModelForTokenClassification.from_pretrained(
+    name, num_labels=len(labels), id2label=id2label, label2id=label2id)
+print(model.classifier)        # Linear(in_features=768, out_features=7): нова, випадкова
+
+words = ["Тарас", "Шевченко", "народився", "у", "Моринцях"]
+tags  = ["B-PER", "I-PER", "O", "O", "B-LOC"]
+enc = tokenizer(words, is_split_into_words=True, return_tensors="pt")
+
+def align(word_ids, tags):
+    out, prev = [], None
+    for w in word_ids:
+        if w is None or w == prev:      # спецтокен або продовження слова
+            out.append(-100)            # CrossEntropyLoss пропустить цю позицію
+        else:
+            out.append(label2id[tags[w]])
+        prev = w
+    return out
+
+print(tokenizer.convert_ids_to_tokens(enc["input_ids"][0]))
+print(align(enc.word_ids(), tags))
+out = model(**enc)
+out.logits.shape               # [1, T, 7]: 7 логітів для КОЖНОГО токена</code></pre>
+
+  <div class="codelabel">Багатоміткова класифікація: сигмоїда замість softmax</div>
+<pre class="code" data-lang="python"><code class="py">import torch
+from transformers import AutoModelForSequenceClassification
+
+topics = ["політика", "економіка", "спорт", "культура"]
+clf = AutoModelForSequenceClassification.from_pretrained(
+    name, num_labels=len(topics), problem_type="multi_label_classification")
+
+batch = tokenizer(["Уряд виділив два мільярди гривень на ремонт стадіонів"],
+                  return_tensors="pt")
+target = torch.tensor([[1., 1., 1., 0.]])          # кілька одиниць: float, а не номер класу
+out = clf(**batch, labels=target)                  # loss функція: BCEWithLogitsLoss
+probs = torch.sigmoid(out.logits)                  # кожна тема окремо, сума ≠ 1
+print([t for t, p in zip(topics, probs[0]) if p > 0.5])
+# для регресії: num_labels=1, labels — float-число, loss функція MSE</code></pre>
+
+  <div class="codelabel">Екстрактивна відповідь у тексті</div>
+<pre class="code" data-lang="python"><code class="py">from transformers import pipeline
+
+qa = pipeline("question-answering", model="deepset/xlm-roberta-base-squad2")
+context = "Тарас Шевченко народився 9 березня 1814 року в селі Моринці Київської губернії."
+qa(question="Коли народився Шевченко?", context=context)
+# {'score': …, 'start': …, 'end': …, 'answer': …}: answer — завжди фрагмент контексту
+qa(question="Хто його батько?", context=context, handle_impossible_answer=True)
+# якщо [CLS] переміг, answer буде порожнім рядком</code></pre>
+
+  <details class="more">
+    <summary>Вектор тексту вручну: пулінг середнім</summary>
+    <div class="body">
+<pre class="code" data-lang="python"><code class="py">from transformers import AutoModel
+
+enc_model = AutoModel.from_pretrained("intfloat/multilingual-e5-base")
+tok = AutoTokenizer.from_pretrained("intfloat/multilingual-e5-base")
+batch = tok(["query: де народився Шевченко", "passage: Шевченко народився в Моринцях."],
+            padding=True, return_tensors="pt")
+h = enc_model(**batch).last_hidden_state         # [B, T, d]
+m = batch["attention_mask"].unsqueeze(-1)        # [B, T, 1]: 0 на паддінгу
+emb = (h * m).sum(1) / m.sum(1)                  # середнє лише по справжніх токенах
+emb = torch.nn.functional.normalize(emb, dim=-1)
+print(emb[0] @ emb[1])                            # косинусна подібність</code></pre>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 13. CODE: DECODER ============ -->
+<section class="slide" id="s13" data-title="Код: декодер і генерація" data-narr="audio/06-heads-decoders/s13">
+  <div class="eyebrow">Розділ 12 · <b>код, продовження</b></div>
+  <h2>Декодер і генерація в 🤗 transformers</h2>
+  <p>Модель Qwen2.5-0.5B має пів мільярда параметрів і працює навіть на процесорі. Вона базова, тобто лише продовжує текст. Інструктивна версія має суфікс <code>-Instruct</code>.</p>
+
+  <div class="codelabel">Мовна голова: розподіл наступного токена</div>
+<pre class="code" data-lang="python"><code class="py">import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+name = "Qwen/Qwen2.5-0.5B"
+tok = AutoTokenizer.from_pretrained(name)
+model = AutoModelForCausalLM.from_pretrained(name)
+print(model.lm_head)                    # Linear(896 → 151936): мовна голова
+
+ids = tok("Столиця України —", return_tensors="pt").input_ids
+with torch.no_grad():
+    logits = model(ids).logits          # [1, T, 151936]: розподіл на КОЖНІЙ позиції
+probs = logits[0, -1].softmax(-1)       # нас цікавить остання позиція
+top = probs.topk(5)
+for p, i in zip(top.values, top.indices):
+    print(f"{tok.decode(i)!r:>12}  {p:.3f}")</code></pre>
+
+  <div class="codelabel">Loss і перплексія: мітки = вхід</div>
+<pre class="code" data-lang="python"><code class="py">enc = tok("Кіт сидить на теплому підвіконні.", return_tensors="pt")
+with torch.no_grad():
+    loss = model(**enc, labels=enc.input_ids).loss    # зсув на 1 модель робить сама
+print(f"L = {loss:.2f}, PPL = {loss.exp():.1f}")</code></pre>
+
+  <div class="codelabel">Цикл генерації вручну, з KV-кешем</div>
+<pre class="code" data-lang="python"><code class="py">ids = tok("Одного разу кіт", return_tensors="pt").input_ids
+past = None
+with torch.no_grad():
+    for _ in range(20):
+        step_in = ids if past is None else ids[:, -1:]   # з кешем подаємо лише новий токен
+        out = model(step_in, past_key_values=past, use_cache=True)
+        past = out.past_key_values                       # K і V усіх попередніх токенів
+        next_id = out.logits[0, -1].argmax()             # жадібний вибір
+        ids = torch.cat([ids, next_id.view(1, 1)], dim=1)
+        if next_id.item() == tok.eos_token_id:
+            break
+print(tok.decode(ids[0]))</code></pre>
+
+  <div class="codelabel">generate(): те саме однією функцією</div>
+<pre class="code" data-lang="python"><code class="py">enc = tok("Одного разу кіт", return_tensors="pt")
+out = model.generate(**enc, max_new_tokens=40,
+                     do_sample=True, temperature=0.7, top_k=50, top_p=0.9,
+                     repetition_penalty=1.1)
+print(tok.decode(out[0], skip_special_tokens=True))
+# do_sample=False — жадібно; num_beams=4 — beam search</code></pre>
+
+  <div class="codelabel">Інструктивна модель і чат-шаблон</div>
+<pre class="code" data-lang="python"><code class="py">name = "Qwen/Qwen2.5-0.5B-Instruct"
+tok = AutoTokenizer.from_pretrained(name)
+chat = AutoModelForCausalLM.from_pretrained(name)
+
+messages = [
+    {"role": "system", "content": "Ти лаконічний помічник."},
+    {"role": "user", "content": "Поясни одним реченням, що таке токен."},
+]
+text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+print(text)        # &lt;|im_start|&gt;system … &lt;|im_start|&gt;assistant — модель продовжить звідси
+enc = tok(text, return_tensors="pt")
+out = chat.generate(**enc, max_new_tokens=60)
+print(tok.decode(out[0, enc.input_ids.shape[1]:], skip_special_tokens=True))</code></pre>
+
+  <div class="codelabel">Класифікація логітами міток (розділ 11)</div>
+<pre class="code" data-lang="python"><code class="py">review = "Доставка затрималась на тиждень, а коробка прийшла м'ята."
+messages = [{"role": "user", "content":
+             f"Відгук: {review}\nТональність: позитивна чи негативна? Відповідай одним словом."}]
+text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+ids = tok(text, return_tensors="pt").input_ids
+with torch.no_grad():
+    logp = chat(ids).logits[0, -1].log_softmax(-1)
+cands = ["позитивна", "негативна"]
+first = [tok(c, add_special_tokens=False).input_ids[0] for c in cands]
+print({c: round(logp[i].item(), 2) for c, i in zip(cands, first)})
+# якщо мітки починаються з однакового токена, сумуйте log-ймовірності всіх їхніх токенів</code></pre>
+
+  <div class="codelabel">Вектор тексту з декодера: пулінг останнім токеном</div>
+<pre class="code" data-lang="python"><code class="py">from transformers import AutoModel
+
+name = "Qwen/Qwen3-Embedding-0.6B"
+etok = AutoTokenizer.from_pretrained(name, padding_side="left")   # паддінг зліва: останнім стоїть справжній токен
+emb_model = AutoModel.from_pretrained(name)
+task = "Instruct: Знайди уривок, що відповідає на питання
+Query:"
+batch = etok([task + "де народився Шевченко", "Шевченко народився в Моринцях."],
+             padding=True, return_tensors="pt")
+with torch.no_grad():
+    h = emb_model(**batch).last_hidden_state   # [B, T, d]
+emb = torch.nn.functional.normalize(h[:, -1], dim=-1)   # лише останній токен бачив увесь текст
+print(emb[0] @ emb[1])                          # косинусна подібність</code></pre>
+
+  <div class="codelabel">Нова голова на декодері і LoRA</div>
+<pre class="code" data-lang="python"><code class="py">from transformers import AutoModelForSequenceClassification
+from peft import LoraConfig, get_peft_model
+
+clf = AutoModelForSequenceClassification.from_pretrained("Qwen/Qwen2.5-0.5B", num_labels=3)
+print(clf.score)                                 # Linear(896 → 3) замість lm_head
+if tok.pad_token is None:
+    tok.pad_token = tok.eos_token
+clf.config.pad_token_id = tok.pad_token_id       # щоб знайти останній НЕ-паддінговий токен
+
+cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05,
+                 target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+                 task_type="SEQ_CLS")            # для генерації: task_type="CAUSAL_LM"
+clf = get_peft_model(clf, cfg)
+clf.print_trainable_parameters()                 # ≈ 2.2 млн LoRA + голова: менше 1% моделі
+# далі той самий Trainer, що й для BERT у лекції 05; як працює LoRA — у наступній лекції</code></pre>
+</section>
+
+<!-- ============ 14. SUMMARY ============ -->
+<section class="slide" id="s14" data-title="Підсумок і тест" data-narr="audio/06-heads-decoders/s14">
+  <div class="eyebrow">Розділ 13</div>
+  <h2>Підсумок</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Тіло + голова</div><h4>Голова маленька, але вирішальна</h4><p>Тіло дає вектор на кожен токен. Голова обирає вектори, перетворює їх лінійним шаром і задає loss функцію.</p></div>
+    <div class="card"><div class="k">Один вектор</div><h4>Пулінг залежить від маски</h4><p>[CLS] або середнє в енкодері, останній токен у декодері. Softmax для одного класу, сигмоїда для кількох міток.</p></div>
+    <div class="card"><div class="k">Вектор на токен</div><h4>NER і відповіді в тексті</h4><p>BIO-мітки, −100 для спецтокенів і продовжень слів. QA-голова дає start- і end-логіти.</p></div>
+    <div class="card"><div class="k">Декодер</div><h4>Мовна голова + цикл</h4><p>Класифікація на |V| класів: логіт — скалярний добуток h з ембедінгом токена. Навчання на наступному токені, генерація з KV-кешем, а температура, top-k і top-p керують вибором.</p></div>
+    <div class="card"><div class="k">Місток</div><h4>Ті самі задачі на LLM</h4><p>Логіти міток — обрізана мовна голова, вектор останнього токена — пулінг для декодера. Для вузької задачі з розміткою донавчений енкодер у сотні разів дешевший.</p></div>
+    <div class="card"><div class="k">LLM</div><h4>Той самий декодер, більший масштаб</h4><p>У тисячі разів більше параметрів і даних. RMSNorm, RoPE, GQA і MoE роблять великі моделі стабільнішими в навчанні й дешевшими в роботі.</p></div>
+  </div>
+
+  <h3>Перевірте себе</h3>
+  <div class="quiz" data-ans="2">
+    <div class="q">Ви донавчаєте Qwen як класифікатор відгуків. Вектор якого токена бере голова класифікації?</div>
+    <div class="opts"><button class="opt">Першого, як [CLS] у BERT</button><button class="opt">Середнє всіх токенів</button><button class="opt">Останнього не-паддінгового токена</button></div>
+    <div class="ans">Через каузальну маску лише останній токен бачив увесь текст. Перший токен у декодері бачить тільки себе.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">Стаття може мати кілька тегів одночасно. Що поставити на вихід голови?</div>
+    <div class="opts"><button class="opt">Softmax і крос-ентропію</button><button class="opt">Сигмоїду на кожен логіт і бінарну крос-ентропію</button><button class="opt">Мовну голову, щоб модель перелічила теги</button></div>
+    <div class="ans">Softmax змушує теги конкурувати за одну одиницю ймовірності. Сигмоїда оцінює кожен тег незалежно.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Що зберігає KV-кеш під час генерації?</div>
+    <div class="opts"><button class="opt">Ключі й значення попередніх токенів у кожному шарі, щоб не перераховувати їх на кожному кроці</button><button class="opt">Уже згенеровані відповіді для повторних запитів</button><button class="opt">Логіти всіх токенів словника</button></div>
+    <div class="ans">Через каузальну маску K і V ранніх токенів не змінюються, тому на кожному кроці модель рахує лише новий токен.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Що станеться із семплінгом, якщо температуру зменшувати до нуля?</div>
+    <div class="opts"><button class="opt">Вибір стане рівномірно випадковим</button><button class="opt">Модель перестане генерувати</button><button class="opt">Він наблизиться до жадібного: майже завжди випадатиме найімовірніший токен</button></div>
+    <div class="ans">Ділення на малу T збільшує різницю між логітами, і softmax зосереджує майже всю ймовірність на максимумі.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">Сервіс щодня класифікує 20 млн коротких повідомлень за 12 фіксованими темами, і є 30 тисяч розмічених прикладів. Що розумніше поставити в продакшн?</div>
+    <div class="opts"><button class="opt">LLM на 70 млрд параметрів із промптом і прикладами: вона розумніша</button><button class="opt">Донавчений енкодер із головою класифікації</button><button class="opt">LLM, що генерує назву теми з температурою 1</button></div>
+    <div class="ans">Задача вузька, класи фіксовані, розмітки багато. Енкодер на сотню мільйонів параметрів робить один прохід на текст і обходиться в сотні разів дешевше за LLM, а на такій розмітці часто не поступається їй у якості.</div>
+  </div>
+
+  <p class="kbd-hint">Навігація: <kbd>←</kbd> <kbd>→</kbd> між розділами · <kbd>L</kbd> режим лекції · <kbd>T</kbd> тема</p>
+</section>
+
+</main>
+</div>
+<script src="glossary.js"></script>
+<script src="common.js"></script>
+<script src="narration.js"></script>
+<script>
+/* Тут доступні хелпери з common.js: $, $$, esc, fmt, store, cssVar, redraws, hlPy. */
+
+/* ===================== helpers ===================== */
+const softmax=(v,T=1)=>{const z=v.map(x=>x/T),m=Math.max(...z),e=z.map(x=>Math.exp(x-m)),s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)};
+const sigmoid=x=>1/(1+Math.exp(-x));
+const pct=(x,d=0)=>(x*100).toFixed(d)+"%";
+const nUk=n=>Math.round(n).toLocaleString("uk-UA");
+// 1234567 → «1.2 млн»
+function big(n){const a=Math.abs(n);
+  if(a>=1e9)return (n/1e9).toFixed(a>=1e10?0:1)+" млрд";
+  if(a>=1e6)return (n/1e6).toFixed(a>=1e7?0:1)+" млн";
+  if(a>=1e4)return (n/1e3).toFixed(0)+" тис.";
+  return nUk(n)}
+function bytes(b){const u=["Б","КБ","МБ","ГБ","ТБ"];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++}return (i===0||b>=100?b.toFixed(0):b.toFixed(1))+" "+u[i]}
+function dur(s){if(s<1e-3)return "< 1 мс";if(s<1)return Math.round(s*1000)+" мс";if(s<60)return s.toFixed(s<10?1:0)+" с";if(s<3600)return Math.round(s/60)+" хв";if(s<86400)return (s/3600).toFixed(1)+" год";return (s/86400).toFixed(1)+" дн."}
+// seeded random: однаковий «вектор» для того самого ключа
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const hashStr=s=>{let h=2166136261;for(const ch of s){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return h>>>0};
+const vec6=key=>{const r=rng(hashStr(key));return Array.from({length:6},()=>r()*2-1)};
+// розбіжна шкала для v ∈ [−1, 1]: синій (−) · нейтральний · помаранчевий (+)
+const divCol=v=>{v=Math.max(-1,Math.min(1,v));const p=Math.round(Math.abs(v)*90);return p<4?"var(--surface-2)":`color-mix(in srgb, ${v>0?"var(--orange)":"var(--blue)"} ${p}%, var(--surface-2))`};
+// перемикач .seg: кнопки з data-v, aria-pressed позначає обрану
+function segPick(el,v){$$("button",el).forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===String(v))))}
+function seg(el,cb){el.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!el.contains(b))return;segPick(el,b.dataset.v);cb(b.dataset.v)})}
+// смужка розподілу: підпис · смужка (з необов'язковою «тінню» початкового значення) · число
+function distBar(label,p,{color="var(--blue)",ghost=null,cls="",max=1}={}){
+  return `<div class="softbar ${cls}"><span class="w" title="${esc(label)}">${esc(label)}</span><div class="tr">${ghost!=null?`<div class="ghost" style="width:${Math.min(100,ghost/max*100)}%"></div>`:""}<div class="fl" style="width:${Math.min(100,p/max*100)}%;background:${color}"></div></div><span class="n">${pct(p,1)}</span></div>`}
+const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ===================== 1. одне тіло, різні голови ===================== */
+(function(){
+  const toks=["Назар","дуже","любить","Харків"],X=[190,330,470,610],svg=$("#heroSvg");
+  const H=[
+    {n:"клас тексту",pool:true,layer:"пулінг → Linear(d → 3)",out:"тональність: позитивна · 0.97"},
+    {n:"мітки токенів",pool:false,layer:"Linear(d → 7)",out:["B-PER","O","O","B-LOC"]},
+    {n:"вектор для пошуку",pool:true,layer:"середнє векторів, без шару",out:"[0.12, −0.40, 0.33, …] → косинус"},
+    {n:"наступний токен",pool:false,layer:"Linear(d → |V|)",out:["дуже","любить","Харків","."]}
+  ];
+  let cur=0;
+  $("#heroHeads").innerHTML=H.map((h,i)=>`<button data-v="${i}" aria-pressed="${i===0}">${h.n}</button>`).join("");
+  function draw(){
+    const h=H[cur];let g="";
+    [["голова",62],["вектори",133],["тіло",189],["токени",240]].forEach(([t,y])=>g+=`<text class="mut" x="8" y="${y}">${t}</text>`);
+    toks.forEach((t,i)=>{g+=`<rect x="${X[i]-52}" y="222" width="104" height="28" rx="6" style="fill:var(--surface-2);stroke:var(--line)"/><text x="${X[i]}" y="241" text-anchor="middle">${t}</text><line x1="${X[i]}" x2="${X[i]}" y1="222" y2="208" style="stroke:var(--muted)"/>`});
+    g+=`<rect x="110" y="160" width="580" height="48" rx="10" style="fill:var(--blue-soft);stroke:var(--blue)"/><text x="400" y="189" text-anchor="middle" style="fill:var(--blue)">тіло: 12–100 блоків трансформера · спільне для всіх задач</text>`;
+    toks.forEach((t,i)=>{const v=vec6("hero"+t);g+=`<line x1="${X[i]}" x2="${X[i]}" y1="160" y2="140" style="stroke:var(--muted)"/>`;
+      v.forEach((x,k)=>g+=`<rect x="${X[i]-36+k*12}" y="120" width="11" height="18" rx="2" style="fill:${divCol(x)}"/>`);
+      g+=`<rect x="${X[i]-38}" y="118" width="76" height="22" rx="4" style="fill:none;stroke:var(--orange);stroke-width:2"/>`});
+    if(h.pool){
+      toks.forEach((t,i)=>g+=`<path d="M${X[i]} 118 Q${X[i]} 100 400 96" style="fill:none;stroke:var(--orange);stroke-width:1.5;opacity:.7"/>`);
+      g+=`<rect x="250" y="56" width="300" height="40" rx="8" style="fill:var(--orange-soft);stroke:var(--orange);stroke-width:1.5"/><text x="400" y="81" text-anchor="middle">${h.layer}</text>`;
+      g+=`<text x="400" y="34" text-anchor="middle" style="fill:var(--orange);font-weight:600;font-size:14px">${h.out}</text>`;
+    }else{
+      toks.forEach((t,i)=>{g+=`<line x1="${X[i]}" x2="${X[i]}" y1="118" y2="92" style="stroke:var(--orange);stroke-width:1.5"/><rect x="${X[i]-56}" y="62" width="112" height="30" rx="7" style="fill:var(--orange-soft);stroke:var(--orange);stroke-width:1.5"/><text x="${X[i]}" y="82" text-anchor="middle" style="font-size:12px">${h.layer}</text>`;
+        g+=`<text x="${X[i]}" y="40" text-anchor="middle" style="fill:var(--orange);font-weight:600;font-size:14px">${esc(h.out[i])}</text>`});
+      g+=`<text class="mut" x="400" y="16" text-anchor="middle">той самий шар на кожному токені</text>`;
+    }
+    svg.innerHTML=g;segPick($("#heroHeads"),cur);
+  }
+  seg($("#heroHeads"),v=>{cur=+v;draw()});
+  draw();
+})();
+
+/* ===================== 1. пулінг на числах ===================== */
+(function(){
+  const R=[["[CLS]",[0.8,-0.2,0.5,0.1],1],["Фільм",[0.1,0.4,-0.3,0.6],1],["просто",[-0.2,0.1,0.2,0.3],1],["чудовий",[0.9,-0.5,0.7,-0.1],1],["[PAD]",[-1.2,0.9,-0.8,1.4],0],["[PAD]",[-1.1,1.0,-0.9,1.3],0]];
+  let op="mean";const mk=$("#plMask");
+  const f2=x=>(x>=0?"+":"−")+Math.abs(x).toFixed(2);
+  function draw(){
+    const useMask=mk.checked,used=R.map((r,i)=>op==="first"?i===0:(r[2]||!useMask));
+    const rows=R.filter((_,i)=>used[i]),d=4;
+    const res=Array.from({length:d},(_,k)=>op==="first"?R[0][1][k]:op==="max"?Math.max(...rows.map(r=>r[1][k])):rows.reduce((a,r)=>a+r[1][k],0)/rows.length);
+    const pick=(i,k)=>op==="max"&&used[i]&&R[i][1][k]===res[k];
+    $("#plTbl").innerHTML=`<tr><th></th>${[1,2,3,4].map(k=>`<th style="text-align:center">вимір ${k}</th>`).join("")}</tr>`+
+      R.map((r,i)=>`<tr class="${used[i]?"":"off"}"><th>${esc(r[0])}</th>${r[1].map((x,k)=>`<td class="${pick(i,k)?"pick":""}" style="background:${divCol(x)}">${f2(x)}</td>`).join("")}</tr>`).join("")+
+      `<tr class="sep"><th></th><td colspan="4"></td></tr><tr class="res"><th>→ вектор тексту</th>${res.map(x=>`<td style="background:${divCol(x)}">${f2(x)}</td>`).join("")}</tr>`;
+    const n=used.filter(Boolean).length,pads=!useMask&&op!=="first";
+    $("#plExpl").innerHTML=(op==="first"?`Беремо вектор першого токена як є, решта рядків не використовується. Це пулінг через [CLS].`:
+      op==="mean"?`Кожен вимір результату — середнє цього виміру по ${n} рядках.`:`Кожен вимір результату — найбільше значення в стовпчику (обведено). Різні виміри можуть прийти від різних токенів.`)+
+      (pads?` <b>Маску вимкнено</b>, тож два [PAD] потрапили в розрахунок і помітно змістили результат. Той самий відгук без паддінгу дав би інший вектор, а голова отримала б інший вхід лише через те, що в батчі був довший текст.`:
+       op!=="first"?` Рядки [PAD] виключено маскою, тож результат не залежить від того, скільки паддінгу додав батч.`:``);
+  }
+  seg($("#plOp"),v=>{op=v;draw()});mk.addEventListener("change",draw);draw();
+})();
+
+/* ===================== 2a. пулінг і маска ===================== */
+(function(){
+  const T={enc:["[CLS]","Фільм","нудний",",","але","фінал","чудовий","[SEP]"],dec:["Фільм","нудний",",","але","фінал","чудовий"]};
+  const E={
+    "enc-first":"<b>[CLS] бачить усі токени</b>, зокрема «чудовий». Під час донавчання голова навчить його збирати те, що потрібно для тональності. Стандартний вибір для BERT.",
+    "enc-mean":"В енкодері кожен вектор бачить увесь текст, тож середнє теж знає все. <b>Mean pooling</b> — стандарт для ембедінгів речень.",
+    "enc-last":"[SEP] теж бачить увесь текст, і технічно це працює. Але BERT не вчили класти в [SEP] зміст речення, тому без донавчання цей вектор гірший за [CLS] чи середнє.",
+    "dec-first":"<b>Перший токен декодера бачив лише слово «Фільм».</b> Він нічого не знає ні про «нудний», ні про «чудовий». Класифікувати за ним неможливо.",
+    "dec-mean":"Ранні вектори не знають про фінал відгуку, тож середнє «розмиває» найважливіше. Для класифікації так роблять рідко.",
+    "dec-last":"<b>Лише останній токен бачив увесь відгук</b> разом із «чудовий». Тому <code>…ForSequenceClassification</code> для Llama, Qwen і GPT бере вектор останнього не-паддінгового токена."
+  };
+  let arch="enc",mode="first";
+  function draw(){
+    const t=T[arch],n=t.length,vis=(i,j)=>arch==="enc"||j<=i;
+    const used=mode==="first"?[0]:mode==="last"?[n-1]:t.map((_,i)=>i);
+    let h=`<div></div>`+t.map(w=>`<div class="cl">${esc(w)}</div>`).join("");
+    t.forEach((w,i)=>{const u=used.includes(i);h+=`<div class="rl ${u?"used":""}">${esc(w)}</div>`+t.map((_,j)=>`<div class="c ${vis(i,j)?"vis":"mask"} ${u?"used":""}"></div>`).join("")});
+    const mx=$("#poolMx");mx.style.gridTemplateColumns=`auto repeat(${n},24px)`;mx.innerHTML=h;
+    const cov=used.reduce((a,i)=>a+t.filter((_,j)=>vis(i,j)).length/n,0)/used.length;
+    $("#poolCov").textContent=pct(cov);$("#poolCov").className="big "+(cov>.99?"a":"b");
+    $("#poolExpl").innerHTML=E[arch+"-"+mode];
+  }
+  seg($("#poolArch"),v=>{arch=v;draw()});seg($("#poolMode"),v=>{mode=v;draw()});draw();
+})();
+
+/* ===================== 2b. softmax чи сигмоїда ===================== */
+(function(){
+  const L=["політика","економіка","спорт","культура"],z=[2.2,1.8,2.0,-2.5];
+  let h=`<span class="hd">тема</span><span class="hd">логіт</span><span class="hd x">softmax</span><span class="hd x">сигмоїда</span>`;
+  L.forEach((l,i)=>h+=`<span>${l}</span><label><span class="lv" id="mlV${i}"></span><input type="range" id="mlZ${i}" min="-4" max="4" step="0.1" value="${z[i]}" data-i="${i}" aria-label="Логіт: ${l}"></label><div class="mbar" title="softmax"><div class="fl" id="mlS${i}" style="background:var(--blue)"></div><span id="mlSn${i}"></span></div><div class="mbar" title="сигмоїда"><div class="fl" id="mlG${i}" style="background:var(--orange)"></div><div class="thr" id="mlT${i}"></div><span id="mlGn${i}"></span></div>`);
+  $("#mlRows").innerHTML=h;
+  const thr=$("#mlThr");
+  function run(){
+    const th=+thr.value;$("#mlThrV").textContent=th.toFixed(2);
+    const s=softmax(z),g=z.map(sigmoid);
+    L.forEach((_,i)=>{$("#mlV"+i).textContent=(z[i]>=0?"+":"")+z[i].toFixed(1);
+      $("#mlS"+i).style.width=pct(s[i],1);$("#mlSn"+i).textContent="softmax "+s[i].toFixed(2);
+      $("#mlG"+i).style.width=pct(g[i],1);$("#mlGn"+i).textContent="σ "+g[i].toFixed(2);$("#mlT"+i).style.left=pct(th,1)});
+    const best=s.indexOf(Math.max(...s)),on=L.filter((_,i)=>g[i]>=th);
+    $("#mlExpl").innerHTML=`<b>Softmax</b>: сума ${s.reduce((a,b)=>a+b,0).toFixed(2)}, обирає одну тему: «${L[best]}» (${s[best].toFixed(2)}). `+
+      `<b>Сигмоїда</b> з порогом ${th.toFixed(2)}: ${on.length?on.map(x=>"«"+x+"»").join(", "):"жодної теми"}. Сума сигмоїд ${g.reduce((a,b)=>a+b,0).toFixed(2)}: так і має бути, теми незалежні.`;
+  }
+  $("#mlRows").addEventListener("input",e=>{const i=e.target.dataset.i;if(i===undefined)return;z[+i]=+e.target.value;run()});
+  thr.addEventListener("input",run);run();
+})();
+
+/* ===================== 3a. BIO ===================== */
+(function(){
+  const W=["Тарас","Шевченко","навчався","в","Петербурзькій","академії","мистецтв"];
+  const GOLD=["B-PER","I-PER","O","O","B-ORG","I-ORG","I-ORG"],BAD=["B-PER","B-PER","O","O","I-ORG","I-ORG","O"];
+  const CYC=["O","B-PER","I-PER","B-LOC","I-LOC","B-ORG","I-ORG"],NAME={PER:"особа",LOC:"місце",ORG:"організація"};
+  let tags=[...GOLD];
+  function parse(){
+    const ents=[],bad=new Set(),notes=[];let cur=null;
+    tags.forEach((t,i)=>{
+      if(t==="O"){cur=null;return}
+      const [p,ty]=t.split("-");
+      if(p==="I"&&cur&&cur.ty===ty){cur.w.push(W[i]);return}
+      if(p==="I"){bad.add(i);notes.push(`«${W[i]}»: ${t} стоїть після ${i?tags[i-1]:"початку речення"}. Строга перевірка відкине таку сутність, поблажлива почне з неї нову.`)}
+      if(p==="B"&&cur&&cur.ty===ty)notes.push(`«${W[i-1]}» і «${W[i]}»: другий токен має B-${ty}, тож це дві окремі сутності, а не одна.`);
+      cur={ty,w:[W[i]]};ents.push(cur);
+    });
+    if(tags[6]==="O"&&tags[5]!=="O")notes.push(`«мистецтв» отримало O, тож організація обрізана до «${ents.find(e=>e.ty===tags[5].split("-")[1])?.w.join(" ")||""}».`);
+    return{ents,bad,notes};
+  }
+  function draw(){
+    const {ents,bad,notes}=parse();
+    $("#bioToks").innerHTML=W.map((w,i)=>{const ty=tags[i].split("-")[1]||"";return `<button data-i="${i}" class="${ty} ${bad.has(i)?"bad":""}">${esc(w)}<small>${tags[i]}</small></button>`}).join("");
+    $("#bioEnts").innerHTML=ents.length?ents.map(e=>`<span class="ent ${e.ty}"><b>${e.ty}</b>${esc(e.w.join(" "))}</span>`).join(""):`<span class="muted" style="font-size:.88em">Сутностей немає.</span>`;
+    const gold=tags.every((t,i)=>t===GOLD[i]);
+    $("#bioExpl").innerHTML=notes.length?notes.map(n=>"⚠ "+esc(n)).join("<br>"):
+      gold?`Знайдено ${ents.length} сутності: ${ents.map(e=>NAME[e.ty]).join(" і ")}. Три слова «Петербурзькій академії мистецтв» — одна організація: B- на першому слові, I- на решті.`:
+      `Знайдено сутностей: ${ents.length}. З погляду схеми BIO розмітка коректна.`;
+  }
+  $("#bioToks").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const i=+b.dataset.i;tags[i]=CYC[(CYC.indexOf(tags[i])+1)%CYC.length];draw()});
+  $("#bioGold").onclick=()=>{tags=[...GOLD];draw()};
+  $("#bioClear").onclick=()=>{tags=W.map(()=>"O");draw()};
+  $("#bioBad").onclick=()=>{tags=[...BAD];draw()};
+  draw();
+})();
+
+/* ===================== 3b. вирівнювання міток ===================== */
+(function(){
+  const W=[["Тарас","B-PER",["▁Тарас"]],["Шевченко","I-PER",["▁Шев","ченко"]],["народився","O",["▁народився"]],["у","O",["▁у"]],["Моринцях","B-LOC",["▁Мор","ин","цях"]]];
+  let mode="first";
+  function draw(){
+    const rows=[{t:"<s>",w:null,l:null}];
+    W.forEach(([w,lab,ps],wi)=>ps.forEach((p,k)=>rows.push({t:p,w:wi,l:k===0?lab:mode==="all"?lab.replace(/^B-/,"I-"):null})));
+    rows.push({t:"</s>",w:null,l:null});
+    const td=(r,c,txt)=>`<td class="${c} ${r.w!==null?"w"+(r.w%2):""}">${esc(txt)}</td>`;
+    $("#algnTbl").innerHTML=`<tr><th>токен</th>${rows.map(r=>td(r,"",r.t)).join("")}</tr>`+
+      `<tr><th>word_id</th>${rows.map(r=>td(r,"",r.w===null?"None":String(r.w))).join("")}</tr>`+
+      `<tr><th>мітка</th>${rows.map(r=>td(r,r.l?"lab":"ign",r.l||"−100")).join("")}</tr>`;
+    const n=rows.filter(r=>r.l).length;
+    $("#algnExpl").innerHTML=mode==="first"?
+      `Loss рахують на <b>${n} позиціях з ${rows.length}</b>: рівно одна на слово. Під час інференсу так само беруть прогноз першого субтокена кожного слова. Цю стратегію використовує більшість прикладів у документації transformers.`:
+      `Loss рахують на <b>${n} позиціях з ${rows.length}</b>. Продовження отримали I-мітки, тож «Моринцях» тепер важить утричі більше за «у». Так теж роблять, але на інференсі все одно беруть прогноз першого субтокена.`;
+  }
+  seg($("#algnMode"),v=>{mode=v;draw()});draw();
+})();
+
+/* ===================== 4. відповідь у тексті ===================== */
+(function(){
+  const C=["[CLS]","Тарас","Шевченко","народився","9","березня","1814","року","в","селі","Моринці","Київської","губернії","."];
+  const Q=[
+    {s:[-1,-2,-2,-1,5.0,0.5,2.4,-1,-2,-1.5,-1,-2,-2,-3],e:[-1,-3,-2,-2,0.8,2.2,3.6,4.4,-1,-2,-1,-2,-1,-2]},
+    {s:[-1,-2,-2,-2,-2,-2,-2,-2,1.2,3.0,4.6,0.5,-2,-3],e:[-1,-3,-2,-2,-2,-2,-2,-2,-2,0,3.8,0.5,4.2,-1]},
+    {s:[4.0,1.0,0.6,-1,-2,-2,-2,-2,-2,-2,-1,-2,-2,-3],e:[3.5,0.3,1.2,-1,-2,-2,-2,-2,-2,-2,-1,-2,-1,-2]}
+  ];
+  let qi=0;const Ls=$("#qaL");
+  const hgt=x=>Math.max(3,Math.min(1,(x+3)/8)*64);
+  function run(){
+    const q=Q[qi],L=+Ls.value;$("#qaLV").textContent=L;
+    const spans=[];
+    for(let i=1;i<C.length;i++)for(let j=i;j<C.length&&j-i<L;j++)spans.push({i,j,sc:q.s[i]+q.e[j]});
+    spans.sort((a,b)=>b.sc-a.sc);
+    const nul=q.s[0]+q.e[0],best=spans[0],noAns=nul>best.sc;
+    const hl=k=>noAns?k===0:k>=best.i&&k<=best.j;
+    const g=$("#qaGrid");g.style.gridTemplateColumns=`auto repeat(${C.length},minmax(46px,auto))`;
+    g.innerHTML=`<div class="rl">start</div>`+C.map((_,k)=>`<div class="bc"><i style="height:${hgt(q.s[k])}px;background:var(--blue)" title="start ${q.s[k]}"></i></div>`).join("")+
+      `<div class="rl">токен</div>`+C.map((t,k)=>`<div class="t ${k===0?"cls":""} ${hl(k)?"ans":""}">${esc(t)}</div>`).join("")+
+      `<div class="rl">end</div>`+C.map((_,k)=>`<div class="bc e"><i style="height:${hgt(q.e[k])}px;background:var(--orange)" title="end ${q.e[k]}"></i></div>`).join("");
+    const row=(r,txt,sc,cls="")=>`<div class="row ${cls}"><span class="muted">${r}</span><span>${txt}</span><span class="n">${sc.toFixed(1)}</span></div>`;
+    $("#qaSpans").innerHTML=spans.slice(0,3).map((s,k)=>row(k+1,`«${esc(C.slice(s.i,s.j+1).join(" "))}» <span class="muted">= ${q.s[s.i]} + ${q.e[s.j]}</span>`,s.sc,!noAns&&k===0?"best":"")).join("")+
+      row("∅",`[CLS]: «відповіді немає» <span class="muted">= ${q.s[0]} + ${q.e[0]}</span>`,nul,noAns?"best":"")+
+      `<div class="row"><span></span><span><b>${noAns?"Відповіді в тексті немає: [CLS] переміг найкращий фрагмент.":"Відповідь: «"+esc(C.slice(best.i,best.j+1).join(" "))+"»"}</b></span><span></span></div>`;
+  }
+  seg($("#qaQ"),v=>{qi=+v;run()});Ls.addEventListener("input",run);run();
+})();
+
+/* ===================== 6b. що заморожувати ===================== */
+(function(){
+  // BERT-base: ембедінги, 12 блоків, пулер і голова на 2 класи (кількості параметрів справжні)
+  const EMB=23837184,LAYER=7087872,POOL=590592,HEAD=1538,TOTAL=EMB+12*LAYER+POOL+HEAD;
+  const parts=[{n:"емб.",p:EMB,k:"emb"},...Array.from({length:12},(_,i)=>({n:String(i+1),p:LAYER,k:"l"+(i+1)})),{n:"P",p:POOL,k:"pool"},{n:"",p:HEAD,k:"head"}];
+  const title=p=>(p.k==="pool"?"пулер":p.k==="head"?"голова":p.k==="emb"?"ембедінги":"блок "+p.n)+": "+nUk(p.p)+" параметрів";
+  $("#frzStack").innerHTML=parts.map(p=>`<div data-k="${p.k}" class="${p.k==="head"?"hd":""}" style="flex:${p.p} 0 0" title="${title(p)}">${p.n}</div>`).join("");
+  function run(){
+    const k=+$("#frz").value,emb=$("#frzEmb").checked;$("#frzV").textContent=k;
+    const on=p=>p.k==="head"||(p.k==="pool"&&k>0)||(p.k==="emb"&&emb)||(/^l\d+$/.test(p.k)&&+p.k.slice(1)>12-k);
+    let n=0;parts.forEach(p=>{const o=on(p);if(o)n+=p.p;$(`#frzStack [data-k="${p.k}"]`).classList.toggle("on",o)});
+    $("#frzN").textContent=n<1e4?nUk(n):big(n);$("#frzP").textContent=n/TOTAL<0.001?"< 0.1%":pct(n/TOTAL,1);
+    $("#frzM").textContent=bytes(TOTAL*4+n*12);
+  }
+  $("#frz").addEventListener("input",run);$("#frzEmb").addEventListener("change",run);run();
+})();
+
+/* ===================== 7. мовна голова ===================== */
+(function(){
+  const P=[
+    {p:"Столиця України —",t:[["Київ",.86],["місто",.04],["це",.02],["столиця",.012],["одне",.008],["древній",.006],["найбільше",.005],["золотоверхий",.004]]},
+    {p:"Кіт сидить на",t:[["підвіконні",.17],["дивані",.14],["столі",.09],["даху",.08],["килимі",.06],["стільці",.05],["ліжку",.05],["порозі",.04]]},
+    {p:"Два плюс два дорівнює",t:[["чотири",.78],["4",.14],["чотирьом",.02],["п'ять",.012],["три",.006],["нулю",.004],["вісім",.004],["двом",.003]]},
+    {p:"Мені подобається",t:[["ця",.05],["твоя",.04],["коли",.04],["читати",.035],["ваш",.03],["цей",.03],["гуляти",.025],["музика",.02]]}
+  ];
+  $("#lmPre").innerHTML=P.map((p,i)=>`<button data-v="${i}" aria-pressed="${i===0}">${esc(p.p)} …</button>`).join("");
+  function show(i){const d=P[i],s=d.t.reduce((a,x)=>a+x[1],0),rest=1-s;
+    $("#lmPrompt").innerHTML=`${esc(d.p)} <span class="gen last">?</span>`;
+    $("#lmBars").innerHTML=d.t.map(([w,p],k)=>distBar(w,p,{color:k===0?"var(--aqua)":"var(--blue)"})).join("")+distBar("решта словника",rest,{color:"var(--line)"});
+    $("#lmExpl").innerHTML=d.t[0][1]>.5?`Розподіл <b>гострий</b>: найімовірніший токен «${d.t[0][0]}» отримав ${pct(d.t[0][1])}. Будь-яка розумна стратегія вибору дасть тут ту саму відповідь.`:
+      `Розподіл <b>плаский</b>: вісім найкращих токенів разом мають лише ${pct(s)}, а ${pct(rest)} розподілено між тисячами інших. Продовжень багато, і всі нормальні. Саме тут стратегія вибору (розділ 9) найсильніше впливає на текст.`;
+  }
+  seg($("#lmPre"),v=>show(+v));show(0);
+})();
+
+/* ===================== 6b. логіт як скалярний добуток ===================== */
+(function(){
+  // [токен, кут ембедінга в градусах, довжина ембедінга]
+  const E=[["підвіконні",62,1.1],["дивані",38,1],["столі",100,.95],["даху",15,.85],["Київ",165,1.15],["Львів",192,1],["чотири",285,1.1],["п'ять",312,.9]];
+  const CTX=[{a:60,n:3},{a:170,n:4.5},{a:290,n:5.5}];
+  const A=$("#lhA"),N=$("#lhN"),C=160,S=105,HS=23,rad=d=>d*Math.PI/180;
+  function draw(){
+    const a=+A.value,n=+N.value;$("#lhAV").textContent=a+"°";$("#lhNV").textContent=n.toFixed(1);
+    const z=E.map(([,ea,en])=>n*en*Math.cos(rad(a-ea))),p=softmax(z),top=p.indexOf(Math.max(...p));
+    let g=`<defs><marker id="lhArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--orange)"/></marker></defs>`;
+    g+=`<line x1="12" x2="308" y1="${C}" y2="${C}" style="stroke:var(--line)"/><line x1="${C}" x2="${C}" y1="12" y2="308" style="stroke:var(--line)"/><circle cx="${C}" cy="${C}" r="${S}" style="fill:none;stroke:var(--line);stroke-dasharray:3 4"/>`;
+    E.forEach(([w,ea,en],i)=>{const c=Math.cos(rad(ea)),s=Math.sin(rad(ea)),x=C+S*en*c,y=C-S*en*s,lx=C+(S*en+16)*c,ly=C-(S*en+16)*s+4;
+      g+=`<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" style="stroke:var(--line-soft)"/><circle cx="${x}" cy="${y}" r="${4+12*Math.sqrt(p[i])}" style="fill:${i===top?"var(--aqua)":"var(--blue)"};opacity:.85"/>`+
+        `<text x="${lx}" y="${ly}" text-anchor="${c>.3?"start":c<-.3?"end":"middle"}" style="font-size:12px${i===top?";font-weight:600;fill:var(--aqua)":""}">${esc(w)}</text>`});
+    const hx=C+HS*n*Math.cos(rad(a)),hy=C-HS*n*Math.sin(rad(a));
+    g+=`<line x1="${C}" y1="${C}" x2="${hx}" y2="${hy}" marker-end="url(#lhArr)" style="stroke:var(--orange);stroke-width:3"/><text x="${C+(HS*n+12)*Math.cos(rad(a))}" y="${C-(HS*n+12)*Math.sin(rad(a))+4}" text-anchor="middle" style="fill:var(--orange);font-weight:600">h</text>`;
+    $("#lhSvg").innerHTML=g;
+    const ord=p.map((_,i)=>i).sort((i,j)=>p[j]-p[i]);
+    $("#lhBars").innerHTML=ord.map(i=>distBar(E[i][0],p[i],{color:i===top?"var(--aqua)":"var(--blue)"})).join("");
+    $("#lhExpl").innerHTML=`Найбільший логіт у «${esc(E[top][0])}» (${z[top].toFixed(2)}): його ембедінг найближчий до <var>h</var> за напрямом. `+
+      (p[top]>.75?`Вектор <var>h</var> довгий, тож різниці між логітами великі, і розподіл <b>гострий</b>: ${pct(p[top])} на одному токені.`:
+       n<1?`Вектор <var>h</var> короткий, тож усі логіти близькі до нуля, і розподіл <b>майже рівний</b>. Так само діє висока температура.`:
+       `Ймовірність ділять кілька сусідніх токенів: їхні ембедінги дивляться приблизно в той самий бік. Подовжте <var>h</var>, і лідер відірветься, але порядок токенів не зміниться.`);
+  }
+  seg($("#lhCtx"),v=>{const c=CTX[+v];A.value=c.a;N.value=c.n;draw()});
+  [A,N].forEach(el=>el.addEventListener("input",()=>{segPick($("#lhCtx"),-1);draw()}));
+  draw();
+})();
+
+/* ===================== 8. loss на кожному токені ===================== */
+(function(){
+  const W=["Кіт","сидить","на","теплому","підвіконні","і","дивиться","у","вікно","."];
+  const M=[{p:W.slice(1).map(()=>1/50000)},{p:[.02,.25,.004,.01,.08,.005,.2,.01,.3]},{p:[.12,.55,.10,.35,.30,.22,.65,.40,.45]}];
+  let mi=2,sel=-1;const n=W.length-1;
+  const pf=x=>x<0.001?x.toExponential(1):x.toFixed(3);
+  function draw(){
+    const p=M[mi].p,loss=p.map(x=>-Math.log(x)),L=loss.reduce((a,b)=>a+b,0)/n,dim=i=>sel>=0&&sel!==i?"opacity:.35":"";
+    const g=$("#ntlGrid");g.style.gridTemplateColumns=`auto repeat(${n},minmax(64px,1fr))`;
+    g.innerHTML=`<div class="rl">вхід x<sub>t</sub></div>`+W.slice(0,n).map((w,i)=>`<div class="t ${sel<0?"":i<=sel?"ctx":"dim"}" data-i="${i}">${esc(w)}</div>`).join("")+
+      `<div class="rl">мітка x<sub>t+1</sub></div>`+W.slice(1).map((w,i)=>`<div class="t tg ${sel===i?"cur":sel>=0?"dim":""}" data-i="${i}">${esc(w)}</div>`).join("")+
+      `<div class="rl">p(мітки)</div>`+p.map((x,i)=>`<div class="pb" data-i="${i}" title="p = ${pf(x)}"><i style="height:${Math.max(2,x*56)}px;${dim(i)}"></i></div>`).join("")+
+      `<div class="rl">−ln p</div>`+loss.map((x,i)=>`<div class="ls" style="${dim(i)}">${x.toFixed(2)}</div>`).join("");
+    const ppl=Math.exp(L);
+    $("#ntlL").textContent=L.toFixed(2);$("#ntlP").textContent=ppl<1e4?ppl.toFixed(1):nUk(ppl);$("#ntlN").textContent=n;
+    $("#ntlExpl").innerHTML=sel>=0?
+      `Позиція ${sel+1}: модель бачить «${esc(W.slice(0,sel+1).join(" "))}» і має передбачити «${esc(W[sel+1])}». p = ${pf(p[sel])}, loss −ln p = ${loss[sel].toFixed(2)}. Подальші токени сховані каузальною маскою, тож підглянути відповідь неможливо.`:
+      mi===0?`Модель із випадковими вагами дає кожному з 50 000 токенів приблизно однакову ймовірність. Loss ln 50 000 ≈ 10.8 на кожній позиції, а перплексія дорівнює розміру словника: це вгадування навмання.`:
+      mi===1?`Біграмна модель бачить лише попереднє слово. Після «сидить» вона впевнено чекає «на», але «теплому» після «на» для неї майже випадковість. Перплексія — кілька десятків.`:
+      `Навчена LLM бачить увесь попередній контекст, тож упевнена і в «на», і в «у». Клацніть стовпчик, щоб побачити, який контекст був у моделі на цій позиції.`;
+  }
+  $("#ntlGrid").addEventListener("click",e=>{const c=e.target.closest("[data-i]");if(!c)return;const i=+c.dataset.i;sel=sel===i?-1:i;draw()});
+  seg($("#ntlModel"),v=>{mi=+v;draw()});draw();
+  (window.narrHooks=window.narrHooks||{}).ntlSel=i=>{sel=i;draw()};
+})();
+
+/* ===================== 9a. генерація крок за кроком ===================== */
+(function(){
+  const PROMPT=["Одного","разу","кіт"];
+  const STEPS=[
+    [["знайшов",.31],["вирішив",.22],["пішов",.12],["побачив",.10]],
+    [["старий",.28],["на",.20],["у",.14],["ключ",.09]],
+    [["ключ",.34],["ящик",.18],["будинок",.10],["капелюх",.07]],
+    [["від",.52],["на",.12],["у",.08],["і",.06]],
+    [["горища",.29],["дверей",.25],["комори",.12],["скрині",.09]],
+    [[".",.48],[",",.21],["і",.11],["під",.04]],
+    [["<eos>",.62],["Він",.14],["Тепер",.05],["↵",.04]]
+  ];
+  let i=-1,timer=null,cache=true;
+  function show(k){const fwd=k===i+1&&k>0;i=k;
+    // вхід кроку i: промпт + токени, обрані на попередніх кроках; вибір цього кроку піде у вхід наступного
+    const ctx=STEPS.slice(0,Math.max(i,0)).map(s=>s[0][0]),n=PROMPT.length+ctx.length,pick=i<0?null:STEPS[i][0][0],end=i===STEPS.length-1;
+    const tok=m=>m%10>=2&&m%10<=4&&(m%100<12||m%100>14)?"токени":m%10===1&&m%100!==11?"токен":"токенів";
+    $("#genCap").innerHTML=i<0?`Вхід моделі: <b>${n} ${tok(n)} промпту</b>`:
+      `Крок ${i+1} · вхід моделі: <b>${n} ${tok(n)}</b> (${PROMPT.length} з промпту${ctx.length?` + ${ctx.length} згенерован${ctx.length===1?"ий":ctx.length<5?"і":"их"} раніше`:""})`;
+    const gi=$("#genIn");
+    // K і V токена на позиції j: з кешем обчислюються лише на кроці, коли токен уперше потрапив на вхід (промпт — на кроці 1)
+    const kv=j=>i<0?"":`<i class="kv ${!cache||i===0||j===n-1?"calc":""}">KV</i>`;
+    gi.innerHTML=PROMPT.map((w,j)=>`<span class="tk">${esc(w)}<small>промпт</small>${kv(j)}</span>`).join("")+
+      ctx.map((w,j)=>`<span class="tk${fwd&&j===ctx.length-1?" fresh":""}">${esc(w)}<small class="g">крок ${j+1}</small>${kv(PROMPT.length+j)}</span>`).join("")+
+      (pick&&!end?`<span class="tk slot">${esc(pick)}<small class="g">вхід кроку ${i+2}</small></span>`:"");
+    gi.classList.remove("flow");if(i>=0){void gi.offsetWidth;gi.classList.add("flow")}
+    $("#genModel").innerHTML=`декодер + мовна голова: <b>усі ${n}</b> ${tok(n)} разом визначають прогноз ↓`;
+    $("#genBack").innerHTML=i<0?"":end?`обрано <span class="tk sp">${esc(pick)}</span> → кінець тексту, цикл зупиняється`:
+      `обрано і дописуємо в кінець входу: <span class="tk new">${esc(pick)}</span>`;
+    arc();
+    $("#genBars").innerHTML=i<0?`<p class="muted" style="font-size:.9em;margin:0">Промпт готовий. Натисніть «Крок →»: модель прочитає його і дасть розподіл першого нового токена.</p>`:
+      STEPS[i].map(([w,p],j)=>distBar(w,p,{color:j===0?"var(--aqua)":"var(--blue)",cls:j===0?"pick":""})).join("");
+    // на кроці k (з 1) на вході 3 + (k − 1) токенів: без кешу модель рахує їх усі, з кешем — лише новий
+    const steps=i+1,lenAt=k=>PROMPT.length+k-1;
+    let no=0;for(let k=1;k<=steps;k++)no+=lenAt(k);
+    $("#genLen").textContent=steps?lenAt(steps):PROMPT.length;$("#genNo").textContent=no;$("#genYes").textContent=steps?PROMPT.length+steps-1:0;
+    $("#genInfo").textContent=i<0?"":i===STEPS.length-1?"кінець: модель обрала <eos>":`крок ${steps} / ${STEPS.length}`;
+  }
+  // пунктирна петля: від обраного токена праворуч і вгору до слота в кінці входу
+  function arc(){
+    const svg=$("#genArc"),slot=$("#genIn .slot"),from=$("#genBack .tk");
+    if(!slot||!from){svg.innerHTML="";return}
+    const L=$("#genLoop").getBoundingClientRect(),a=from.getBoundingClientRect(),b=slot.getBoundingClientRect();
+    const x1=a.right-L.left+4,y1=a.top+a.height/2-L.top,xr=L.width-8,x2=b.right-L.left+3,y2=b.top+b.height/2-L.top,r=8;
+    svg.innerHTML=`<path d="M${x1},${y1} H${xr-r} Q${xr},${y1} ${xr},${y1-r} V${y2+r} Q${xr},${y2} ${xr-r},${y2} H${x2+8}"/><polygon points="${x2},${y2} ${x2+9},${y2-5} ${x2+9},${y2+5}"/>`;
+  }
+  redraws.push(arc);
+  const stop=()=>{clearInterval(timer);timer=null;$("#genPlay").textContent="▶ Згенерувати"};
+  $("#genPlay").onclick=()=>{if(timer){stop();return}if(i>=STEPS.length-1)show(-1);$("#genPlay").textContent="⏸ Пауза";show(i+1);
+    timer=setInterval(()=>{if(i>=STEPS.length-1){stop();return}show(i+1);if(i>=STEPS.length-1)stop()},1300)};
+  $("#genStep").onclick=()=>{stop();show(i>=STEPS.length-1?-1:i+1)};
+  $("#genReset").onclick=()=>{stop();show(-1)};
+  seg($("#genMode"),v=>{cache=v==="1";$("#genLoop").classList.toggle("nocache",!cache);show(i)});
+  show(-1);
+})();
+
+/* ===================== 9b. ціна генерації і KV-кеш ===================== */
+(function(){
+  const PER_TOKEN=2*32*8*128*2;  // Llama 3 8B: K і V × 32 шари × 8 голів KV × 128 × 2 байти (bf16)
+  function run(){
+    const P=+$("#kvP").value,n=+$("#kvN").value;$("#kvPV").textContent=nUk(P);$("#kvNV").textContent=nUk(n);
+    const no=n*P+n*(n-1)/2,yes=P+n-1,x=no/yes;
+    $("#kvNo").textContent=big(no);$("#kvYes").textContent=big(yes);$("#kvX").textContent="×"+(x<10?x.toFixed(1):nUk(x));$("#kvMem").textContent=bytes((P+n)*PER_TOKEN);
+  }
+  $("#kvP").addEventListener("input",run);$("#kvN").addEventListener("input",run);run();
+})();
+
+/* ===================== 10. семплер ===================== */
+(function(){
+  const W=["Київ","Карпати","Львів","село","гори","Одесу","магазин","кіно","офіс","космос"],Z=[3.0,2.6,2.5,2.0,1.9,1.5,0.8,0.5,-0.5,-1.5];
+  const t=$("#smT"),k=$("#smK"),p=$("#smP");
+  function dist(){
+    const T=+t.value,K=+k.value,Pp=+p.value,base=softmax(Z),q=softmax(Z,T),keep=W.map(()=>true);
+    const order=q.map((x,i)=>i).sort((a,b)=>q[b]-q[a]);
+    if(K>0)order.slice(K).forEach(i=>keep[i]=false);
+    // top-p рахується після top-k по перенормованому розподілу; перший токен лишається завжди
+    const s1=q.reduce((a,x,i)=>a+(keep[i]?x:0),0);let cum=0;
+    order.filter(i=>keep[i]).forEach(i=>{if(cum>=Pp-1e-9)keep[i]=false;else cum+=q[i]/s1});
+    const s2=q.reduce((a,x,i)=>a+(keep[i]?x:0),0);
+    return{base,fin:q.map((x,i)=>keep[i]?x/s2:0),keep};
+  }
+  function draw(){
+    const T=+t.value,K=+k.value,Pp=+p.value;$("#smTV").textContent=T.toFixed(2);$("#smKV").textContent=K?K:"вимк.";$("#smPV").textContent=Pp.toFixed(2);
+    const d=dist(),mx=Math.max(...d.fin,...d.base);
+    $("#smBars").innerHTML=W.map((w,i)=>distBar(w,d.fin[i],{ghost:d.base[i],max:mx,cls:d.keep[i]?"":"cut",color:"var(--violet)"})).join("");
+    const n=d.keep.filter(Boolean).length,top=d.fin.indexOf(Math.max(...d.fin));
+    $("#smExpl").innerHTML=`Лишилося <b>${n} з ${W.length}</b> кандидатів. «${W[top]}» тепер має ${pct(d.fin[top])} (у моделі було ${pct(d.base[top])}).`+
+      (n===1?" Вибір фактично жадібний: випадатиме лише цей токен.":T>1.4?" Висока температура піднімає навіть «космос»: текст стає різноманітнішим, але менш доречним.":"");
+    $("#smOut").innerHTML="";
+  }
+  function sample(fin){const r=Math.random();let c=0;for(let i=0;i<fin.length;i++){c+=fin[i];if(r<c)return i}return fin.findLastIndex(x=>x>0)}
+  $("#smRun").onclick=()=>{const d=dist(),got=Array.from({length:20},()=>sample(d.fin)),cnt={};got.forEach(i=>cnt[W[i]]=(cnt[W[i]]||0)+1);
+    $("#smOut").innerHTML=got.map(i=>`<span class="tk">${esc(W[i])}</span>`).join("")+`<div class="note" style="flex-basis:100%;margin-top:4px">${Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([w,c])=>`${esc(w)} ×${c}`).join(" · ")}</div>`};
+  const preset=(T,K,Pp)=>{t.value=T;k.value=K;p.value=Pp;draw()};
+  $("#smGreedy").onclick=()=>preset(1,1,1);$("#smChat").onclick=()=>preset(0.7,0,0.9);$("#smWild").onclick=()=>preset(1.8,0,1);
+  [t,k,p].forEach(el=>el.addEventListener("input",draw));draw();
+})();
+
+/* ===================== 11. масштаб моделей ===================== */
+(function(){
+  // p — параметри, млрд; a — активні параметри MoE, млрд; t — токени навчання, млрд
+  const D=[
+    {n:"GPT-1",y:2018.45,p:0.117,note:"OpenAI. 12 шарів, d = 768. Показала, що попередньо навчений декодер можна донавчати на різних задачах."},
+    {n:"GPT-2",y:2019.13,p:1.5,note:"OpenAI. 48 шарів, словник 50 257, контекст 1 024. Перші зв'язні абзаци згенерованого тексту."},
+    {n:"GPT-3",y:2020.4,p:175,t:300,note:"OpenAI. 96 шарів, d = 12 288, контекст 2 048. Показала навчання в контексті: задачі за кількома прикладами в промпті."},
+    {n:"Chinchilla",y:2022.25,p:70,t:1400,note:"DeepMind. Учетверо менша за Gopher (280 млрд) з того ж бюджету обчислень, але навчена на 1.4 трлн токенів і сильніша. Звідси правило ≈ 20 токенів на параметр."},
+    {n:"Llama 2 70B",y:2023.55,p:70,t:2000,note:"Meta. Відкриті ваги, 2 трлн токенів, контекст 4 096."},
+    {n:"Llama 3 8B",y:2024.3,p:8,t:15000,note:"Meta. Понад 15 трлн токенів для 8 млрд параметрів, тобто ≈ 1 900 токенів на параметр. Словник 128 256."},
+    {n:"Llama 3.1 405B",y:2024.56,p:405,t:15600,note:"Meta. Найбільша щільна модель із відкритими вагами на той час, контекст 128 тисяч токенів."},
+    {n:"Qwen2.5-0.5B",y:2024.72,p:0.49,t:18000,note:"Alibaba. Пів мільярда параметрів і 18 трлн токенів: понад 36 000 токенів на параметр. Маленьку модель дешево запускати, тому її вчать дуже довго."},
+    {n:"DeepSeek-V3",y:2024.99,p:671,a:37,t:14800,note:"DeepSeek. Mixture of Experts: 671 млрд параметрів, але на кожен токен працює лише 37 млрд. 14.8 трлн токенів."},
+    {n:"Qwen3-235B",y:2025.33,p:235,a:22,t:36000,note:"Alibaba. Mixture of Experts: 235 млрд параметрів, 22 млрд активних. Близько 36 трлн токенів навчання."}
+  ];
+  const svg=$("#scSvg"),W=760,H=340,pad={l:76,r:20,t:24,b:36},x0=2018,x1=2026;
+  const M={p:{get:d=>d.p,lo:-1,hi:3,f:v=>v<1?Math.round(v*1000)+" млн":v>=1000?(v/1000)+" трлн":v+" млрд",lab:"параметрів"},
+           t:{get:d=>d.t,lo:2,hi:5,f:v=>v>=1000?(v/1000)+" трлн":v+" млрд",lab:"токенів навчання"},
+           r:{get:d=>d.t&&d.t/d.p,lo:0,hi:5,f:v=>nUk(v),lab:"токенів на параметр"}};
+  let m="p",sel=-1;
+  const sx=y=>pad.l+(y-x0)/(x1-x0)*(W-pad.l-pad.r),sy=(v,mm)=>pad.t+(mm.hi-Math.log10(v))/(mm.hi-mm.lo)*(H-pad.t-pad.b);
+  function draw(){
+    const mm=M[m];let g=`<g class="grid">`;
+    for(let e=mm.lo;e<=mm.hi;e++){const y=sy(Math.pow(10,e),mm);g+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y}" y2="${y}"/>`}
+    g+=`</g>`;
+    for(let e=mm.lo;e<=mm.hi;e++){const y=sy(Math.pow(10,e),mm);g+=`<text class="mut" x="${pad.l-8}" y="${y+4}" text-anchor="end">${mm.f(Math.pow(10,e))}</text>`}
+    for(let y=2018;y<=2025;y++)g+=`<text class="mut" x="${sx(y+.5)}" y="${H-12}" text-anchor="middle">${y}</text>`;
+    g+=`<text class="mut" x="${pad.l}" y="12">${mm.lab} · логарифмічна шкала</text>`;
+    if(m==="r"){const y=sy(20,mm);g+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y}" y2="${y}" style="stroke:var(--aqua);stroke-dasharray:5 4"/><text x="${pad.l+6}" y="${y-6}" style="fill:var(--aqua);font-size:11px">Chinchilla-оптимум ≈ 20</text>`}
+    // підписи без накладання: для кожної точки пробуємо позиції праворуч, ліворуч, згори, знизу
+    const pts=D.map((d,i)=>({d,i,v:mm.get(d)})).filter(o=>o.v),boxes=[];
+    pts.forEach(o=>{o.x=sx(o.d.y);o.y=sy(o.v,mm);boxes.push([o.x-7,o.y-7,o.x+7,o.y+7])});
+    if(m==="r")boxes.push([pad.l,sy(20,mm)-18,pad.l+170,sy(20,mm)-2]);
+    const hit=b=>b[0]<pad.l||b[2]>W-2||b[1]<pad.t-8||b[3]>H-pad.b||boxes.some(c=>b[0]<c[2]&&b[2]>c[0]&&b[1]<c[3]&&b[3]>c[1]);
+    pts.forEach(o=>{const w=o.d.n.length*6.8+4;
+      for(const [dx,dy,an] of [[10,4,"start"],[-10,4,"end"],[0,-11,"middle"],[0,19,"middle"],[0,-25,"middle"],[0,33,"middle"]]){
+        const x=o.x+dx,y=o.y+dy,b=an==="start"?[x,y-10,x+w,y+3]:an==="end"?[x-w,y-10,x,y+3]:[x-w/2,y-10,x+w/2,y+3];
+        if(!hit(b)){boxes.push(b);g+=`<text class="lbl" x="${x}" y="${y}" text-anchor="${an}">${esc(o.d.n)}</text>`;break}}});
+    g+=pts.map(o=>`<circle class="pt" data-i="${o.i}" cx="${o.x}" cy="${o.y}" r="${o.i===sel?8:6}" style="fill:${o.d.a?"var(--orange)":"var(--blue)"}"><title>${esc(o.d.n)}</title></circle>`).join("");
+    g+=`<circle cx="${W-150}" cy="12" r="5" style="fill:var(--blue)"/><text class="mut" x="${W-140}" y="16">щільна</text><circle cx="${W-80}" cy="12" r="5" style="fill:var(--orange)"/><text class="mut" x="${W-70}" y="16">MoE</text>`;
+    svg.innerHTML=g;
+  }
+  function info(i){const d=D[i];
+    $("#scExpl").innerHTML=`<b>${esc(d.n)}</b> (${Math.floor(d.y)}): ${d.p<1?nUk(d.p*1000)+" млн":nUk(d.p)+" млрд"} параметрів${d.a?` (${d.a} млрд активних)`:""}${d.t?`, ${d.t>=1000?(d.t/1000)+" трлн":d.t+" млрд"} токенів навчання, ≈ ${nUk(d.t/d.p)} токенів на параметр`:", кількість токенів навчання точно не розкривали"}. ${esc(d.note)}`}
+  svg.addEventListener("click",e=>{const c=e.target.closest("[data-i]");if(!c)return;sel=+c.dataset.i;draw();info(sel)});
+  seg($("#scMetric"),v=>{m=v;draw()});draw();
+})();
+
+/* ===================== 11a. логіти міток ===================== */
+(function(){
+  const LAB=["позитивна","негативна","нейтральна"];
+  const R=[
+    {t:"Доставка затрималась на тиждень, а коробка прийшла м'ята.",d:[["негативна",.46],["Негативна",.13],["погана",.07],["нейтральна",.05],["змішана",.03],["позитивна",.02],["розчарування",.02],["—",.02]]},
+    {t:"Чудовий сервіс, замовлю ще!",d:[["позитивна",.61],["Позитивна",.14],["дуже",.04],["захоплена",.03],["нейтральна",.02],["вдячність",.02],["негативна",.01],["—",.01]]},
+    {t:"Фільм нудний, але фінал чудовий.",d:[["змішана",.21],["позитивна",.17],["негативна",.16],["нейтральна",.12],["неоднозначна",.08],["Змішана",.05],["скоріше",.04],["двоїста",.02]]}
+  ];
+  let ri=0;const only=$("#llOnly");
+  function draw(){
+    const r=R[ri],rest=1-r.d.reduce((a,x)=>a+x[1],0),isL=w=>LAB.includes(w);
+    const lab=r.d.filter(([w])=>isL(w)),ls=lab.reduce((a,x)=>a+x[1],0),best=lab.reduce((a,x)=>x[1]>a[1]?x:a);
+    $("#llPrompt").innerHTML=`Відгук: ${esc(r.t)}<br>Тональність: <span class="gen last">?</span>`;
+    const rows=[...r.d,["решта словника",rest]],mx=only.checked?1:Math.max(...r.d.map(x=>x[1]),rest);
+    $("#llBars").innerHTML=rows.map(([w,p])=>{const l=isL(w);
+      return only.checked?distBar(w,l?p/ls:0,{ghost:p,max:mx,cls:l?(w===best[0]?"pick":""):"cut",color:"var(--aqua)"}):
+        distBar(w,p,{max:mx,color:l?"var(--aqua)":w==="решта словника"?"var(--line)":"var(--blue)"})}).join("");
+    const conf=best[1]/ls;
+    $("#llBig").textContent=only.checked?`${best[0]} · ${pct(conf)}`:pct(ls);
+    $("#llBig").className="big "+(only.checked?(conf>.7?"a":"b"):"");
+    $("#llBigE").textContent=only.checked?"клас і його ймовірність після softmax по трьох мітках":"ймовірності разом дістали три слова-мітки";
+    const top=r.d[0][0];
+    $("#llExpl").innerHTML=!only.checked?
+      `Мовна голова розподіляє ймовірність по всьому словнику. Слова-мітки разом отримали лише ${pct(ls)}, решта пішла на ${isL(top)?"синоніми, слова з великої літери й інші продовження":`інші слова, і найімовірнішим стало «${esc(top)}», якого серед міток немає`}. Увімкніть «лише рядки міток».`:
+      ri===2?`Модель хотіла написати «змішана», а серед міток такого слова немає. Після обрізання три мітки отримали близькі ймовірності, і класифікатор фактично вгадує. Тут потрібна четверта мітка або донавчена голова.`:
+      `Від матриці |V| × <var>d</var> залишилися три рядки, тобто Linear(<var>d</var> → 3) на вектор останнього токена. Softmax по трьох логітах дав «${esc(best[0])}» з ймовірністю ${pct(conf)}. Модель для цього не донавчали: ваги голови — ембедінги слів-міток.`;
+  }
+  seg($("#llRev"),v=>{ri=+v;draw()});only.addEventListener("change",draw);draw();
+})();
+
+/* ===================== 11b. ціна класифікації потоку ===================== */
+(function(){
+  const ENC=1.1e8,LLM=8e9,FLOPS=1e14,INSTR=60;  // параметри; операцій за секунду; токенів інструкції
+  const cell=(t,n)=>`${t}<small>${n}</small>`;
+  const gpus=sec=>sec>86400?` · відеокарт цілодобово: ≈ ${nUk(Math.ceil(sec/86400))}`:"";
+  function run(){
+    const N=Math.round(Math.pow(10,+$("#ccN").value)),T=+$("#ccT").value,K=+$("#ccK").value;
+    $("#ccNV").textContent=big(N);$("#ccTV").textContent=T;$("#ccKV").textContent=K;
+    const pT=INSTR+T+K*(T+5),e=2*ENC*T*N/FLOPS,l=2*LLM*pT*N/FLOPS,o=2*LLM*T*N/FLOPS;
+    $("#ccEnc").innerHTML=cell(dur(e),"на день · розмітка: тисячі прикладів"+gpus(e));
+    $("#ccLlm").innerHTML=cell(dur(l),`×${nUk(l/e)} від енкодера · ${nUk(pT)} токенів промпту · розмітка: ${K} прикладів`+gpus(l));
+    $("#ccLora").innerHTML=cell(dur(o),`×${nUk(o/e)} від енкодера · розмітка: сотні–тисячі прикладів`+gpus(o));
+    $("#ccExpl").innerHTML=`Промпт LLM у ${(pT/T).toFixed(1)} раза довший за сам текст: інструкція і ${K} прикладів повторюються для кожного з ${big(N)} текстів. `+
+      (K>0?`Приберіть приклади, і різниця зменшиться, але не зникне: модель усе одно більша за енкодер: ×${nUk(LLM/ENC)} параметрів. `:`Навіть без прикладів модель більша за енкодер: ×${nUk(LLM/ENC)} параметрів. `)+
+      `Насправді енкодер можна запускати навіть на процесорі. А LLM, яка генерує відповідь замість логітів міток, робить кілька проходів на текст.`;
+  }
+  ["#ccN","#ccT","#ccK"].forEach(id=>$(id).addEventListener("input",run));run();
+})();
+
+</script>
+</body>
+</html>

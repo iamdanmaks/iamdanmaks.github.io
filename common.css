@@ -147,9 +147,9 @@ section.slide>.wide,section.slide>.demo,section.slide>.cards,section.slide>.two,
 .callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
 .term{border-bottom:1px dashed var(--muted);cursor:help}
 /* підказка глосарію для .term[data-g] (див. glossary.js) */
-.term[data-g]{border-bottom-color:color-mix(in srgb,var(--blue) 60%,transparent)}
-.term[data-g]:hover,.term[data-g].on{border-bottom-style:solid;border-bottom-color:var(--blue)}
-.term[data-g]:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:2px}
+.term[data-g]{background:color-mix(in srgb,var(--blue) 13%,transparent);border-bottom:2px solid color-mix(in srgb,var(--blue) 65%,transparent);border-radius:4px 4px 0 0;padding:0 .18em;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .15s}
+.term[data-g]:hover,.term[data-g].on{background:color-mix(in srgb,var(--blue) 24%,transparent);border-bottom-color:var(--blue)}
+.term[data-g]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .gloss-tip{position:absolute;z-index:40;width:max-content;max-width:min(340px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--blue);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 14px 12px;font-size:.86rem;line-height:1.5;color:var(--ink-2)}
 .lecture .gloss-tip{font-size:1rem;max-width:min(400px,calc(100vw - 24px))}
 .gloss-tip .gt-h{color:var(--ink)}
@@ -197,6 +197,34 @@ input[type=range]{accent-color:var(--blue);width:100%;max-width:260px}
 .result .expl{font-size:.85em;color:var(--muted)}
 .legendrow{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em;color:var(--ink-2);margin-top:6px}
 .legendrow .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+/* кнопки керування демо, перемикач режимів (.seg > button[aria-pressed]), пояснення під демо */
+.pctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 14px}
+.pctl .btn{font-size:.78em}
+.pctl .stepinfo{font-family:"IBM Plex Mono",monospace;font-size:.78em;color:var(--muted);margin-left:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:inherit;font-size:.78em;background:var(--surface);color:var(--ink-2);border:0;padding:6px 12px;cursor:pointer;border-right:1px solid var(--line-soft)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.explain{font-size:.9em;color:var(--ink-2);background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;margin-top:12px;min-height:3.2em}
+.explain b{color:var(--ink)}
+/* плитки з числами */
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+.stat{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px}
+.stat .l{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:"IBM Plex Mono",monospace}
+.stat .v{font-family:"IBM Plex Mono",monospace;font-size:1.25em;font-weight:500;font-variant-numeric:tabular-nums}
+.stat .v.a{color:var(--blue)}.stat .v.b{color:var(--orange)}.stat .v.c{color:var(--aqua)}
+/* горизонтальні смужки ймовірностей: підпис · смужка · число */
+.softbars{margin:14px 0}
+.softbar{display:grid;grid-template-columns:130px 1fr 64px;gap:10px;align-items:center;font-size:.88em;margin:7px 0}
+.softbar .tr{height:22px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.softbar .fl{height:100%;border-radius:6px;transition:width .1s}
+.softbar .n{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
+/* посилання на іншу лекцію: <div class="xref"><a class="chip" href="…">↩ Лекція 03</a><p>…</p></div> */
+section.slide>.xref{max-width:none}
+.xref{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:12px 16px;margin:18px 0;font-size:.92em;color:var(--ink-2)}
+.xref .chip{flex:none;font-family:"IBM Plex Mono",monospace;font-size:.72em;letter-spacing:.06em;text-transform:uppercase;color:var(--violet);border:1px solid color-mix(in srgb,var(--violet) 45%,transparent);border-radius:999px;padding:2px 9px;margin-top:2px;text-decoration:none;white-space:nowrap}
+.xref .chip:hover{background:color-mix(in srgb,var(--violet) 12%,transparent)}
+.xref p{margin:0}
 
 /* ---------- charts (SVG; див. lineChart у лекціях 02 і 05) ---------- */
 .chart{width:100%;height:auto;display:block;font-family:"IBM Plex Sans",sans-serif}

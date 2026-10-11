@@ -1,0 +1,156 @@
+<!-- Чернетка для лекції 07 (post-training, агенти): розділи 12–13, вирізані з лекції 06.
+     Не публікується (папка з «_» Jekyll пропускає). Під час збирання лекції 07 перенесіть розмітку,
+     стилі, скрипти й записи глосарію, а src у глосарії замініть на 07-….html#sN. -->
+
+<!-- ===== glossary.js ===== -->
+<!--
+"sft":{term:"SFT",en:"supervised fine-tuning, instruction tuning",def:"Донавчання базової мовної моделі на діалогах «інструкція → відповідь», щоб вона виконувала прохання, а не просто продовжувала текст. Втрату рахують лише на токенах відповіді.",src:"06-heads-decoders.html#s12",see:["chat-template","rlhf","fine-tuning"]},
+"rlhf":{term:"вирівнювання за вподобаннями",en:"preference tuning: RLHF, DPO",def:"Етап після SFT: модель вчать давати відповіді, які люди (або автоматичні оцінювачі) вважають кращими. RLHF використовує модель винагороди і навчання з підкріпленням, DPO вчиться напряму з пар «краща / гірша відповідь».",src:"06-heads-decoders.html#s12",see:["sft"]},
+"chat-template":{term:"чат-шаблон",en:"chat template",def:"Правило, за яким список повідомлень (system, user, assistant) перетворюють на один рядок зі спеціальними токенами ролей. Своє для кожної родини моделей; зберігається разом із токенізатором.",src:"06-heads-decoders.html#s12",see:["sft","special-tokens"]},
+"lora":{term:"LoRA",en:"Low-Rank Adaptation",def:"Донавчання, за якого ваги моделі заморожені, а до вибраних матриць додають навчувану поправку низького рангу <var>B</var>·<var>A</var>. Навчається менше 1% параметрів.",src:"06-heads-decoders.html#s13",see:["fine-tuning"]}
+-->
+
+<!-- ===== CSS ===== -->
+<style>
+/* 12. chat template */
+.chat{display:flex;flex-wrap:wrap;gap:3px;font-family:"IBM Plex Mono",monospace;font-size:.8em;line-height:1.3;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px}
+.chat span{padding:2px 4px;border-radius:4px;white-space:pre-wrap;overflow-wrap:anywhere}
+.chat .s{background:var(--blue-soft);color:var(--blue)}
+.chat .nl{flex-basis:100%;height:0;padding:0}
+.chat.lab .u{opacity:.35;text-decoration:line-through}
+.chat.lab .s{opacity:.35}
+.chat.lab .a{background:color-mix(in srgb,var(--aqua) 25%,transparent);outline:1px solid var(--aqua)}
+.chat.lab .s.a{opacity:1}
+.outbox{font-size:.92em;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;white-space:pre-wrap;line-height:1.55}
+.outbox .pr{font-family:"IBM Plex Mono",monospace;color:var(--blue)}
+</style>
+
+<!-- ===== HTML ===== -->
+<!-- ============ 12. POST-TRAINING ============ -->
+<section class="slide" id="s12" data-title="Від базової моделі до асистента">
+  <div class="eyebrow">Розділ 12 · <b>post-training</b></div>
+  <h2>Від базової моделі до асистента</h2>
+  <p class="lead">Після попереднього навчання модель уміє лише продовжувати текст. Щоб вона виконувала інструкції й підтримувала діалог, її донавчають ще у два етапи: на прикладах «інструкція → відповідь» і на оцінках того, яка відповідь краща.</p>
+
+  <div class="pipe">
+    <div class="pstep"><div class="l">1 · попереднє навчання</div><div class="t">трильйони токенів · наступний токен</div></div><span class="arrow">→</span>
+    <div class="pstep emb"><div class="l">2 · SFT</div><div class="t">10 тис.–1 млн діалогів</div></div><span class="arrow">→</span>
+    <div class="pstep hot"><div class="l">3 · вподобання</div><div class="t">RLHF або DPO: краща / гірша</div></div><span class="arrow">→</span>
+    <div class="pstep"><div class="l">4 · міркування (з 2024)</div><div class="t">RL на задачах із перевіркою</div></div>
+  </div>
+
+  <div class="demo">
+    <div class="head"><h4>Базова чи інструктивна модель</h4><span class="tag">interactive</span><span class="hint">Той самий промпт, дві моделі. Базова модель продовжує текст так, як він найімовірніше продовжувався б в інтернеті: наприклад, як список питань на форумі. Інструктивна модель після SFT відповідає на питання. Відповіді ілюстративні.</span></div>
+    <div class="seg" id="biMode"><button data-v="base" aria-pressed="true">базова (Qwen2.5-7B)</button><button data-v="inst" aria-pressed="false">інструктивна (Qwen2.5-7B-Instruct)</button></div>
+    <div class="outbox" id="biOut" style="margin-top:12px"></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">SFT</div><h4>Навчання на інструкціях</h4><p><span class="term" data-g="sft">SFT</span> — це те саме навчання на наступному токені, але на діалогах «інструкція → гарна відповідь», написаних людьми або сильнішою моделлю.</p></div>
+    <div class="card"><div class="k">RLHF</div><h4>Модель винагороди</h4><p>Люди порівнюють пари відповідей. На цих оцінках навчають модель винагороди (це енкодер чи декодер із головою на одне число!), а LLM оптимізують під неї через RL. Так зробили InstructGPT (2022) і ChatGPT.</p></div>
+    <div class="card"><div class="k">DPO</div><h4>Без моделі винагороди</h4><p>Direct Preference Optimization (2023) вчить модель напряму з пар «краща / гірша відповідь»: підвищує ймовірність кращої відносно гіршої. Простіше й стабільніше, тому популярне у відкритих моделях.</p></div>
+    <div class="card"><div class="k">Міркування</div><h4>RL з перевіркою відповіді</h4><p>OpenAI o1 (2024) і DeepSeek-R1 (2025): модель генерує довгий ланцюжок міркувань, а винагороду дає автоматична перевірка (чи збігся розв'язок задачі, чи пройшли тести коду).</p></div>
+  </div>
+  <p>Етап 3 загалом називають <span class="term" data-g="rlhf">вирівнюванням за вподобаннями</span>.</p>
+
+  <h3>Діалог — це теж просто текст</h3>
+  <p>Модель не знає, що таке «повідомлення». Діалог перетворюють на один рядок за допомогою <span class="term" data-g="chat-template">чат-шаблону</span> зі спеціальними токенами, які позначають, хто говорить. Під час SFT втрату рахують лише на токенах відповіді асистента. Решті ставлять мітку −100, як продовженням слів у NER.</p>
+  <div class="demo">
+    <div class="head"><h4>Чат-шаблон і маска втрати</h4><span class="tag">interactive</span><span class="hint">Діалог із трьох повідомлень у форматі ChatML, який використовує Qwen. Сині блоки — спеціальні токени. Перемкніть на «мітки для SFT»: закреслене отримує −100 і не впливає на втрату, а зелене — це те, чого модель вчиться.</span></div>
+    <div class="seg" id="ctMode"><button data-v="txt" aria-pressed="true">текст шаблону</button><button data-v="lab" aria-pressed="false">мітки для SFT</button></div>
+    <div class="chat" id="ctBox" style="margin-top:12px"></div>
+    <div class="explain" id="ctExpl"></div>
+  </div>
+  <div class="callout warn"><div class="qm">Типова помилка</div><p>Кожна родина моделей має свій шаблон: у Llama 3 інші спецтокени, ніж у Qwen. Якщо зібрати промпт вручну з помилкою або взяти шаблон іншої моделі, якість відповідей помітно падає. Завжди використовуйте <code>tokenizer.apply_chat_template</code>: шаблон зберігається разом із токенізатором.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Чому під час SFT втрату не рахують на токенах повідомлення користувача?</div>
+      <div class="opts"><button class="opt">Модель має вчитися відповідати, а не імітувати користувача</button><button class="opt">Токени користувача не проходять через модель</button><button class="opt">Через це модель працює швидше на інференсі</button></div>
+      <div class="ans">Повідомлення користувача модель бачить як контекст (через увагу), але передбачати його не вчиться. Мітки −100 прибирають ці позиції з крос-ентропії.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 13. LLM FOR YOUR TASK ============ -->
+<section class="slide" id="s13" data-title="LLM для ваших задач">
+  <div class="eyebrow">Розділ 13 · <b>практика</b></div>
+  <h2>LLM для ваших задач: промпт, голова чи LoRA</h2>
+  <p class="lead">Декодер теж можна використати для класифікації чи вилучення сутностей. Є чотири способи: від «просто попросити» до донавчання. Вони відрізняються ціною, потрібною кількістю даних і контролем над відповіддю.</p>
+
+  <div class="cards">
+    <div class="card"><div class="k">1 · Промпт</div><h4>Zero-shot і few-shot</h4><p>Описати задачу і, можливо, дати кілька прикладів (<span class="term" data-g="zero-shot">zero-shot</span> чи few-shot). Розмічені дані не потрібні. Але відповідь треба розбирати, а модель може вигадати мітку, якої немає в списку.</p></div>
+    <div class="card"><div class="k">2 · Логіти міток</div><h4>Мовна голова як класифікатор</h4><p>Після промпту порівнюємо ймовірності токенів-міток («позитивна», «негативна») на наступній позиції. Відповідь завжди одна з міток, і ми маємо ймовірність, а не лише текст.</p></div>
+    <div class="card"><div class="k">3 · Нова голова</div><h4>Класифікація на останньому токені</h4><p>Клас <code>…ForSequenceClassification</code> для Llama чи Qwen замінює мовну голову на Linear(<var>d</var> → <var>K</var>) на останньому токені. Потрібні розмічені дані і донавчання, як з BERT.</p></div>
+    <div class="card"><div class="k">4 · LoRA</div><h4>Донавчання адаптерами</h4><p>Ваги моделі заморожені, а поруч із вибраними матрицями навчаються маленькі добавки низького рангу. Працює і для генерації, і для класифікації.</p></div>
+  </div>
+
+  <p><span class="term" data-g="lora">LoRA</span> (Low-Rank Adaptation, 2021) спирається на спостереження: зміна ваг під час донавчання має низький ранг. Тому замість повної матриці зміни Δ<var>W</var> розміром <var>d</var><sub>out</sub> × <var>d</var><sub>in</sub> навчають добуток двох вузьких матриць:</p>
+  <div class="formula"><var>W</var>′ = <var>W</var> + <span class="frac"><span><var>α</var></span><span><var class="c2">r</var></span></span> · <var class="c1">B</var> <var class="c3">A</var>,&nbsp;&nbsp; <var class="c1">B</var> ∈ ℝ<sup><var>d</var><sub>out</sub> × <var class="c2">r</var></sup>,&nbsp; <var class="c3">A</var> ∈ ℝ<sup><var class="c2">r</var> × <var>d</var><sub>in</sub></sup>,&nbsp;&nbsp; <var class="c2">r</var> ≪ <var>d</var></div>
+
+  <div class="demo">
+    <div class="head"><h4>Скільки параметрів навчає LoRA</h4><span class="tag">interactive</span><span class="hint">Оберіть модель, ранг r і матриці, до яких додаються адаптери. Розміри матриць справжні, з конфігів моделей. Порівняйте частку навчуваних параметрів і пам'ять на навчання з повним донавчанням, де на кожен параметр потрібно близько 16 байтів (ваги, градієнти і два стани Adam).</span></div>
+    <div class="seg" id="loraModel"><button data-v="0" aria-pressed="true">Qwen2.5-0.5B</button><button data-v="1" aria-pressed="false">Llama 3 8B</button></div>
+    <div class="ctl" style="margin-top:12px">
+      <label>Ранг <var>r</var> = <span class="v" id="loraRV">16</span><input type="range" id="loraR" min="0" max="8" step="1" value="4"></label>
+      <label class="chk"><input type="checkbox" id="loraAttn" checked> увага: q, k, v, o</label>
+      <label class="chk"><input type="checkbox" id="loraFfn"> FFN: gate, up, down</label>
+    </div>
+    <div class="statrow">
+      <div class="stat"><div class="l">навчуваних параметрів</div><div class="v c" id="loraN"></div></div>
+      <div class="stat"><div class="l">частка моделі</div><div class="v" id="loraP"></div></div>
+      <div class="stat"><div class="l">файл адаптера (bf16)</div><div class="v a" id="loraF"></div></div>
+      <div class="stat"><div class="l">повне донавчання: ваги + Adam</div><div class="v b" id="loraFull"></div></div>
+    </div>
+  </div>
+
+  <div class="callout"><p><strong>Коли енкодер досі кращий.</strong> Фіксований набір класів, тисячі розмічених прикладів і великий потік запитів: донавчений XLM-R працює в сотні разів дешевше за LLM і часто не поступається якістю. LLM варто брати, коли даних мало, класи часто змінюються, потрібне пояснення відповіді або задача генеративна.</p></div>
+</section>
+
+<!-- ===== JS (потребує хелперів seg, segPick, esc, big, bytes, pct з лекції 06) ===== -->
+<script>
+/* ===================== 12a. базова чи інструктивна ===================== */
+(function(){
+  const PR="Як швидко вивчити Python?";
+  const O={
+    base:"\nЯк швидко вивчити JavaScript?\nЯк швидко вивчити англійську?\n\nЦі питання щодня ставлять на форумах. У цій статті ми зібрали відповіді досвідчених розробників і розповімо, чому «швидко» — не завжди…",
+    inst:"\n\nОсь план на місяць:\n1. Перший тиждень: синтаксис, змінні, умови й цикли. Пишіть код щодня хоча б годину.\n2. Другий тиждень: функції, списки, словники, робота з файлами.\n3. Третій тиждень: невеликий проєкт, наприклад бот чи парсер сайту.\n4. Четвертий тиждень: бібліотеки під вашу мету — pandas для даних, FastAPI для вебу.\n\nГоловне — практика: читання про код без написання коду майже не допомагає."
+  };
+  const show=v=>$("#biOut").innerHTML=`<span class="pr">${esc(PR)}</span>${esc(O[v])}`;
+  seg($("#biMode"),show);show("base");
+})();
+
+/* ===================== 12b. чат-шаблон і маска втрати ===================== */
+(function(){
+  // [текст, клас]: s — спецтокен, u — не вчимо (−100), a — вчимо; "↵" — перенесення рядка
+  const NL=["↵","u"];
+  const P=[["<|im_start|>","s"],["system","u"],NL,["Ти лаконічний помічник.","u"],["<|im_end|>","s"],NL,
+           ["<|im_start|>","s"],["user","u"],NL,["Що таке токен?","u"],["<|im_end|>","s"],NL,
+           ["<|im_start|>","s"],["assistant","u"],NL,["Одиниця тексту, на яку токенізатор ділить рядок: слово, частина слова або символ.","a"],["<|im_end|>","s a"]];
+  function show(v){const box=$("#ctBox");box.classList.toggle("lab",v==="lab");
+    box.innerHTML=P.map(([t,c])=>t==="↵"?`<span class="${c}">↵</span><span class="nl"></span>`:`<span class="${c}">${esc(t)}</span>`).join("");
+    $("#ctExpl").innerHTML=v==="lab"?
+      `Мітки −100 отримують системне повідомлення, повідомлення користувача і службові токени. Вчимо лише <b>відповідь асистента і завершальний &lt;|im_end|&gt;</b>: модель має навчитися і відповідати, і вчасно зупинятися.`:
+      `Це один рядок, який реально бачить модель. Під час генерації <code>add_generation_prompt=True</code> дописує в кінець «&lt;|im_start|&gt;assistant↵», і модель продовжує з цього місця, доки не згенерує &lt;|im_end|&gt;.`}
+  seg($("#ctMode"),show);show("txt");
+})();
+
+/* ===================== 13. LoRA ===================== */
+(function(){
+  // [d_in, d_out] матриць одного шару, з config.json моделей
+  const MD=[
+    {L:24,total:494e6,attn:[[896,896],[896,128],[896,128],[896,896]],ffn:[[896,4864],[896,4864],[4864,896]]},
+    {L:32,total:8.03e9,attn:[[4096,4096],[4096,1024],[4096,1024],[4096,4096]],ffn:[[4096,14336],[4096,14336],[14336,4096]]}
+  ];
+  let mi=0;
+  function run(){
+    const md=MD[mi],r=Math.pow(2,+$("#loraR").value);$("#loraRV").textContent=r;
+    const mats=[...($("#loraAttn").checked?md.attn:[]),...($("#loraFfn").checked?md.ffn:[])];
+    const n=md.L*mats.reduce((a,[i,o])=>a+r*(i+o),0);
+    $("#loraN").textContent=n?big(n):"0";$("#loraP").textContent=n?(n/md.total<0.001?"< 0.1%":pct(n/md.total,2)):"0%";
+    $("#loraF").textContent=bytes(n*2);$("#loraFull").textContent=bytes(md.total*16);
+  }
+  seg($("#loraModel"),v=>{mi=+v;run()});
+  $("#loraR").addEventListener("input",run);$("#loraAttn").addEventListener("change",run);$("#loraFfn").addEventListener("change",run);run();
+})();
+</script>

@@ -148,7 +148,7 @@ function glossShow(el){
 function glossHide(){clearTimeout(glossTimer);glossTip.hidden=true;if(glossFor){glossFor.classList.remove("on");glossFor.removeAttribute("aria-describedby");glossFor=null}}
 const glossLater=()=>{clearTimeout(glossTimer);glossTimer=setTimeout(()=>{if(!glossTip.contains(document.activeElement))glossHide()},180)};
 $$(".term[data-g]").forEach(el=>{
-  if(!gloss[el.dataset.g]){console.warn("glossary.js: немає терміна",el.dataset.g);return}
+  if(!gloss[el.dataset.g]){console.warn("glossary.js: немає терміна",el.dataset.g);el.removeAttribute("data-g");return}  // без підсвітки: підказки не буде
   el.removeAttribute("title");el.tabIndex=0;
   el.addEventListener("mouseenter",()=>glossShow(el));el.addEventListener("mouseleave",glossLater);
   el.addEventListener("focus",()=>glossShow(el));el.addEventListener("blur",glossLater);
