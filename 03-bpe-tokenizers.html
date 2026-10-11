@@ -158,7 +158,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 <main id="main">
 
 <!-- ============ 0. HERO ============ -->
-<section class="slide" id="s0" data-title="Вступ">
+<section class="slide" id="s0" data-title="Вступ" data-narr="audio/03-bpe-tokenizers/s0">
   <div class="eyebrow">Обробка природної мови · <b>Токенізація</b></div>
   <h1>BPE токенізатори: як моделі бачать текст</h1>
   <div class="hero-grid">
@@ -191,7 +191,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 </section>
 
 <!-- ============ 0b. TOKENS -> MODEL ============ -->
-<section class="slide" id="s0b" data-title="Токенізація → модель">
+<section class="slide" id="s0b" data-title="Токенізація → модель" data-narr="audio/03-bpe-tokenizers/s0b">
   <div class="eyebrow">Від токенізації до моделі</div>
   <h2>Токенізація — це вхід до мовної моделі</h2>
   <p class="lead">Токенізація потрібна не сама по собі. Вона — перший крок пайплайну, який перетворює сирий текст на числа, зрозумілі нейромережі. Без цього кроку модель просто не отримає текст.</p>
@@ -243,7 +243,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
 </section>
 
 <!-- ============ 1. SIMPLE TOKENIZATION ============ -->
-<section class="slide" id="s1" data-title="Проблема слів">
+<section class="slide" id="s1" data-title="Проблема слів" data-narr="audio/03-bpe-tokenizers/s1">
   <div class="eyebrow">Розділ 1</div>
   <h2>Проста токенізація і її межа</h2>
   <p>З простою токенізацією ми вже стикалися в лекції про <span class="term" data-g="tfidf">TF-IDF</span>. Це поділ тексту на слова за пробілами з відділенням пунктуації у окремі токени. Далі кожне унікальне слово отримує свій стовпець у матриці — і розмірність вектора дорівнює розміру словника.</p>
@@ -299,7 +299,7 @@ model.wv.key_to_index.get("unbelievable")   # None</code></pre>
 </section>
 
 <!-- ============ 2. SUBWORDS ============ -->
-<section class="slide" id="s2" data-title="Ідея субслів">
+<section class="slide" id="s2" data-title="Ідея субслів" data-narr="audio/03-bpe-tokenizers/s2">
   <div class="eyebrow">Розділ 2</div>
   <h2>Ідея субслів: збираємо слова з частин</h2>
   <p>Замість того щоб зберігати кожне слово окремо, збудуймо словник із <strong>субслів</strong> — менших одиниць, з яких далі можна зібрати переважну більшість слів. Навіть якщо модель ніколи не бачила слова «animals», вона може знати частини «ani», «mal», «s» і скласти слово з них.</p>
@@ -323,7 +323,7 @@ model.wv.key_to_index.get("unbelievable")   # None</code></pre>
 </section>
 
 <!-- ============ 3. WORDPIECE ============ -->
-<section class="slide" id="s3" data-title="WordPiece і [UNK]">
+<section class="slide" id="s3" data-title="WordPiece і [UNK]" data-narr="audio/03-bpe-tokenizers/s3">
   <div class="eyebrow">Розділ 3</div>
   <h2>WordPiece: так робить BERT</h2>
   <p><span class="term" data-g="bert">BERT</span> — одна з перших <span class="term" data-g="transformer">трансформерів</span>, що стали основою сучасних LLM, — використовує токенізатор <strong>WordPiece</strong>. Ідея схожа на BPE, але пару для злиття обирають не за частотою, а за тим, наскільки злиття <strong>підвищує правдоподібність</strong> тексту в простій мовній моделі.</p>
@@ -357,7 +357,7 @@ tokenizer.tokenize("Привіт 🌍")
 </section>
 
 <!-- ============ 4. BPE + BYTE FALLBACK ============ -->
-<section class="slide" id="s4" data-title="BPE і byte fallback">
+<section class="slide" id="s4" data-title="BPE і byte fallback" data-narr="audio/03-bpe-tokenizers/s4">
   <div class="eyebrow">Розділ 4</div>
   <h2>BPE і byte-level fallback</h2>
   <p><strong>BPE</strong> (Byte Pair Encoding) придумали для машинного перекладу (Sennrich та ін., 2016), а GPT-2 зробив його <strong>байтовим</strong>. Ідея byte-level: перед будь-якою роботою текст перетворюють на байти <span class="term" data-g="utf8">UTF-8</span>. Оскільки всіх байтів рівно 256, <strong>усі вони є токенами словника</strong> — отже, будь-який текст, будь-який символ, будь-яке емоджі гарантовано кодуються. Це і називають <em class="term" title="якщо символ невідомий, використовуються його байти">byte fallback</em>.</p>
@@ -396,7 +396,7 @@ tokenizer.tokenize("їжак")          # ['Ñ', 'Ĺ', 'Ð', '¶', 'Ð°', 'Ðº
 </section>
 
 <!-- ============ 5. BPE TRAINING ============ -->
-<section class="slide" id="s5" data-title="Як вчиться BPE">
+<section class="slide" id="s5" data-title="Як вчиться BPE" data-narr="audio/03-bpe-tokenizers/s5">
   <div class="eyebrow">Розділ 5</div>
   <h2>Як навчається BPE</h2>
   <p>BPE — це жадібний алгоритм. Почніть із найменших одиниць (символів або байтів) і на кожному кроці зливайте <strong>найчастішу пару</strong> сусідніх токенів у новий токен. Повторюйте, поки не досягнете цільового розміру словника або поки не залишиться пар, частіших за поріг.</p>
@@ -500,7 +500,7 @@ while len(vocab) &lt; vocab_size:
 </section>
 
 <!-- ============ 6. TRAIN YOUR OWN ============ -->
-<section class="slide" id="s6" data-title="Власний токенізатор">
+<section class="slide" id="s6" data-title="Власний токенізатор" data-narr="audio/03-bpe-tokenizers/s6">
   <div class="eyebrow">Розділ 6</div>
   <h2>Тренування власного токенізатора</h2>
   <p>Для реальних задач токенізатори вчать через бібліотеку <code>tokenizers</code> від HuggingFace — вона дає оптимізований пайплайн для BPE. Розглянемо процес із ноутбука покроково.</p>
@@ -550,7 +550,7 @@ print(loaded.decode(encoded.ids))   # 'brown fox'</code></pre>
 </section>
 
 <!-- ============ 7. COMPARE ============ -->
-<section class="slide" id="s7" data-title="Порівняння токенізаторів">
+<section class="slide" id="s7" data-title="Порівняння токенізаторів" data-narr="audio/03-bpe-tokenizers/s7">
   <div class="eyebrow">Розділ 7</div>
   <h2>Три токенізатори на одному слові</h2>
   <p>Порівняймо реальні результати трьох відомих токенізаторів. Однакова <em>ідея</em> субслів дає дуже різні результати залежно від мови навчального корпусу та алгоритму.</p>
@@ -582,7 +582,7 @@ print(loaded.decode(encoded.ids))   # 'brown fox'</code></pre>
 </section>
 
 <!-- ============ 8. METRICS ============ -->
-<section class="slide" id="s8" data-title="Метрики токенізації">
+<section class="slide" id="s8" data-title="Метрики токенізації" data-narr="audio/03-bpe-tokenizers/s8">
   <div class="eyebrow">Розділ 8</div>
   <h2>Наскільки ефективна токенізація?</h2>
   <p>Ефективність токенізації найчастіше міряють метрикою <strong><span class="term" data-g="tokens-per-word">«токени на слово»</span></strong> (tokens per word). Вона показує, скільки токенів припадає на одне слово. Чим менше — тим ефективніше: коротший вхід, швидша генерація, дешевша ціна.</p>
@@ -643,7 +643,7 @@ tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
 </section>
 
 <!-- ============ 9. MULTILINGUAL COST ============ -->
-<section class="slide" id="s9" data-title="Мова і ціна">
+<section class="slide" id="s9" data-title="Мова і ціна" data-narr="audio/03-bpe-tokenizers/s9">
   <div class="eyebrow">Розділ 9</div>
   <h2>Мова, контекст і гроші</h2>
   <p>BPE-токенізатори <strong>не однаково ефективні для всіх мов і доменів</strong>. Вони надають пріоритет тій мові й тим темам, яких було найбільше в навчальному корпусі. Наслідок практичний: коли ви платите за API за токенами, генерація не англійською (особливо не латиницею) майже завжди коштує дорожче — навіть якщо текст однаковий за кількістю слів чи символів.</p>
@@ -669,7 +669,7 @@ tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
 </section>
 
 <!-- ============ 10. PROBLEMS ============ -->
-<section class="slide" id="s10" data-title="Проблеми BPE">
+<section class="slide" id="s10" data-title="Проблеми BPE" data-narr="audio/03-bpe-tokenizers/s10">
   <div class="eyebrow">Розділ 10</div>
   <h2>Проблеми BPE токенізації</h2>
   <p>Субслова вирішили проблему невідомих слів, але створили нові. Найвідоміша — модель бачить текст <strong>не як літери</strong>, а як токени, які далеко не завжди є змістовними.</p>
@@ -692,7 +692,7 @@ tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
 </section>
 
 <!-- ============ 11. SUMMARY + QUIZ ============ -->
-<section class="slide" id="s11" data-title="Підсумок і тест">
+<section class="slide" id="s11" data-title="Підсумок і тест" data-narr="audio/03-bpe-tokenizers/s11">
   <div class="eyebrow">Розділ 11</div>
   <h2>Підсумок</h2>
   <div class="cards">
@@ -772,12 +772,21 @@ tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
 
 <script src="glossary.js"></script>
 <script src="common.js"></script>
+<script src="narration.js"></script>
 <script>
 /* ===================== helpers ===================== */
 const enc=new TextEncoder();
 const SPACE="\u0120";                     // Ġ — маркер пробілу
 const disp=t=>String(t).replace(/\u0120/g,"Ġ");
-
+// озвучка (narration.js): хуки отримують лише числа, тому текст і пункт списку задаємо індексом.
+// narrText: хук #id(i, ms) друкує texts[i] за ms мілісекунд; texts[0] — початковий текст поля.
+// narrSelect: хук #id(i) вибирає i-й пункт списку (input і change, бо демо слухають різні події).
+const NH=window.narrHooks=window.narrHooks||{};
+function narrText(id,extra=[]){const el=$('#'+id),texts=[el.defaultValue,...extra];
+  const put=v=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}))};
+  NH[id]=(i,ms)=>{const t=texts[i]??'';clearInterval(el._narrT);if(!(ms>0))return put(t);
+    let n=0;put('');el._narrT=setInterval(()=>{put(t.slice(0,++n));if(n>=t.length)clearInterval(el._narrT)},ms/Math.max(1,t.length))}}
+function narrSelect(id){const el=$('#'+id);NH[id]=i=>{el.selectedIndex=i;['input','change'].forEach(e=>el.dispatchEvent(new Event(e,{bubbles:true})))}}
 
 /* ===================== hero visual ===================== */
 (function(){
@@ -824,6 +833,7 @@ const disp=t=>String(t).replace(/\u0120/g,"Ġ");
       <p style="font-size:.85em;color:var(--ink-2)">Індекс ${tok.id} — це номер рядка. Вектор довжини ${D} — це те, що модель отримує замість слова «${esc(disp(tok.t))}». У реальній моделі замість ${D} чисел буде 768 (BERT) або 12288 (GPT-3).</p>`;
   }
   render(1);
+  NH.embSel=i=>render(i);   // озвучка: вибрати i-й рядок матриці
 })();
 
 /* ===================== 1. vocab explosion ===================== */
@@ -850,6 +860,7 @@ const disp=t=>String(t).replace(/\u0120/g,"Ġ");
     sum.innerHTML=`<span class="big a">${words.length}</span><span class="expl">слів</span><span class="big b" style="color:var(--bm25)">${unk}</span><span class="expl">стануть &lt;UNK&gt; і модель їх не побачить</span>`;
   }
   inp.addEventListener('input',run);run();
+  narrText('oovIn',['the cats are running']);
 })();
 
 /* ===================== 2. subword split ===================== */
@@ -869,6 +880,7 @@ const disp=t=>String(t).replace(/\u0120/g,"Ġ");
     cnt.textContent=parts.length;
   }
   sel.addEventListener('change',run);run();
+  narrSelect('swWord');
 })();
 
 /* ===================== REAL tokenizer data ===================== */
@@ -920,6 +932,7 @@ const SPECIAL=/^(\[CLS\]|\[SEP\]|\[PAD\]|\[MASK\]|\[UNK\]|<s>|<\/s>)$/;
       (unknown?`<span class="big b" style="color:var(--bm25)">${unknown}</span><span class="expl">[UNK] — цю частину модель не бачить</span>`:`<span class="big" style="color:var(--aqua)">0</span><span class="expl">[UNK] — усе закодовано</span>`);
   }
   sel.addEventListener('change',run);run();
+  narrSelect('wpWord');
 })();
 
 /* ===================== 4. unicode + byte-level ===================== */
@@ -945,6 +958,7 @@ function byteBoxes(text){
     bs.textContent=`${total} байтових токенів. У справжнього GPT-2 частина сусідніх байтів додатково зливається мьоржами, тому токенів буде менше.`;
   }
   inp.addEventListener('input',run);run();
+  narrText('uniIn',['hello','їжак']);
   const map={exHe:"hello world",exSt:"strawberry",exUk:"їжак"};
   for(const id in map){
     const d=REAL.gpt2[map[id]];
@@ -1042,6 +1056,12 @@ const TRAINER=new BPE();
   reset();
   // playground wire-up needs TRAINER + render; expose
   window.__bpeRefresh=render;
+  // озвучка (narration.js): корпус-приклад s (0 — en, 1 — uk), розмір словника v, мін. частота f
+  // і n мьоржів від нуля (n ≥ 99 — до кінця); кроки розтягуються на ms мілісекунд.
+  let narrT=null;
+  NH.bpeGo=(s,v,f,n,ms)=>{clearInterval(narrT);sample.selectedIndex=s;corpus.value=BPE_SAMPLES[sample.value];
+    vs.value=v;mf.value=f;reset();if(!(ms>0)){for(let i=0;i<n&&TRAINER.step();i++);render();return}
+    let i=0;narrT=setInterval(()=>{if(i++>=n||!TRAINER.step())clearInterval(narrT);render()},ms/Math.max(1,Math.min(n,20)))};
 })();
 
 /* GPT-2 merges + vocab fragments */
@@ -1078,6 +1098,7 @@ const TRAINER=new BPE();
     $('#cmpNote').textContent=note;
   }
   sel.addEventListener('change',run);run();
+  narrSelect('cmpText');
 })();
 
 /* ===================== 7b. playground ===================== */
@@ -1108,6 +1129,7 @@ function pgRefresh(){
   if(!inp)return;
   inp.addEventListener('input',pgRefresh);mode.addEventListener('change',pgRefresh);
   pgRefresh();
+  narrText('pgIn',['Їжак 🌍']);narrSelect('pgMode');
 })();
 
 /* ===================== 8. metrics ===================== */
@@ -1139,6 +1161,7 @@ function pgRefresh(){
   inp.addEventListener('input',run);mode.addEventListener('change',run);
   preset.addEventListener('change',()=>{if(PRESETS[preset.value]){inp.value=PRESETS[preset.value];run();}});
   run();
+  narrText('mtIn');narrSelect('mtMode');narrSelect('mtPreset');
   // real metrics table
   const rows=[
     ["українською","51","23","2.22","3.25","6.02"],
@@ -1172,6 +1195,7 @@ function pgRefresh(){
       : (ratio<=0.98?`англійська дорожча у ${fmt(1/ratio,2)} раза`:"вартість приблизно однакова");
   }
   [preset,chars,price].forEach(e=>e.addEventListener('input',run));run();
+  narrSelect('costPreset');
 })();
 
 /* ===================== 10. strawberry ===================== */
