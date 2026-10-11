@@ -75,7 +75,9 @@ def parse(src):
     piece = src[pos:]
     if out and out[-1].isspace():
         piece = piece.lstrip(" ")
-    return (out + piece).strip(), cues
+    text = (out + piece).strip()
+    # маркер у самому кінці стоїть після пробілу, який прибрав strip()
+    return text, [{**c, "at": min(c["at"], len(text))} for c in cues]
 
 
 def strip_stress(text, cues):

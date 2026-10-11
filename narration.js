@@ -6,7 +6,8 @@
      hl|селектор          підсвітити елемент і прокрутити до нього
      unhl                 зняти підсвітку
      set|селектор|v|мс    плавно пересунути повзунок (з подією input)
-     click|селектор       натиснути кнопку
+     click|селектор       натиснути кнопку (працює і для елементів SVG)
+     check|селектор|0/1   поставити або зняти прапорець (з подією change)
      call|хук|аргументи…  викликати narrHooks[хук](…аргументи, мс) з демо лекції
    Селектори шукаються всередині розділу.
    ===================================================================== */
@@ -14,6 +15,13 @@
 const hooks=window.narrHooks=window.narrHooks||{};
 document.head.insertAdjacentHTML("beforeend",`<style>
 .narr-play{float:right;margin:0 0 8px 12px;font-size:.8em}
+.narr-tip{position:absolute;z-index:40;width:max-content;max-width:min(360px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--violet);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 14px 12px;font-size:.86rem;line-height:1.5;color:var(--ink-2)}
+.narr-tip[hidden]{display:none}
+.lecture .narr-tip{font-size:1rem;max-width:min(420px,calc(100vw - 24px))}
+.narr-tip b{color:var(--ink);font-weight:600}
+.narr-tip p{margin:4px 0 6px}
+.narr-tip ul{margin:0;padding-left:1.1em}
+.narr-tip li{margin:2px 0}
 .narr-hl{outline:3px solid var(--violet);outline-offset:5px;border-radius:var(--radius);box-shadow:0 0 0 10px color-mix(in srgb,var(--violet) 12%,transparent);transition:outline-color .3s,box-shadow .3s}
 .narr-bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(760px,calc(100vw - 24px));z-index:100;display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.18);font-size:16px}
 .narr-bar{flex-direction:column;align-items:stretch}
@@ -65,7 +73,8 @@ function run([act,...args],instant){
   if(act==="hl"){const el=q(args[0]);unhl();if(el){el.classList.add("narr-hl");hlEl=el;show(el,instant)}}
   else if(act==="unhl")unhl();
   else if(act==="set"){const el=q(args[0]);if(el)setRange(el,+args[1],instant?0:+(args[2]||600))}
-  else if(act==="click"){const el=q(args[0]);if(el)el.click()}
+  else if(act==="click"){const el=q(args[0]);if(el){if(typeof el.click==="function")el.click();else el.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,view:window}))}}
+  else if(act==="check"){const el=q(args[0]),on=args[1]!=="0";if(el&&el.checked!==on){el.checked=on;el.dispatchEvent(new Event("change",{bubbles:true}))}}
   else if(act==="call"){const f=hooks[args[0]];if(!f)return console.warn("narr: no hook",args[0]);
     const xs=args.slice(1).map(Number);if(instant)xs[xs.length-1]=0;f(...xs)}
 }
@@ -123,14 +132,29 @@ $(".narr-x",bar).onclick=stop;
 $(".narr-track",bar).onclick=e=>{const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/r.width*data.duration);};
 const rates=[1,1.25,1.5,0.85];
 rateBtn.onclick=()=>{const r=rates[(rates.indexOf(audio.playbackRate)+1)%rates.length];audio.playbackRate=r;rateBtn.textContent=r+"×"};
-audio.addEventListener("ended",()=>{unhl();ppBtn.innerHTML=ICON.again;cap.textContent="Кінець розділу. Тепер спробуйте демо самі."});
+audio.addEventListener("ended",()=>{unhl();ppBtn.innerHTML=ICON.again;cap.textContent=sec&&$(".demo",sec)?"Кінець розділу. Тепер спробуйте демо самі.":"Кінець розділу."});
 addEventListener("keydown",e=>{if(bar.hidden||e.key!==" "||/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName))return;e.preventDefault();ppBtn.click()});
 // Студент сам торкнувся демо — віддаємо керування і ставимо на паузу.
 document.addEventListener("pointerdown",e=>{if(sec&&!audio.paused&&e.isTrusted&&e.target.closest(".demo")&&sec.contains(e.target))pause("Пауза: ви взяли демо в руки. Натисніть кнопку відтворення, щоб продовжити.")});
 
+// Підказка до кнопки: це не просто озвучка тексту, а лектор, який веде розділом і керує демо.
+const tip=document.createElement("div");tip.className="narr-tip";tip.id="narrTip";tip.setAttribute("role","tooltip");tip.hidden=true;
+tip.innerHTML=`<b>Лектор проведе вас розділом</b><p>Це не просто озвучка тексту сторінки. Лектор пояснює ідею своїми словами, з прикладами, і веде вас розділом:</p><ul><li>підсвічує блок, про який зараз говорить, і сам прокручує сторінку;</li><li>показує, як працювати з демо: рухає повзунки, натискає кнопки й каже, на що дивитися;</li><li>торкніться демо, і лектор стане на паузу, поки ви пробуєте самі;</li><li>субтитри, повний текст, перемотування кліком по слову, швидкість.</li></ul>`;
+document.body.append(tip);
+let tipFor=null;
+function tipShow(b){tipFor=b;tip.hidden=false;
+  const r=b.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight,W=document.documentElement.clientWidth;
+  const below=r.bottom+8+h<=innerHeight||r.top-8-h<0;
+  tip.style.left=Math.max(12,Math.min(r.right-w,W-w-12))+scrollX+"px";tip.style.top=(below?r.bottom+8:r.top-8-h)+scrollY+"px"}
+function tipHide(){tip.hidden=true;tipFor=null}
+addEventListener("scroll",()=>{if(tipFor)tipHide()},{passive:true});
+
 $$("section[data-narr]").forEach(s=>{
   const b=document.createElement("button");b.className="btn narr-play";b.textContent="🔊 Послухати розділ";b.hidden=true;
-  b.onclick=()=>start(s);s.prepend(b);
+  b.setAttribute("aria-describedby","narrTip");
+  b.addEventListener("mouseenter",()=>tipShow(b));b.addEventListener("mouseleave",tipHide);
+  b.addEventListener("focus",()=>{if(b.matches(":focus-visible"))tipShow(b)});b.addEventListener("blur",tipHide);
+  b.onclick=()=>{tipHide();start(s)};s.prepend(b);
   const sc=document.createElement("script");sc.src=s.dataset.narr+".cues.js";
   sc.onload=()=>{const d=window.narrData[s.dataset.narr];b.textContent=`🔊 Послухати розділ · ${fmtT(d.duration)}`;b.hidden=false};
   document.body.append(sc);

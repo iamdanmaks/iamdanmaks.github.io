@@ -318,7 +318,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 <main id="main">
 
 <!-- ============ 0. HERO ============ -->
-<section class="slide" id="s0" data-title="Вступ">
+<section class="slide" id="s0" data-title="Вступ" data-narr="audio/05-attention-transformers/s0">
   <div class="eyebrow">Обробка природної мови · Лекція 05 · <b>Увага</b></div>
   <h1>Увага і трансформери: від RNN до BERT</h1>
   <div class="hero-grid">
@@ -353,7 +353,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 </section>
 
 <!-- ============ 1. FROM TOKENS ============ -->
-<section class="slide" id="s1" data-title="Від токенів до трансформера">
+<section class="slide" id="s1" data-title="Від токенів до трансформера" data-narr="audio/05-attention-transformers/s1">
   <div class="eyebrow">Розділ 1 · <b>місток з лекції 03</b></div>
   <h2>Від токенів до трансформера</h2>
   <p class="lead">У лекції 03 ми розібрали, як текст перетворюється на <strong><span class="term" data-g="token">токени</span></strong> та їхні id. Сьогодні подивимося, що відбувається з цими id далі, тобто як модель збирає з них <em>розуміння</em>.</p>
@@ -383,7 +383,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 </section>
 
 <!-- ============ 2. WHY NOT RNN ============ -->
-<section class="slide" id="s2" data-title="Чому RNN не впоралися">
+<section class="slide" id="s2" data-title="Чому RNN не впоралися" data-narr="audio/05-attention-transformers/s2">
   <div class="eyebrow">Розділ 2</div>
   <h2>Чому рекурентні мережі стали пляшковим горлечком</h2>
   <p class="lead">До трансформерів мову обробляли рекурентно: <strong>RNN</strong>, а згодом її покращена версія <strong>LSTM</strong>. Вони читали послідовність токен за токеном і передавали прихований стан <var>h</var> від слова до слова.</p>
@@ -422,13 +422,13 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 </section>
 
 <!-- ============ 3. SEQ2SEQ ============ -->
-<section class="slide" id="s3" data-title="Seq2seq і перша увага">
+<section class="slide" id="s3" data-title="Seq2seq і перша увага" data-narr="audio/05-attention-transformers/s3">
   <div class="eyebrow">Розділ 3 · <b>2014–2015</b></div>
   <h2>Переклад і народження уваги</h2>
   <p class="lead">Класична архітектура машинного перекладу називається <strong><span class="term" data-g="seq2seq">seq2seq</span></strong>. <span class="term" data-g="encoder">Енкодер</span> читає речення і стискає його в один вектор <var>c</var>, а <span class="term" data-g="decoder">декодер</span> розгортає з нього переклад. Bahdanau et al. (2015) запропонували давати декодеру <strong>свій контекст на кожному кроці</strong>, тобто зважену суму всіх станів енкодера.</p>
 
   <div class="demo">
-    <div class="head"><h4>Як декодер «дивиться» на вхід</h4><span class="tag">animation</span><span class="hint">Перемкніть режим і запустіть переклад. Без уваги все речення проходить через одну точку <var>c</var>. З увагою кожне українське слово бере інформацію з тих англійських слів, які йому потрібні. Зверніть увагу, що лінії перехрещуються: «black cat» перекладається як «чорний кіт», порядок слів інший.</span></div>
+    <div class="head"><h4>Як декодер «дивиться» на вхід</h4><span class="tag">animation</span><span class="hint">Перемкніть режим і запустіть переклад. Без уваги все речення проходить через одну точку <var>c</var>. З увагою кожне українське слово бере інформацію з тих англійських слів, які йому потрібні. Зверніть увагу на артиклі «the»: в українській їм нічого не відповідає, тому декодер майже не бере з них інформації.</span></div>
     <div class="pctl">
       <div class="seg" id="s2sMode"><button aria-pressed="false" data-m="0">без уваги</button><button aria-pressed="true" data-m="1">з увагою</button></div>
       <button class="btn" id="s2sPlay">▶ Перекласти</button><button class="btn" id="s2sStep">Крок →</button><button class="btn" id="s2sReset">↺</button>
@@ -485,7 +485,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 5. FORMULA STEP BY STEP ============ -->
-<section class="slide" id="s5" data-title="Формула крок за кроком">
+<section class="slide" id="s5" data-title="Формула крок за кроком" data-narr="audio/05-attention-transformers/s5">
   <div class="eyebrow">Розділ 5</div>
   <h2>Scaled dot-product attention крок за кроком</h2>
   <div class="formula" style="text-align:center">
@@ -550,7 +550,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 6. SQRT DK ============ -->
-<section class="slide" id="s6" data-title="Навіщо ділити на √dₖ">
+<section class="slide" id="s6" data-title="Навіщо ділити на √dₖ" data-narr="audio/05-attention-transformers/s6">
   <div class="eyebrow">Розділ 5½</div>
   <h2>Навіщо ділити на √d<sub>k</sub></h2>
   <p><strong>d — це розмірність</strong>, тобто скільки чисел у векторі. У формулах трансформера трапляється кілька таких «d»:</p>
@@ -581,7 +581,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 7. MULTI-HEAD ============ -->
-<section class="slide" id="s7" data-title="Multi-head attention">
+<section class="slide" id="s7" data-title="Multi-head attention" data-narr="audio/05-attention-transformers/s7">
   <div class="eyebrow">Розділ 6</div>
   <h2>Multi-head: кілька поглядів одночасно</h2>
   <p class="lead">Одна голова уваги дає одну гіпотезу про зв'язки між словами. У мові ж їх багато: синтаксис, кореференція, сусідство, тема. Тому трансформер запускає <strong>h голів паралельно</strong>, і в кожної свої <var>W<sup>Q</sup></var>, <var>W<sup>K</sup></var>, <var>W<sup>V</sup></var>.</p>
@@ -621,7 +621,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 8. POSITIONAL ENCODING ============ -->
-<section class="slide" id="s8" data-title="Позиційне кодування">
+<section class="slide" id="s8" data-title="Позиційне кодування" data-narr="audio/05-attention-transformers/s8">
   <div class="eyebrow">Розділ 7</div>
   <h2>Увага не бачить порядку слів</h2>
   <p class="lead">Self-attention працює з <strong>множиною</strong> токенів. Якщо переставити слова, кожен токен отримає той самий вихід, тільки на іншому місці. «Dog bites man» і «man bites dog» для чистої уваги однакові.</p>
@@ -665,7 +665,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 9. TRANSFORMER BLOCK ============ -->
-<section class="slide" id="s9" data-title="Блок трансформера">
+<section class="slide" id="s9" data-title="Блок трансформера" data-narr="audio/05-attention-transformers/s9">
   <div class="eyebrow">Розділ 8</div>
   <h2>Блок трансформера зсередини</h2>
   <p class="lead">Трансформер — це стопка <strong>однакових блоків</strong>. У кожному блоці є два підшари: <strong><span class="term" data-g="multi-head">multi-head attention</span></strong> змішує інформацію <em>між токенами</em>, а <strong><span class="term" data-g="ffn">feed-forward</span></strong> обробляє <em>кожен токен окремо</em>. Навколо кожного підшару є <span class="term" data-g="residual">residual-зв'язок</span> і <span class="term" data-g="layernorm">LayerNorm</span>.</p>
@@ -716,7 +716,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 10. ARCH FAMILIES ============ -->
-<section class="slide" id="s10" data-title="Енкодер, декодер і маски">
+<section class="slide" id="s10" data-title="Енкодер, декодер і маски" data-narr="audio/05-attention-transformers/s10">
   <div class="eyebrow">Розділ 9</div>
   <h2>Три родини трансформерів</h2>
   <p class="lead">Оригінальний Transformer для перекладу мав і енкодер, і декодер. Згодом їх почали використовувати окремо. Головна різниця між родинами — <strong><span class="term" data-g="attention-mask">маска уваги</span></strong>: які токени дозволено бачити.</p>
@@ -725,7 +725,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 11. BERT PRETRAINING ============ -->
-<section class="slide" id="s11" data-title="BERT: попереднє навчання">
+<section class="slide" id="s11" data-title="BERT: попереднє навчання" data-narr="audio/05-attention-transformers/s11">
   <div class="eyebrow">Розділ 10 · <b>2018</b></div>
   <h2>BERT: як навчити енкодер розуміти мову</h2>
   <p class="lead"><strong>BERT</strong> (Bidirectional Encoder Representations from Transformers, Devlin et al., 2018) — це стопка енкодер-блоків, <span class="term" data-g="pretraining">попередньо навчена</span> на BooksCorpus і англійській Вікіпедії (~3.3 млрд слів) <strong>без ручної розмітки</strong>.</p>
@@ -759,7 +759,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 12. BERT IO ============ -->
-<section class="slide" id="s12" data-title="BERT: вхід і виходи">
+<section class="slide" id="s12" data-title="BERT: вхід і виходи" data-narr="audio/05-attention-transformers/s12">
   <div class="eyebrow">Розділ 10 · продовження</div>
   <h2>Що BERT бачить на вході і що віддає</h2>
 
@@ -797,7 +797,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 13. XLM-R ============ -->
-<section class="slide" id="s13" data-title="XLM-R і мультимовність">
+<section class="slide" id="s13" data-title="XLM-R і мультимовність" data-narr="audio/05-attention-transformers/s13">
   <div class="eyebrow">Розділ 11</div>
   <h2>XLM-R і мультимовні енкодери</h2>
   <p class="lead">BERT вчився англійською. Для інших мов з'явилися мультимовні моделі. Найвідоміша з них — <strong>XLM-RoBERTa</strong> (Facebook AI, 2019).</p>
@@ -812,7 +812,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 14. HF HUB ============ -->
-<section class="slide" id="s14" data-title="Hugging Face Hub">
+<section class="slide" id="s14" data-title="Hugging Face Hub" data-narr="audio/05-attention-transformers/s14">
   <div class="eyebrow">Розділ 12</div>
   <h2>Hugging Face Hub: «GitHub для моделей»</h2>
   <p class="lead"><a href="https://huggingface.co" target="_blank" rel="noopener">huggingface.co</a> зберігає понад 2 мільйони моделей, а також датасети й демо (Spaces). Кожна модель — це <strong>git-репозиторій</strong> з назвою <code>організація/модель</code>: ваги, конфіг, токенізатор і опис.</p>
@@ -841,7 +841,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 15. TRANSFORMERS LIB ============ -->
-<section class="slide" id="s15" data-title="Бібліотека transformers">
+<section class="slide" id="s15" data-title="Бібліотека transformers" data-narr="audio/05-attention-transformers/s15">
   <div class="eyebrow">Розділ 12 · продовження</div>
   <h2>Бібліотека 🤗 transformers</h2>
   <p class="lead">Один інтерфейс для тисяч архітектур. <code>AutoTokenizer</code> і <code>AutoModel…</code> читають <code>config.json</code> і самі створюють потрібний клас. Щоб замінити BERT на XLM-R, досить змінити назву моделі.</p>
@@ -868,7 +868,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
 </section>
 
 <!-- ============ 16. PYTORCH ============ -->
-<section class="slide" id="s16" data-title="Код: увага в PyTorch">
+<section class="slide" id="s16" data-title="Код: увага в PyTorch" data-narr="audio/05-attention-transformers/s16">
   <div class="eyebrow">Розділ 13</div>
   <h2>Увага своїми руками в PyTorch</h2>
   <p>Формула з розділу 5 займає буквально кілька рядків:</p>
@@ -942,7 +942,7 @@ print(sum(p.numel() for p in block.parameters()))   # 7087872 ≈ 7.1 млн, я
 </section>
 
 <!-- ============ 17. HF CODE ============ -->
-<section class="slide" id="s17" data-title="Код: transformers">
+<section class="slide" id="s17" data-title="Код: transformers" data-narr="audio/05-attention-transformers/s17">
   <div class="eyebrow">Розділ 13 · продовження</div>
   <h2>BERT через 🤗 transformers</h2>
 <pre class="code" data-lang="python"><code class="py">from transformers import AutoTokenizer, AutoModel
@@ -1014,7 +1014,7 @@ trainer.train()
 </section>
 
 <!-- ============ 18. SUMMARY ============ -->
-<section class="slide" id="s18" data-title="Підсумок і тест">
+<section class="slide" id="s18" data-title="Підсумок і тест" data-narr="audio/05-attention-transformers/s18">
   <div class="eyebrow">Розділ 14</div>
   <h2>Підсумок</h2>
   <div class="cards">
@@ -1165,6 +1165,8 @@ const ATT_RAW=[
     svg.innerHTML=g;
   }
   svg.addEventListener("click",e=>{const g=e.target.closest("[data-j]");if(!g)return;const j=+g.dataset.j;if(pinned&&j===focus){pinned=false}else{pinned=true;focus=j}draw()});
+  // озвучка (narration.js): зафіксувати слово j; j = −1 повертає автоматичну зміну слів
+  (window.narrHooks=window.narrHooks||{}).heroFocus=j=>{if(j<0)pinned=false;else{pinned=true;focus=j}draw()};
   draw();
   setInterval(()=>{if(pinned||document.hidden)return;ci=(ci+1)%cycle.length;focus=cycle[ci];draw()},2600);
 })();
@@ -1517,6 +1519,8 @@ const CALC=(function(){
   $("#mhThumbs").addEventListener("click",e=>{const t=e.target.closest(".thumb");if(!t)return;all=false;cur=+t.dataset.h;draw()});
   svg.addEventListener("mouseover",e=>{const t=e.target.closest("text[data-i]");const v=t?+t.dataset.i:-1;if(v!==hov&&t){hov=v;draw()}});
   svg.addEventListener("mouseleave",()=>{hov=-1;draw()});
+  // озвучка (narration.js): лишити лінії лише слова i, як при наведенні; i = −1 показує всі
+  (window.narrHooks=window.narrHooks||{}).mhHover=i=>{hov=i;draw()};
   redraws.push(thumbs);draw();
   // split d_model into heads
   const H=[1,2,4,6,8,12,16,24],cols=["--tfidf","--bm25","--violet","--aqua","--rose","--olive"],sl=$("#hR");
