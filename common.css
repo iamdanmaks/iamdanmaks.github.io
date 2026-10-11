@@ -6,13 +6,14 @@
 
 /* ---------- палітра ---------- */
 :root{
-  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#e9edf2; --ink:#141922; --ink-2:#4a5566; --muted:#7d8795;
-  --line:#d6dce4; --line-soft:#e6eaf0;
+  /* світла тема: сірі темніші, ніж «хочеться», щоб не зливатися з білим (--muted ≈ 5.5:1 на білому) */
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#e2e7ee; --ink:#141922; --ink-2:#3d4757; --muted:#5f6a79;
+  --line:#c5cdd8; --line-soft:#d9dfe7;
   --blue:#2a78d6; --blue-soft:#dce9f9; --orange:#eb6834; --orange-soft:#fbe3d8;
   --aqua:#1baf7a; --violet:#4a3aa7; --rose:#c2417d; --olive:#8a7612;
   --hl:#fff1b8; --hl-ink:#5a4300;
   --code-bg:#1b2130; --code-ink:#e6ebf3; --code-kw:#8fb7ff; --code-str:#9fe0b2; --code-cm:#7d8795; --code-num:#ffc46b; --code-fn:#e8b6ff;
-  --grid:#e1e4ea; --axis:#c3c8d1;
+  --grid:#dce0e7; --axis:#a9b1bd;
   --shadow:0 1px 2px rgba(20,25,34,.06),0 8px 24px rgba(20,25,34,.06);
   --fs:17px; --radius:10px;
   color-scheme:light;

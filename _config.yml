@@ -1,0 +1,5 @@
+# GitHub Pages (Jekyll) build config.
+# Keep the published site limited to the lectures and the assets they load.
+# Files starting with "_" or "." (e.g. _template.html, .env) are skipped by Jekyll automatically.
+exclude:
+  - "*.md"
