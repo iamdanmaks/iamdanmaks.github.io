@@ -341,7 +341,7 @@ model.wv.key_to_index.get("unbelievable")   # None</code></pre>
     <div class="result" id="wpSum"></div>
   </div>
 
-  <div class="callout warn"><div class="qm">Що сталося з «Їжак»</div><p>Токенізатор BERT бачить <code>їжак</code> (малу «ї») як <code>ї</code> + <code>##ж</code> + <code>##а</code> + <code>##к</code>, бо ці символи є у словнику. А от <strong>великої «Ї» у словнику немає</strong>, і слово не вдалося зібрати з наявних субслів — тому весь токен замінюється на <code>[UNK]</code>. Навіть якщо донавчити модель на українських текстах, токенізатор лишається зламаним для будь-якого слова з великою «Ї».</p></div>
+  <div class="callout warn"><div class="qm">Що сталося з «Їжак»</div><p>Токенізатор BERT бачить <code>їжак</code> (малу «ї») як <code>ї</code> + <code>##ж</code> + <code>##а</code> + <code>##к</code>, бо ці символи є у словнику. А от <strong>великої «Ї» у словнику немає</strong>, і слово не вдалося зібрати з наявних субслів — тому весь токен замінюється на <code>[UNK]</code>. Навіть якщо <span class="term" data-g="fine-tuning">донавчити</span> модель на українських текстах, токенізатор лишається зламаним для будь-якого слова з великою «Ї».</p></div>
 
   <details class="more"><summary>Код із ноутбука: WordPiece у дії</summary><div class="body">
 <pre class="code" data-lang="python"><code class="py">from transformers import BertTokenizer
@@ -663,7 +663,7 @@ tokens_to_words_ratio(eng_text, tokenizer_xlmr)   # ≈ 1.81</code></pre>
 
   <div class="cards">
     <div class="card"><div class="k">Контекстне вікно</div><h4>Менше тексту влізе</h4><p>Якщо українська кодується у 5 разів більше токенів, то в те саме вікно влізе у 5 разів менше змісту. Це прямо обмежує, скільки документів можна подати моделі.</p></div>
-    <div class="card"><div class="k">Швидкість</div><h4>Довший вхід — повільніше</h4><p>Увага трансформера росте квадратично від довжини. Більше токенів — суттєво повільніша генерація.</p></div>
+    <div class="card"><div class="k">Швидкість</div><h4>Довший вхід — повільніше</h4><p><span class="term" data-g="attention">Увага</span> трансформера росте квадратично від довжини. Більше токенів — суттєво повільніша генерація.</p></div>
     <div class="card"><div class="k">Рішення</div><h4>Обирайте під домен</h4><p>Підбирайте модель і токенізатор під свою цільову мову й домен. Це спрощує навчання, зменшує витрати й лишає більше місця в контексті.</p></div>
   </div>
 </section>

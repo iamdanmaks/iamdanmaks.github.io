@@ -386,7 +386,7 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
 <section class="slide" id="s2" data-title="Чому RNN не впоралися" data-narr="audio/05-attention-transformers/s2">
   <div class="eyebrow">Розділ 2</div>
   <h2>Чому рекурентні мережі стали пляшковим горлечком</h2>
-  <p class="lead">До трансформерів мову обробляли рекурентно: <strong>RNN</strong>, а згодом її покращена версія <strong>LSTM</strong>. Вони читали послідовність токен за токеном і передавали прихований стан <var>h</var> від слова до слова.</p>
+  <p class="lead">До трансформерів мову обробляли рекурентно: <strong>RNN</strong>, а згодом її покращена версія <strong>LSTM</strong>. Вони читали послідовність токен за токеном і передавали <span class="term" data-g="hidden-state">прихований стан</span> <var>h</var> від слова до слова.</p>
 
   <div class="demo">
     <div class="head"><h4>Перегони: RNN проти самоуваги</h4><span class="tag">animation</span><span class="hint">Натисніть «Запустити». RNN обробляє слова по черзі, і кожен крок чекає на попередній. Трансформер обробляє всі слова одночасно за один крок. Слабшає фіолетова смужка у стані <var>h</var>: це «слід» першого слова, який RNN поступово забуває.</span></div>
@@ -405,8 +405,8 @@ svg.viz .edge.draw{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawon
   </div>
 
   <div class="cards">
-    <div class="card"><div class="k">01 · Послідовність</div><h4>Не можна розпаралелити</h4><p>Крок <var>i</var> можна обчислити лише після кроку <var>i−1</var>. Тому GPU простоює, і навчання на великих корпусах триває тижнями.</p></div>
-    <div class="card"><div class="k">02 · Забування</div><h4>Зникаючі градієнти</h4><p>Поки сигнал першого слова дійде до останнього, він «затирається». LSTM додала комірки пам'яті й допомогла, але проблему не прибрала.</p></div>
+    <div class="card"><div class="k">01 · Послідовність</div><h4>Не можна розпаралелити</h4><p>Крок <var>i</var> можна обчислити лише після кроку <var>i−1</var>. Тому GPU простоює, і навчання на великих <span class="term" data-g="corpus">корпусах</span> триває тижнями.</p></div>
+    <div class="card"><div class="k">02 · Забування</div><h4>Зникаючі градієнти</h4><p>Поки сигнал першого слова дійде до останнього, він «затирається»: <span class="term" data-g="vanishing-gradients">градієнти зникають</span>. LSTM додала комірки пам'яті й допомогла, але проблему не прибрала.</p></div>
     <div class="card"><div class="k">03 · Шлях сигналу</div><h4>O(n) кроків між словами</h4><p>Щоб слово 1 вплинуло на слово 500, інформація має пройти 499 кроків. На кожному з них частину можна втратити.</p></div>
     <div class="card"><div class="k">04 · Пляшкове горлечко</div><h4>Весь контекст в одному векторі</h4><p>Стан <var>h<sub>n</sub></var> має вмістити сенс усього речення. У вектор фіксованого розміру довгий текст без втрат не влазить.</p></div>
   </div>
@@ -721,7 +721,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
   <h2>Три родини трансформерів</h2>
   <p class="lead">Оригінальний Transformer для перекладу мав і енкодер, і декодер. Згодом їх почали використовувати окремо. Головна різниця між родинами — <strong><span class="term" data-g="attention-mask">маска уваги</span></strong>: які токени дозволено бачити.</p>
   <div class="archs" id="archs"></div>
-  <div class="callout q"><div class="qm">Звідси і «розуміє» vs «генерує»</div><p>Енкодер бачить контекст з обох боків, тому добре підходить для класифікації, NER і пошуку. Декодер бачить лише минуле і передбачає наступний токен, тобто генерує текст. Сьогодні ми детально розбираємо <strong>енкодер</strong> на прикладі BERT. Декодерні LLM влаштовані так само, тільки з каузальною маскою.</p></div>
+  <div class="callout q"><div class="qm">Звідси і «розуміє» vs «генерує»</div><p>Енкодер бачить контекст з обох боків, тому добре підходить для класифікації, <span class="term" data-g="ner">NER</span> і пошуку. Декодер бачить лише минуле і передбачає наступний токен, тобто генерує текст. Сьогодні ми детально розбираємо <strong>енкодер</strong> на прикладі BERT. Декодерні LLM влаштовані так само, тільки з каузальною маскою.</p></div>
 </section>
 
 <!-- ============ 11. BERT PRETRAINING ============ -->
@@ -864,7 +864,7 @@ d["кошеня"]  # → KeyError</code></pre></div>
       <tr><td class="mono">AutoModelForCausalLM</td><td>наступний токен</td><td>генерація (GPT, Llama)</td><td class="mono">text-generation</td></tr>
     </tbody>
   </table></div>
-  <div class="callout warn"><div class="qm">Типова помилка</div><p><code>AutoModel</code> повертає сирі вектори <em>без голови</em>. Для класифікації потрібен <code>AutoModelForSequenceClassification</code>. Якщо завантажити його з «голого» BERT, бібліотека попередить, що ваги <code>classifier.*</code> ініціалізовано випадково. Так і має бути: цю голову ще треба навчити.</p></div>
+  <div class="callout warn"><div class="qm">Типова помилка</div><p><code>AutoModel</code> повертає сирі вектори <em>без <span class="term" data-g="task-head">голови</span></em>, а не <span class="term" data-g="logit">логіти</span> класів. Для класифікації потрібен <code>AutoModelForSequenceClassification</code>. Якщо завантажити його з «голого» BERT, бібліотека попередить, що ваги <code>classifier.*</code> ініціалізовано випадково. Так і має бути: цю голову ще треба навчити.</p></div>
 </section>
 
 <!-- ============ 16. PYTORCH ============ -->
@@ -963,6 +963,7 @@ out.pooler_output.shape        # torch.Size([1, 768])     — [CLS] після �
 
   <div class="xref"><a class="chip" href="./03-bpe-tokenizers.html#s7">↩ Лекція 03</a><p>Токенізатор розбив <code>didn't</code> на три токени. Він завжди йде в парі з моделлю: матриця ембедінгів має рівно стільки рядків, скільки токенів у словнику. Якщо підставити токенізатор від іншої моделі, id вказуватимуть не на ті рядки.</p></div>
 
+  <p>Тексти в батчі мають різну довжину, тому коротші доповнюють <span class="term" data-g="padding">паддінгом</span>, а <code>attention_mask</code> позначає, на які токени не дивитися.</p>
   <div class="codelabel">Батч із паддінгом: навіщо attention_mask</div>
 <pre class="code" data-lang="python"><code class="py">batch = tokenizer(["Short one.", "A much longer second sentence here."],
                   padding=True, return_tensors="pt")

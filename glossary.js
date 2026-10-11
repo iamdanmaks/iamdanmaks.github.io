@@ -60,7 +60,8 @@ const GLOSSARY={
 "llm":{term:"LLM",en:"large language model",def:"Велика мовна модель: трансформер-декодер із мільярдами параметрів, навчений передбачати наступний токен на величезному корпусі.",src:"05-attention-transformers.html#s1",see:["language-model","decoder"]},
 
 /* ---------- лекція 05: увага і трансформери ---------- */
-"rnn":{term:"RNN",en:"recurrent neural network",def:"Рекурентна мережа: читає токени по одному і передає прихований стан <var>h</var> від кроку до кроку. Не паралелиться і забуває початок довгого тексту.",src:"05-attention-transformers.html#s2",see:["lstm","vanishing-gradients"]},
+"rnn":{term:"RNN",en:"recurrent neural network",def:"Рекурентна мережа: читає токени по одному і передає прихований стан <var>h</var> від кроку до кроку. Не паралелиться і забуває початок довгого тексту.",src:"05-attention-transformers.html#s2",see:["lstm","hidden-state","vanishing-gradients"]},
+"hidden-state":{term:"прихований стан",en:"hidden state",def:"Внутрішній вектор мережі, що підсумовує прочитане: у RNN він передається від кроку до кроку, а в трансформері так називають вихідні вектори токенів кожного шару (<code>last_hidden_state</code>).",src:"05-attention-transformers.html#s2",see:["rnn","embedding"]},
 "lstm":{term:"LSTM",en:"long short-term memory",def:"Покращена RNN з комірками пам'яті й вентилями, що краще тримає далекі залежності, але так само обробляє токени послідовно.",src:"05-attention-transformers.html#s2",see:["rnn"]},
 "vanishing-gradients":{term:"зникаючі градієнти",en:"vanishing gradients",def:"Під час навчання глибокої чи рекурентної мережі сигнал помилки слабшає з кожним шаром або кроком, і ранні ваги майже не оновлюються.",src:"05-attention-transformers.html#s2",see:["rnn","residual"]},
 "seq2seq":{term:"seq2seq",en:"sequence-to-sequence",def:"Архітектура «енкодер читає вхідну послідовність — декодер генерує вихідну», класична для машинного перекладу.",src:"05-attention-transformers.html#s3",see:["encoder","decoder","attention"]},
@@ -88,6 +89,7 @@ const GLOSSARY={
 "fine-tuning":{term:"донавчання",en:"fine-tuning",def:"Навчання попередньо навченої моделі на невеликому розміченому датасеті під конкретну задачу, зазвичай з новою головою задачі поверх.",src:"05-attention-transformers.html#s12",see:["pretraining","task-head","transfer-learning"]},
 "transfer-learning":{term:"transfer learning",en:"transfer learning",def:"Перенесення знань моделі, навченої на одній задачі чи даних, на іншу: замість навчання з нуля беремо готову модель і донавчаємо її.",src:"05-attention-transformers.html#s13",see:["fine-tuning","zero-shot"]},
 "task-head":{term:"голова задачі",en:"task head",def:"Невеликий шар поверх трансформера, що перетворює його вектори на відповідь задачі: клас з [CLS], мітку кожного токена, наступний токен.",src:"05-attention-transformers.html#s12",see:["fine-tuning","logit"]},
+"ner":{term:"NER",en:"named entity recognition",def:"Розпізнавання іменованих сутностей: знайти в тексті імена людей, назви місць, організацій тощо. Розв'язується як класифікація кожного токена мітками на кшталт B-PER, B-LOC, O.",src:"05-attention-transformers.html#s12",see:["task-head","encoder"]},
 "hf-hub":{term:"Hugging Face Hub",en:"Hugging Face Hub",def:"Сайт huggingface.co, де зберігаються моделі, датасети й демо. Кожна модель — git-репозиторій з вагами, конфігом, токенізатором і model card.",src:"05-attention-transformers.html#s14"}
 
 };

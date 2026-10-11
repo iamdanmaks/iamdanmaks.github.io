@@ -111,7 +111,7 @@ mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
       <p>Задача пошуку (<span class="term" data-g="ir">IR</span>) ділиться на два підходи:</p>
       <div class="vs">
         <div class="card"><div class="k">Full-text / lexical</div><h4>За ключовими словами</h4><p>Статистика над <span class="term" data-g="token">токенами</span>. Не знає значення слів, але точно знає, які слова є в документі. Це <span class="term" data-g="tfidf">TF-IDF</span> і <span class="term" data-g="bm25">BM25</span>.</p></div>
-        <div class="card b"><div class="k">Semantic</div><h4>За сенсом</h4><p>Нейронна мережа кодує зміст тексту у <span class="term" data-g="dense-vector">dense-вектор</span>. Шукає за синонімами і переносним значенням. Це тема наступних лекцій.</p></div>
+        <div class="card b"><div class="k">Semantic</div><h4>За сенсом</h4><p>Нейронна мережа кодує зміст тексту у <span class="term" data-g="dense-vector">dense-вектор</span>. Такий <span class="term" data-g="semantic-search">семантичний пошук</span> знаходить синоніми й переносні значення. Це тема наступних лекцій.</p></div>
       </div>
       <div class="hero-vis" id="heroVis" aria-hidden="true"></div>
     </div>
@@ -403,7 +403,7 @@ for text, score in tfidf_search("scary movie"):
 <section class="slide" id="s7" data-title="Метрики пошуку">
   <div class="eyebrow">Розділ 7</div>
   <h2>Як оцінити якість пошуку без ручної перевірки?</h2>
-  <p>Тестовий датасет для пошуку має дві частини: корпус документів і набір запитів, до кожного з яких відомий список релевантних документів. Тоді можна порахувати метрики, схожі на метрики класифікації, але тільки для топ-<var>K</var> результатів.</p>
+  <p>Тестовий датасет для пошуку має дві частини: корпус документів і набір запитів, до кожного з яких відомий список релевантних документів. Тоді можна порахувати метрики, схожі на метрики класифікації, але тільки для топ-<var>K</var> результатів. Основні з них — <span class="term" data-g="precision-k">precision@K</span> і <span class="term" data-g="recall-k">recall@K</span>.</p>
   <div class="formula fr"><var>precision</var>@<var>K</var> = <span class="frac"><span class="txt">релевантних серед топ-<var>K</var></span><span><var>K</var></span></span>
     <span style="display:inline-block;width:32px"></span>
     <var>recall</var>@<var>K</var> = <span class="frac"><span class="txt">релевантних серед топ-<var>K</var></span><span class="txt">усіх релевантних для запиту</span></span>
