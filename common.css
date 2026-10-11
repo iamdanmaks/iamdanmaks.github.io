@@ -107,6 +107,10 @@ nav.toc li a.read .num::after{content:" ✓"}
 .toc-head button:hover{color:var(--ink-2);text-decoration:underline}
 .readchip{display:none;font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
 .lecture .readchip{display:inline-block}
+/* «Офлайн» у шапці: offline.js показує, коли немає інтернету */
+.netchip{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--orange);border:1px solid var(--orange);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.netchip::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-right:6px;vertical-align:1px}
+.netchip[hidden]{display:none}
 main{min-width:0}
 section.slide{padding-block:48px;border-top:1px solid var(--line)}
 section.slide:first-child{border-top:0;padding-top:8px}

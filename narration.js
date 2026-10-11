@@ -117,13 +117,15 @@ setTx(store.get("narrTx")==="1");
 function seek(t){audio.currentTime=t;next=0;unhl();
   while(next<data.cues.length&&data.cues[next].t<=t)run(data.cues[next++].do,true);tick()}
 
-function play(){audio.play();ppBtn.innerHTML=ICON.pause;cancelAnimationFrame(raf);raf=requestAnimationFrame(tick)}
+function play(){audio.play().catch(()=>{}); // помилку показує обробник "error"
+  ppBtn.innerHTML=ICON.pause;cancelAnimationFrame(raf);raf=requestAnimationFrame(tick)}
 function pause(msg){audio.pause();cancelAnimationFrame(raf);ppBtn.innerHTML=ICON.play;if(msg)cap.textContent=msg}
 function stop(){pause();unhl();bar.hidden=true;sec=null}
 function start(s){
   const d=window.narrData&&window.narrData[s.dataset.narr];if(!d)return;
   if(sec)stop();
-  sec=s;data=d;next=0;audio.src=d.audio;bar.hidden=false;buildTx();
+  // ?v=<hash>: нова озвучка отримує нову адресу, тож sw.js не віддасть стару версію з кешу.
+  sec=s;data=d;next=0;audio.src=d.audio+(d.hash?"?v="+d.hash:"");bar.hidden=false;buildTx();
   seek(0);play();
 }
 
@@ -132,6 +134,8 @@ $(".narr-x",bar).onclick=stop;
 $(".narr-track",bar).onclick=e=>{const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/r.width*data.duration);};
 const rates=[1,1.25,1.5,0.85];
 rateBtn.onclick=()=>{const r=rates[(rates.indexOf(audio.playbackRate)+1)%rates.length];audio.playbackRate=r;rateBtn.textContent=r+"×"};
+audio.addEventListener("error",()=>{if(!sec)return;pause();
+  cap.innerHTML=navigator.onLine?"Не вдалося завантажити озвучку. Спробуйте ще раз.":'Без інтернету озвучка грає, лише якщо її завантажено на пристрій. Це можна зробити на <a href="./index.html#offline">головній сторінці</a>.'});
 audio.addEventListener("ended",()=>{unhl();ppBtn.innerHTML=ICON.again;cap.textContent=sec&&$(".demo",sec)?"Кінець розділу. Тепер спробуйте демо самі.":"Кінець розділу."});
 addEventListener("keydown",e=>{if(bar.hidden||e.key!==" "||/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName))return;e.preventDefault();ppBtn.click()});
 // Студент сам торкнувся демо — віддаємо керування і ставимо на паузу.

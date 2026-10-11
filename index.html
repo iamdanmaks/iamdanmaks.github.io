@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Лекції з NLP</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1218" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -57,6 +63,27 @@
 .sr-grp:first-child{border-top:0}
 #sres mark{background:var(--hl);color:var(--hl-ink);border-radius:2px;padding:0 1px}
 @media (max-width:640px){.hwrap{padding:32px 16px 72px}.lcard{padding:20px}.sr-hit,.sr-grp,.sr-note{padding-left:16px;padding-right:16px}}
+/* Офлайн: стан збереження й завантаження озвучки (логіка в offline.js) */
+.offl{margin-top:56px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;box-shadow:var(--shadow)}
+.offl[hidden]{display:none}
+.offl h2{font-weight:500;font-size:1.15em;margin:0 0 10px}
+.offl p{margin:0 0 12px;color:var(--ink-2);font-size:.95em}
+.offl .st.ok::first-letter{color:var(--aqua)}
+.offl .muted{color:var(--muted)}
+.orows{margin:16px 0 0;border-top:1px solid var(--line-soft)}
+.orow{display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+.orow .on{flex:1;min-width:0}
+.orow .on b{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:.78em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-right:8px}
+.orow .on span{font-size:.92em}
+.orow .sz{display:block;font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted);margin-top:2px}
+.orow .oa{flex:none;display:flex;align-items:center;gap:10px;font-size:.85em;color:var(--ink-2)}
+.orow .done{color:var(--aqua);font-weight:500}
+.orow .err{color:var(--orange)}
+.obar{width:110px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.obar i{display:block;height:100%;width:0;background:var(--blue);transition:width .2s}
+.oall{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:16px}
+.offl .tip{margin:16px 0 0;font-size:.85em;color:var(--muted)}
+@media (max-width:640px){.offl{padding:20px 16px}.orow{flex-wrap:wrap;gap:8px}.orow .oa{width:100%}}
 </style>
 </head>
 <body>
@@ -106,8 +133,20 @@
     </a>
   </div>
   <p class="extra"><a href="./glossary.html">Глосарій термінів →</a> Одне визначення на кожен термін для всіх лекцій.</p>
+
+  <section class="offl" id="offline" hidden>
+    <h2>Без інтернету</h2>
+    <p class="st" id="offSt"></p>
+    <div id="offAudio" hidden>
+      <p>Озвучка займає більше місця, тому її завантажують окремо. Завантажте лекції, які плануєте слухати без зв'язку.</p>
+      <div class="orows" id="offRows"></div>
+      <div class="oall"><button class="btn" id="offAll"></button><button class="btn" id="offInstall" hidden>Встановити як застосунок</button></div>
+    </div>
+    <p class="tip">Порада: встановіть курс як застосунок (кнопка вище або «Додати на головний екран» у меню браузера). Тоді він відкривається з іконки, а браузер не видалить збережене, навіть якщо ви довго не заходили.</p>
+  </section>
 </div>
 <script src="glossary.js"></script>
+<script src="offline.js"></script>
 <script>
 const root=document.documentElement;
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -244,6 +283,57 @@ out.addEventListener("keydown",e=>{const links=[...out.querySelectorAll("a")],i=
   else if(e.key==="Escape")q.focus()});
 form.addEventListener("submit",e=>{e.preventDefault();const a=out.querySelector("a");if(a)location.href=a.href});
 addEventListener("keydown",e=>{if(e.key==="/"&&!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){e.preventDefault();q.focus()}});
+})();
+/* ===== Офлайн: стан збереження й завантаження озвучки =====
+   Уся робота з кешем — в offline.js (window.offline), тут лише інтерфейс. */
+(function(){
+const box=document.getElementById("offline"),st=document.getElementById("offSt"),aud=document.getElementById("offAudio"),
+  rows=document.getElementById("offRows"),allBtn=document.getElementById("offAll"),instBtn=document.getElementById("offInstall");
+const off=window.offline;box.hidden=false;
+if(!off||!off.supported){st.innerHTML="Офлайн-режим працює на сайті курсу або через локальний сервер (<code>python -m http.server</code>). Зі сторінки, відкритої як файл, нічого не зберігається.";return}
+const mb=b=>{const m=b/1048576;return (m<10?m.toFixed(1):Math.round(m)).toString().replace(".",",")+" МБ"};
+const when=t=>new Date(t).toLocaleString("uk",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
+function renderSt(){
+  st.classList.remove("ok");
+  if(off.syncing)st.textContent=off.lastSync?"Оновлюю збережені лекції…":"Зберігаю лекції на пристрій…";
+  else if(off.lastSync){st.classList.add("ok");st.innerHTML=`✓ Лекції, демо, тести й глосарій збережено на цьому пристрої: сайт відкриється й без інтернету. <span class="muted">Оновлено ${when(off.lastSync)}.</span>`}
+  else st.textContent=navigator.onLine?"Лекції ще не збережено: не вдалося завантажити. Оновіть сторінку, коли з'явиться зв'язок.":"Лекції ще не збережено: для першого збереження потрібен інтернет.";
+}
+// Стан рядка: {busy:[байти, з]} під час завантаження, {err:текст} після помилки.
+let lecs=[],state=[],queue=Promise.resolve();
+async function renderRows(){
+  if(!lecs.length)return;
+  const have=await Promise.all(lecs.map(l=>off.status(l)));
+  let left=0,busy=false;
+  rows.innerHTML=lecs.map((l,i)=>{
+    const n=l.narr.length,h=have[i],s=state[i]||{};let act;
+    if(s.busy){busy=true;act=`<span class="obar"><i style="width:${s.busy[1]?s.busy[0]/s.busy[1]*100:0}%"></i></span><span>${Math.round(s.busy[1]?s.busy[0]/s.busy[1]*100:0)}%</span>`}
+    else if(h===n)act=`<span class="done">✓ на пристрої</span><button class="btn" data-del="${i}">Видалити</button>`;
+    else{left+=l.bytes*(1-h/n);
+      act=(s.err?`<span class="err">${s.err}</span>`:h?`<span>збережено ${h}/${n}</span>`:"")+`<button class="btn" data-get="${i}">${s.err||h?"Докачати":"Завантажити"}</button>`}
+    return `<div class="orow"><div class="on"><b>${l.num}</b><span>${l.title}</span><span class="sz">озвучено ${n} розділ${n%10===1&&n%100!==11?"":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"и":"ів"} · ${mb(l.bytes)}</span></div><div class="oa">${act}</div></div>`}).join("");
+  allBtn.hidden=!left&&!busy;allBtn.disabled=busy;
+  allBtn.textContent=busy?"Завантажую…":`Завантажити всю озвучку · ${mb(left)}`;
+}
+function get(i){
+  state[i]={busy:[0,lecs[i].bytes]};renderRows();
+  queue=queue.then(()=>off.download(lecs[i],(d,t)=>{state[i]={busy:[d,t]};const bar=rows.children[i]&&rows.children[i].querySelector(".obar i");
+      if(bar){bar.style.width=d/t*100+"%";bar.parentNode.nextSibling.textContent=Math.round(d/t*100)+"%"}})
+    .then(()=>{state[i]={}},()=>{state[i]={err:navigator.onLine?"Помилка завантаження":"Немає зв'язку"}})
+    .then(renderRows));
+}
+rows.addEventListener("click",e=>{const g=e.target.closest("[data-get]"),d=e.target.closest("[data-del]");
+  if(g)get(+g.dataset.get);
+  if(d){const l=lecs[+d.dataset.del];if(confirm(`Видалити озвучку «${l.num}» з пристрою? Текст лекції лишиться.`))off.remove(l)}});
+allBtn.onclick=async()=>{const have=await Promise.all(lecs.map(l=>off.status(l)));lecs.forEach((l,i)=>{if(have[i]<l.narr.length&&!(state[i]||{}).busy)get(i)})};
+let deferred=null;
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;instBtn.hidden=false});
+instBtn.onclick=()=>{if(!deferred)return;deferred.prompt();deferred.userChoice.finally(()=>{deferred=null;instBtn.hidden=true})};
+addEventListener("appinstalled",()=>instBtn.hidden=true);
+off.onChange(()=>{renderSt();renderRows()});
+addEventListener("online",renderSt);addEventListener("offline",renderSt);
+renderSt();
+off.catalog().then(c=>{lecs=c.lectures.filter(l=>l.narr.length);aud.hidden=!lecs.length;renderRows()},e=>console.warn("offline: catalog",e));
 })();
 </script>
 </body>

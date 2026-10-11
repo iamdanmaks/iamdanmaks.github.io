@@ -17,6 +17,8 @@ Shared look, behaviour and terminology live in separate files:
 | `_template.html` | starter template with an example of every block |
 | `index.html` | list of lectures with progress, plus keyword search over every lecture section and the glossary (see "Search") |
 | `narration.js` | player for narrated sections (see "Narration") |
+| `offline.js`, `sw.js` | offline access: the service worker and the code that fills its caches (see "Offline") |
+| `manifest.webmanifest`, `icons/` | installable app: name, colours, favicon and app icons |
 
 ## Starting a new lecture
 
@@ -38,6 +40,8 @@ div.wrap
     section.slide#sN   ← "Підсумок і тест": .cards + .quiz + .kbd-hint
 script[src=glossary.js]
 script[src=common.js]
+script[src=narration.js]  ← only if sections are narrated
+script[src=offline.js]
 script             ← this lecture's demos
 ```
 
@@ -268,6 +272,28 @@ Use colours only through the variables; that is what makes the dark theme work a
 - If the student returns to a lecture, a prompt at the bottom offers to continue from the section where they stopped.
 - Quiz answers are saved, and under the lecture's last question a score and a "Скинути відповіді" button appear.
 - Everything is stored in `localStorage` under `prog:<file>` and `quiz:<file>`, so `index.html` shows progress on the cards. Quizzes are identified by their order on the page. If you insert a question into a lecture students are already taking, give the existing questions `data-id` with their previous index (zero-based) so saved answers do not shift.
+
+## Offline
+
+Students may lose internet or power, so the whole site works offline. `_template.html` already has everything needed. Every page includes:
+
+- the favicon, `apple-touch-icon`, `manifest` and `theme-color` tags in `<head>` (copy them from `_template.html`);
+- `<script src="offline.js"></script>` after `common.js` / `narration.js`; on `index.html` and `glossary.html` it goes after `glossary.js`.
+
+How it works:
+
+- `offline.js` registers `sw.js` and, on the first visit and then at most once an hour, saves to the `nlp-core` cache: every lecture linked from an `a.lcard` in `index.html`, `glossary.html`, the scripts, styles and icons they load, every `.cues.js`, and the Google Fonts files for Cyrillic, Latin and Greek. A new lecture is saved as soon as its card is in `index.html`.
+- `sw.js` serves the site's own files network-first: when the network does not answer within 3 s and a copy exists, the copy is shown and the fresh version is saved for next time. So edits reach students on their next visit, and local editing with `python -m http.server` is not stuck on stale files.
+- Audio (≈16–25 MB per lecture) is **not** saved automatically. The student downloads it per lecture in the "Без інтернету" panel on `index.html` (`nlp-audio` cache). Sizes are computed from the durations in `.cues.js` at 96 kbit/s, so keep that bitrate in `tools/narrate.py`.
+- `narration.js` requests `audio/…/sN.mp3?v=<hash>` with the `hash` from `.cues.js`. When narration is regenerated with a new text, the old audio no longer matches, and `offline.js` re-downloads it for students who saved that lecture.
+- The "Офлайн" chip in the header shows when the student has no connection.
+
+Rules:
+
+- Do not rename the `nlp-core` / `nlp-audio` caches: students would lose downloaded audio.
+- Do not put pages in subfolders: `sw.js` and `offline.js` assume every page is at the site root.
+- A file a page loads must be referenced from that page's HTML (`script[src]`, `link[href]`) so it gets saved; anything fetched only at runtime is cached the first time a student opens it online.
+- Test offline: serve with `python -m http.server`, open `index.html`, wait for "✓ … збережено", then stop the server or set DevTools → Network → Offline, and open each page.
 
 ## Search
 
