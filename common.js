@@ -109,7 +109,7 @@ function renderQuizMeta(){
   $$("details.check").forEach(d=>{const s=quizStats($$(".quiz",d)),el=$(".check-status",d);
     if(el)el.textContent=s.done?`${s.ok}/${s.total} правильно`:plQ(s.total)+" · необов'язково";d.classList.toggle("passed",s.done===s.total&&s.ok===s.total)});
   const box=$("#quizScore");if(box){
-    box.querySelector(".qs-text").innerHTML=st.done?`Правильно <b>${st.ok}</b> з ${st.done} відповідей · усього в лекції ${plQ(st.total)}`:`Усього в лекції ${plQ(st.total)}. Відповіді зберігаються в цьому браузері.`;
+    box.querySelector(".qs-text").innerHTML=st.done?`Правильно <b>${st.ok}</b> з ${st.done} відповідей · усього в лекції ${plQ(st.total)}`:`Усього в лекції ${plQ(st.total)}. Відповіді зберігаються в цьому браузері лише для Вас. Вони нікуди не відправляються, не оцінюються і зроблені лише для само-перевірки.`;
     box.querySelector("button").hidden=!st.done}
 }
 quizzes.forEach((qz,i)=>{
