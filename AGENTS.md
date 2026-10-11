@@ -15,6 +15,7 @@ Shared look, behaviour and terminology live in separate files:
 | `glossary.js` | shared glossary: one definition per term for all lectures (see "Glossary") |
 | `glossary.html` | page listing every term, with search and a lecture filter; built from `glossary.js` |
 | `_template.html` | starter template with an example of every block |
+| `index.html` | list of lectures with progress, plus keyword search over every lecture section and the glossary (see "Search") |
 | `narration.js` | player for narrated sections (see "Narration") |
 
 ## Starting a new lecture
@@ -267,6 +268,13 @@ Use colours only through the variables; that is what makes the dark theme work a
 - If the student returns to a lecture, a prompt at the bottom offers to continue from the section where they stopped.
 - Quiz answers are saved, and under the lecture's last question a score and a "Скинути відповіді" button appear.
 - Everything is stored in `localStorage` under `prog:<file>` and `quiz:<file>`, so `index.html` shows progress on the cards. Quizzes are identified by their order on the page. If you insert a question into a lecture students are already taking, give the existing questions `data-id` with their previous index (zero-based) so saved answers do not shift.
+
+## Search
+
+`index.html` has a simple keyword search over all lectures. Nothing to maintain: on first focus it `fetch`es every lecture linked from an `a.lcard`, indexes each `section.slide[id]` (title, `h2`, `.lead`, subheadings, text; demos reduced to their `h4` and `.hint`, quizzes skipped) and searches `glossary.js` too. Matching is by word prefix with a crude Ukrainian ending cut, so "токенізатор" also finds "токенізатори". Results link to `file.html#sN`.
+
+- A new lecture is searchable as soon as its card is in `index.html`.
+- `fetch` does not work from `file://`: there the search covers only the glossary and says so. Test with `python -m http.server`.
 
 ## Discussing a section with AI
 

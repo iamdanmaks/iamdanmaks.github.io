@@ -35,7 +35,28 @@
 .extra{margin-top:28px;color:var(--ink-2);font-size:.95em}
 .extra a{color:var(--blue);font-weight:500;text-decoration:none}
 .extra a:hover{text-decoration:underline}
-@media (max-width:640px){.hwrap{padding:32px 16px 72px}.lcard{padding:20px}}
+/* Пошук по розділах лекцій і глосарію */
+.hwrap .lead{margin-bottom:28px}
+.srch{margin:0 0 40px}
+.srch input{width:100%;box-sizing:border-box;font:inherit;font-size:1em;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:12px 20px;box-shadow:var(--shadow)}
+.srch input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#sres:not(:empty){margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.sr-note{padding:12px 20px;font-size:.85em;color:var(--muted)}
+.sr-note code{font-size:.95em}
+.sr-hit{display:block;padding:14px 20px;text-decoration:none;color:var(--ink);border-top:1px solid var(--line-soft)}
+.sr-hit:first-child{border-top:0}
+.sr-hit:hover,.sr-hit:focus-visible{background:var(--surface-2);outline:none}
+.sr-hit .m{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.sr-hit .m .rd{color:var(--aqua);text-transform:none}
+.sr-hit b{display:block;font-weight:500;margin:3px 0 4px}
+.sr-hit p{margin:0;font-size:.88em;color:var(--ink-2)}
+.sr-hit.g b{display:inline;margin-right:8px}
+.sr-hit.g .en{font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted)}
+.sr-hit.g p{margin-top:4px}
+.sr-grp{padding:10px 20px 4px;font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-top:1px solid var(--line)}
+.sr-grp:first-child{border-top:0}
+#sres mark{background:var(--hl);color:var(--hl-ink);border-radius:2px;padding:0 1px}
+@media (max-width:640px){.hwrap{padding:32px 16px 72px}.lcard{padding:20px}.sr-hit,.sr-grp,.sr-note{padding-left:16px;padding-right:16px}}
 </style>
 </head>
 <body>
@@ -49,6 +70,11 @@
   <div class="eyebrow">Обробка природної мови</div>
   <h1>Лекції з NLP</h1>
   <p class="lead">Як комп'ютер бачить текст, як перетворити його на числа і як будувати системи, що працюють у production.</p>
+
+  <form class="srch" role="search" id="srch">
+    <input type="search" id="sq" placeholder="Пошук у лекціях: softmax, токенізація, KV-кеш…" aria-label="Пошук у лекціях" autocomplete="off" spellcheck="false">
+    <div id="sres" aria-live="polite"></div>
+  </form>
 
   <div class="list">
     <a class="lcard" href="./02-tfidf-bm25.html">
@@ -81,6 +107,7 @@
   </div>
   <p class="extra"><a href="./glossary.html">Глосарій термінів →</a> Одне визначення на кожен термін для всіх лекцій.</p>
 </div>
+<script src="glossary.js"></script>
 <script>
 const root=document.documentElement;
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -102,6 +129,122 @@ document.querySelectorAll("a.lcard").forEach(card=>{
   el.innerHTML=`<span class="bar"><i style="width:${total?Math.min(100,read/total*100):0}%"></i></span><span>${parts.join(" · ")}</span>`;
   card.querySelector(".go").before(el);
 });
+
+/* ===== Пошук по лекціях =====
+   Лекції беруться з карток вище: нову лекцію досить додати карткою, і вона потрапить у пошук.
+   Тексти розділів завантажуються fetch'ем при першому фокусі на полі пошуку. З file:// браузер
+   fetch не дозволяє, тоді шукаємо лише в глосарії (glossary.js). */
+(function(){
+const form=document.getElementById("srch"),q=document.getElementById("sq"),out=document.getElementById("sres");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const plain=h=>new DOMParser().parseFromString(h,"text/html").body.textContent;
+// Нормалізація не змінює довжину рядка, тож позиції збігів у нормалізованому тексті збігаються з оригіналом.
+const norm=s=>s.toLowerCase().replace(/[’ʼ‘`]/g,"'").replace(/ё/g,"е");
+const W="[\\p{L}\\p{N}]",WORD=/[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu;
+const STOP=new Set("і й та в у з із зі на що як це для до по не а чи або від of the a an and to in is".split(" "));
+// Грубий стемінг: у кириличних словах відрізаємо закінчення й шукаємо за префіксом,
+// щоб «токенізатор» знаходив «токенізатори», а «увага» — «уваги», «увагу».
+const stem=w=>/[а-яіїєґ]/.test(w)&&w.length>=5?w.slice(0,w.length>=7?-2:-1):w;
+const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+const termRe=t=>new RegExp(`(?<!${W})${reEsc(t)}`,"gu");
+const count=(re,s)=>{re.lastIndex=0;let n=0;while(re.exec(s))n++;return n};
+
+const cards=[...document.querySelectorAll("a.lcard")].map(a=>({href:a.getAttribute("href"),file:decodeURIComponent(a.getAttribute("href").split("/").pop()),
+  num:a.querySelector(".num").textContent.trim(),title:a.querySelector("h2").textContent.trim()}));
+const lecNum=f=>(cards.find(c=>c.file===f)||{num:"Лекція "+f.slice(0,2)}).num;
+let docs=null,loading=null,failed=0;
+
+// Текст розділу без тестів, кнопок і вмісту демо; від демо лишаємо назву й підказку.
+function parseSection(sec,c){
+  const s=sec.cloneNode(true);
+  s.querySelectorAll(".demo").forEach(d=>{const h=d.querySelector(".head h4"),hint=d.querySelector(".head .hint"),p=document.createElement("p");
+    p.textContent=[h&&h.textContent,hint&&hint.textContent].filter(Boolean).join(". ");d.replaceWith(p)});
+  s.querySelectorAll("script,style,svg,canvas,button,input,select,textarea,.quiz,details.check,.kbd-hint,.eyebrow").forEach(n=>n.remove());
+  // Пробіл після блоків, щоб textContent не склеював слова з сусідніх карток і рядків.
+  s.querySelectorAll("p,div,li,h2,h3,h4,td,th,summary,br,pre,.k,.l,.t").forEach(n=>n.after(" "));
+  const txt=n=>n?n.textContent.replace(/\s+/g," ").trim():"";
+  const h2=txt(s.querySelector("h2")),title=sec.dataset.title||h2;
+  return {file:c.file,href:c.href.split("#")[0]+"#"+sec.id,lecture:c.num,id:sec.id,title,
+    head:norm(title+" "+h2),lead:txt(s.querySelector(".lead")),sub:norm([...s.querySelectorAll("h3,h4,.card .k,summary")].map(txt).join(" · ")),body:txt(s)};
+}
+function load(){
+  if(loading)return loading;
+  out.innerHTML=q.value.trim()?'<div class="sr-note">Завантажую лекції…</div>':"";
+  loading=Promise.all(cards.map(c=>fetch(c.href.split("#")[0]).then(r=>{if(!r.ok)throw r.status;return r.text()})
+    .then(html=>[...new DOMParser().parseFromString(html,"text/html").querySelectorAll("section.slide[id]")].map(s=>parseSection(s,c)))
+    .catch(()=>{failed++;return []})))
+  .then(lists=>{docs=lists.flat();docs.forEach(d=>{d.nbody=norm(d.body);d.nlead=norm(d.lead)});render()});
+  return loading;
+}
+function readSet(file){try{return new Set((JSON.parse(localStorage.getItem("prog:"+file))||{}).read||[])}catch(e){return new Set()}}
+
+// Ранжування: спершу кількість слів запиту, що знайшлися в розділі, далі прості ваги:
+// збіг у назві важить найбільше, потім lead, підзаголовки і кількість згадок у тексті.
+function searchSections(terms){
+  if(!docs||!docs.length)return {hits:[],all:true};
+  const res=terms.map(termRe);
+  const scored=docs.map(d=>{let hit=0,score=0;
+    res.forEach(re=>{const b=count(re,d.nbody);if(!b)return;hit++;
+      score+=10*Math.min(count(re,d.head),1)+4*Math.min(count(re,d.nlead),1)+2*Math.min(count(re,d.sub),2)+Math.min(b,5)});
+    return {d,hit,score}}).filter(x=>x.hit);
+  scored.sort((a,b)=>b.hit-a.hit||b.score-a.score);
+  const best=scored.length?scored[0].hit:0;
+  return {hits:scored.filter(x=>x.hit===best).slice(0,8),all:best===terms.length};
+}
+function searchGlossary(terms){
+  if(typeof GLOSSARY==="undefined")return [];
+  const res=terms.map(termRe);
+  return Object.entries(GLOSSARY).map(([k,g])=>{const name=norm(g.term+" "+(g.en||"")+" "+k.replace(/-/g," "));
+    const n=res.filter(re=>count(re,name)).length;return {k,g,score:n+(norm(g.term)===terms.join(" ")?1:0)}})
+    .filter(x=>x.score>=terms.length).sort((a,b)=>b.score-a.score||a.g.term.length-b.g.term.length).slice(0,3);
+}
+// Підсвічування: усі слова, що починаються з основи з запиту.
+function mark(text,terms){
+  const re=new RegExp(`(?<!${W})(?:${terms.map(reEsc).join("|")})${W}*`,"gu"),n=norm(text);
+  let html="",last=0,m;
+  while((m=re.exec(n))){html+=esc(text.slice(last,m.index))+"<mark>"+esc(text.slice(m.index,m.index+m[0].length))+"</mark>";last=m.index+m[0].length}
+  return html+esc(text.slice(last));
+}
+function snippet(d,terms){
+  const src=d.nlead&&terms.some(t=>count(termRe(t),d.nlead))?d.lead:d.body,n=norm(src);
+  let pos=-1;terms.forEach(t=>{const re=termRe(t),m=re.exec(n);if(m&&(pos<0||m.index<pos))pos=m.index});
+  if(src===d.lead&&src.length<=220)return mark(src,terms);
+  let a=Math.max(0,pos-70);if(a>0){const sp=src.indexOf(" ",a);a=sp>=0&&sp<pos?sp+1:a}
+  let b=Math.min(src.length,a+200);if(b<src.length){const sp=src.lastIndexOf(" ",b);if(sp>pos)b=sp}
+  return (a>0?"… ":"")+mark(src.slice(a,b),terms)+(b<src.length?" …":"");
+}
+function render(){
+  const raw=q.value.trim();
+  if(!raw){out.innerHTML="";return}
+  const terms=[...new Set(norm(raw).match(WORD)||[])].filter(t=>!STOP.has(t)&&(t.length>1||/\d/.test(t))).map(stem);
+  if(!terms.length){out.innerHTML="";return}
+  const gl=searchGlossary(terms),{hits,all}=searchSections(terms);
+  let html="";
+  if(gl.length)html+='<div class="sr-grp">Терміни</div>'+gl.map(({k,g})=>{const def=plain(g.def);
+    return `<a class="sr-hit g" href="${esc(g.src)}"><span class="m">${esc(lecNum(g.src.split("#")[0]))} · глосарій</span><br><b>${mark(g.term,terms)}</b>${g.en&&g.en!==g.term?`<span class="en">${esc(g.en)}</span>`:""}<p>${esc(def.length>160?def.slice(0,def.lastIndexOf(" ",157))+" …":def)}</p></a>`}).join("");
+  if(hits.length){
+    html+=`<div class="sr-grp">Розділи лекцій${all?"":" · не всі слова знайдено"}</div>`;
+    const reads={};
+    html+=hits.map(({d})=>{const rd=(reads[d.file]=reads[d.file]||readSet(d.file)).has(d.id);
+      return `<a class="sr-hit" href="${esc(d.href)}"><span class="m">${esc(d.lecture)} · ${d.id==="s0"?"вступ":"розділ "+d.id.slice(1)}${rd?' · <span class="rd">✓ прочитано</span>':""}</span><b>${mark(d.title,terms)}</b><p>${snippet(d,terms)}</p></a>`}).join("");
+  }
+  if(failed===cards.length)html+='<div class="sr-note">Пошук у тексті лекцій працює на сайті курсу або через локальний сервер (<code>python -m http.server</code>). Зі сторінки, відкритої як файл, шукаємо лише в глосарії.</div>';
+  else if(!docs)html+='<div class="sr-note">Завантажую лекції…</div>';
+  else if(!html)html='<div class="sr-note">Нічого не знайдено. Спробуйте інше слово або англійську назву терміна.</div>';
+  out.innerHTML=html;
+}
+let timer=0;
+q.addEventListener("focus",load);
+q.addEventListener("input",()=>{load();clearTimeout(timer);timer=setTimeout(render,120)});
+q.addEventListener("keydown",e=>{if(e.key==="Escape"){q.value="";render()}
+  else if(e.key==="ArrowDown"){const a=out.querySelector("a");if(a){e.preventDefault();a.focus()}}});
+out.addEventListener("keydown",e=>{const links=[...out.querySelectorAll("a")],i=links.indexOf(document.activeElement);if(i<0)return;
+  if(e.key==="ArrowDown"&&links[i+1]){e.preventDefault();links[i+1].focus()}
+  else if(e.key==="ArrowUp"){e.preventDefault();(links[i-1]||q).focus()}
+  else if(e.key==="Escape")q.focus()});
+form.addEventListener("submit",e=>{e.preventDefault();const a=out.querySelector("a");if(a)location.href=a.href});
+addEventListener("keydown",e=>{if(e.key==="/"&&!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){e.preventDefault();q.focus()}});
+})();
 </script>
 </body>
 </html>
