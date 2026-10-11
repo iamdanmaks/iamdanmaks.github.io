@@ -34,7 +34,7 @@ VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"  # premade "George"
 MODEL_ID = "eleven_v3"
 CHUNK = 2400  # символів на запит; ліміт eleven_v3 — близько 3000
 LANG = "uk"
-MARK = re.compile(r"\[\[(.*?)\]\]")
+MARK = re.compile(r"\[\[(.*?)\]\](?!\])")  # «]]]» у [[click|li[data-i="0"]]]: перша «]» — частина селектора
 SENT = re.compile(r"[^\s].*?(?:[.!?…]+»?(?=\s|$)|$)", re.S)
 
 STYLE_MODEL = "patriotyk/styletts2_ukrainian_multispeaker"
