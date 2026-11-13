@@ -14,15 +14,15 @@ The course is "NLP + AI" for future data scientists and ML engineers. Priority: 
 | 04 | — | not in this repo; Word2Vec and GloVe were taught by a colleague | — |
 | 05 | `05-attention-transformers.html` | Attention, transformer block, encoder/decoder, BERT, XLM-R, Hugging Face | done, narrated |
 | 06 | `06-heads-decoders.html` | Heads and generation | done, narrated |
-| 07 | `_drafts/07-from-06.html` (part) | From base model to assistant: post-training, reasoning, MoE | draft |
-| 08 | `_drafts/07-from-06.html` (part) | Adapting and evaluating LLMs | draft (adaptation part) |
-| 09 | — | Semantic search: bi-encoders, contrastive training, retrieval evaluation | planned |
+| 07 | `07-semantic-search.html` | Semantic search: bi-encoders, contrastive training, ANN indexes, retrieval evaluation | done, not narrated |
+| 08 | `_drafts/07-from-06.html` (part) | From base model to assistant: post-training, reasoning, MoE | draft |
+| 09 | `_drafts/07-from-06.html` (part) | Adapting and evaluating LLMs | draft (adaptation part) |
 | 10 | — | Hybrid search, reranking and RAG | planned |
 | 11 | — | Practical LLM usage + final practical task | planned |
 | — | — | Efficient LLMs | optional |
 | — | — | Classic NLP tools | optional, at the end if time allows |
 
-Numbers from 07 on are provisional.
+Semantic search was moved up to 07 (2026-11-12); numbers from 08 on are provisional. Lecture 06 still says post-training and LoRA come "in the next lecture" (s0, s5): fix that text and its narration when 08 is settled.
 
 ## 06 · Heads and generation
 
@@ -33,7 +33,13 @@ Thesis: one body, three head decisions (which vectors, which layer, which loss).
 - State the thesis in s0 and the summary. Disambiguate "голова задачі" from attention heads (05 s7).
 - Decoder half (LM head, causal LM, generation and KV cache, decoding, GPT → LLM, encoder vs LLM) stays.
 
-## 07 · From base model to assistant
+## 07 · Semantic search (done)
+
+`07-semantic-search.html`, 19 sections, ≈67 min by the page estimator. Order: lexical gap (↩ 02) → static word vectors and why raw BERT is a bad sentence encoder (↩ 04) → bi-encoder vs cross-encoder (↩ 06) → cosine vs dot product → InfoNCE with in-batch negatives and τ → hard and false negatives → pairs and triplets (formats, triplet loss with easy/semi-hard/hard, mined negatives, data sources) → ready models, MTEB, Matryoshka, index memory → chunking → exact kNN and IVF → HNSW and vector DBs → recall@K, MRR, NDCG → own test set (qrels, incomplete judgments, paired CI) → error analysis by query type → two-tower recsys → code (sentence-transformers, FAISS, Qdrant, evaluator, MNRL fine-tuning) → summary.
+
+Hooks left for 10: hybrid search and score fusion (s1 warn, s8 bge-m3 row: dense + sparse weights, s14 "oracle" demo), reranking funnel (s3, s15), filters extracted by an LLM (s14, also for 11).
+
+## 08 · From base model to assistant
 
 How modern LLMs are built after pretraining.
 
@@ -42,20 +48,13 @@ How modern LLMs are built after pretraining.
 - RL with verifiable rewards → reasoning models, test-time compute as a new scaling axis.
 - MoE: one section ("how DeepSeek-V3 and Qwen3 are built"): router, top-k experts, total vs active parameters.
 
-## 08 · Adapting and evaluating LLMs
+## 09 · Adapting and evaluating LLMs
 
 How to make an LLM do your task, and how to know that it does.
 
 - Adaptation: prompting (zero/few-shot), label logits, new head on the last token, LoRA, QLoRA. Draft sections exist in `_drafts/07-from-06.html`.
 - Evaluation: public benchmarks and contamination, pass@k for reasoning and code, building your own eval set, LLM-as-judge (concept, biases, calibration against human labels).
-- Tie-in: evaluation decides between prompt, head and LoRA. Verifiable rewards in 07 are automatic evals.
-
-## 09 · Semantic search
-
-- Bi-encoders, mean pooling, contrastive loss with in-batch negatives, hard negatives. Bridge from Word2Vec/GloVe: static word vectors → contextual sentence vectors.
-- ANN indexes (HNSW, IVF), vector databases.
-- Retrieval evaluation: recall@K, MRR, NDCG (referenced in 06 s5), building a test set of queries and relevant documents.
-- Bridge to recommender systems: two-tower models are the same architecture.
+- Tie-in: evaluation decides between prompt, head and LoRA. Verifiable rewards in 08 are automatic evals.
 
 ## 10 · Hybrid search, reranking and RAG
 

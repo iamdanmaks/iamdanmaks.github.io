@@ -1,0 +1,1629 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Семантичний пошук: від векторів до індексу й метрик</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1218" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+/* Стилі лише цієї лекції. Спільна база — common.css */
+section.slide>.pipe,section.slide>.tblwrap{max-width:none}
+.mono{font-family:"IBM Plex Mono",monospace}
+.muted{color:var(--muted)}
+.note{font-size:.85em;color:var(--muted)}
+.ctl label:not(.chk){display:block}
+.ctl label:not(.chk)>input[type=range]{display:block;margin-top:6px}
+.ctlrow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:12px}
+.ctlrow .lbl{font-size:.8em;color:var(--muted)}
+.vizbox{overflow-x:auto}
+svg.viz{width:100%;height:auto;display:block;font-family:"IBM Plex Mono",monospace;overflow:visible;touch-action:none}
+svg.viz text{fill:var(--ink);font-size:12px}
+svg.viz text.mut{fill:var(--muted);font-size:11px}
+canvas.cv{display:block;width:100%;border-radius:8px;background:var(--bg);border:1px solid var(--line-soft);cursor:crosshair;touch-action:none}
+
+table.tbl{border-collapse:collapse;width:100%;font-size:.88em;font-variant-numeric:tabular-nums}
+table.tbl th,table.tbl td{padding:6px 10px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+table.tbl th{font-weight:500;color:var(--muted);font-size:.85em;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line)}
+table.tbl td.mono{font-size:.88em;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+
+/* два пайплайни біенкодера */
+.pipes{display:grid;gap:10px;margin:14px 0}
+.pipes .pl{font-family:"IBM Plex Mono",monospace;font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 -4px}
+.pipes .pipe{margin:0}
+
+/* 1. лексичний vs семантичний */
+.rk{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.rk h5{margin:0 0 4px;font-size:.78em;font-weight:500;font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em}
+.rk .row{display:grid;grid-template-columns:22px minmax(0,1fr) 46px;gap:8px;align-items:baseline;font-size:.86em;padding:6px 8px;border-radius:7px;background:var(--bg);border:1px solid var(--line-soft)}
+.rk .row .n{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:.85em}
+.rk .row .s{font-family:"IBM Plex Mono",monospace;text-align:right;font-size:.85em}
+.rk .row.gold{border-color:var(--aqua);background:color-mix(in srgb,var(--aqua) 10%,var(--bg))}
+.rk .row.gold .t::after{content:" ✓";color:var(--aqua);font-weight:600}
+.rk .empty{font-size:.86em;color:var(--muted);padding:10px;border:1px dashed var(--line);border-radius:7px}
+.rk mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
+.rk.lex h5{color:var(--blue)}.rk.sem h5{color:var(--orange)}
+.qline{font-family:"IBM Plex Mono",monospace;font-size:.95em;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px;margin:10px 0}
+.qline mark{background:var(--hl);color:var(--hl-ink);border-radius:3px;padding:0 2px}
+
+/* 2. токени-фішки */
+.toks{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.tk{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 9px;line-height:1.35}
+.tk{cursor:default}
+.tk.a{border-color:var(--blue);background:var(--blue-soft)}
+.tk.b{border-color:var(--orange);background:var(--orange-soft)}
+.tk.sh{border-color:var(--violet);background:color-mix(in srgb,var(--violet) 18%,var(--surface))}
+.tk.on{outline:2px solid var(--ink);outline-offset:1px}
+#w2vBars .softbar{grid-template-columns:150px 1fr 56px;font-size:.84em}
+/* 13. 20 повторів експерименту */
+.citiles{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:8px;margin:14px 0}
+.citile{border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;line-height:1.15}
+.citile b{display:block;font-size:1.5em}
+.citile small{font-family:var(--mono,monospace);font-size:.74em;color:var(--muted)}
+.citile.b{background:color-mix(in srgb,var(--aqua) 16%,var(--surface));border-color:var(--aqua)}.citile.b b{color:var(--aqua)}
+.citile.a{background:color-mix(in srgb,var(--orange) 16%,var(--surface));border-color:var(--orange)}.citile.a b{color:var(--orange)}
+@media (max-width:640px){.citiles{grid-template-columns:repeat(5,minmax(0,1fr))}}
+/* 6. негативи: вісь косинуса з запитом */
+.ng{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) 4.6em;gap:4px 14px;align-items:center;font-size:.9em}
+.ng .hd{font-family:var(--mono,monospace);font-size:.78em;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.ng .hd.r{text-align:right}
+.ng .lab{line-height:1.3}
+.ng .lab small{display:block;color:var(--muted);font-size:.82em}
+.ng .lab.pos{color:var(--aqua);font-weight:600}
+.ng .lab.fn{color:var(--rose);font-weight:600}
+.ng .d{font-family:var(--mono,monospace);text-align:right;font-size:.92em}
+.ng .d.pl{color:var(--aqua)}.ng .d.mi{color:var(--orange)}.ng .d.z{color:var(--muted)}
+.ng .ax{position:relative;height:22px}
+.ng .ax span{position:absolute;bottom:0;transform:translateX(-50%);font-family:var(--mono,monospace);font-size:.75em;color:var(--muted)}
+.ng .ax span.q{color:var(--violet);font-weight:600;white-space:nowrap;transform:translateX(-100%)}
+.ng .tr{position:relative;height:30px}
+.ng .tr::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--line)}
+.ng .tr::after{content:"";position:absolute;right:0;top:3px;bottom:3px;border-right:3px solid var(--violet);border-radius:2px}
+.ng .dot{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid var(--surface);transition:left .6s ease;z-index:2}
+.ng .arr{position:absolute;top:50%;height:4px;margin-top:-2px;border-radius:2px;transition:left .6s ease,width .6s ease;opacity:.85}
+.ng .arr::after{content:"";position:absolute;top:-5px;border:7px solid transparent}
+.ng .arr.r::after{right:-9px;border-left-color:inherit;border-left-width:9px;border-right-width:0}
+.ng .arr.l::after{left:-9px;border-right-color:inherit;border-right-width:9px;border-left-width:0}
+.ng .c-pos{background:var(--aqua);border-color:var(--aqua)}
+.ng .c-neg{background:var(--orange);border-color:var(--orange)}
+.ng .c-fn{background:var(--rose);border-color:var(--rose)}
+.ng .dot.c-pos,.ng .dot.c-neg,.ng .dot.c-fn{border-color:var(--surface)}
+@media (max-width:640px){.ng{grid-template-columns:minmax(0,1fr) 4em}.ng .lab{grid-column:1/-1;margin-top:6px}.ng .hd.l{display:none}}
+.sent{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center}
+.sent .l{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:.8em}
+
+/* 4. простір ембедінгів, 13. дві вежі */
+.em-wrap{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.em-wrap{grid-template-columns:minmax(0,1fr)}}
+.toplist{font-size:.86em;display:flex;flex-direction:column;gap:4px}
+.toplist .row{display:grid;grid-template-columns:20px minmax(0,1fr) 52px 52px;gap:8px;align-items:baseline;padding:5px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--line-soft)}
+.toplist .row.hd{background:none;border:0;font-family:"IBM Plex Mono",monospace;font-size:.78em;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-top:0;padding-bottom:0}
+.toplist .row .n,.toplist .row .s{font-family:"IBM Plex Mono",monospace;font-size:.85em;text-align:right}
+.toplist .row .n{text-align:left;color:var(--muted)}
+.toplist .row .s.on{color:var(--ink);font-weight:600}
+.toplist .row .s.off{color:var(--muted)}
+.toplist .sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+
+/* 5. матриця схожостей */
+.cl-wrap{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:820px){.cl-wrap{grid-template-columns:minmax(0,1fr)}}
+.clmx{display:inline-grid;grid-template-columns:auto repeat(5,48px);gap:3px;font-family:"IBM Plex Mono",monospace;font-size:.76em}
+.clmx .h{color:var(--muted);text-align:center;align-self:end;padding-bottom:2px}
+.clmx .rh{color:var(--muted);text-align:right;padding-right:6px;display:flex;align-items:center;justify-content:flex-end;cursor:pointer;border-radius:4px}
+.clmx .rh.on{color:var(--violet);font-weight:600}
+.clmx .c{height:40px;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-variant-numeric:tabular-nums;color:var(--ink)}
+.clmx .c.dg{box-shadow:inset 0 0 0 2px var(--aqua)}
+.clmx .c.on{outline:2px solid var(--violet);outline-offset:1px}
+.pairs{font-size:.84em;margin:0;padding:0;list-style:none;display:grid;gap:3px}
+.pairs li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px}
+.pairs b{font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--muted);font-size:.9em}
+.dist .softbar{grid-template-columns:minmax(90px,260px) 1fr 64px}
+.dist .softbar .w{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.95em}
+.dist .softbar.pos .w{color:var(--aqua);font-weight:600}
+.dist .softbar.fn .w{color:var(--rose)}
+.dist .softbar .w small{font-family:"IBM Plex Mono",monospace;color:var(--muted);margin-left:6px}
+@media (max-width:640px){.dist .softbar{grid-template-columns:110px 1fr 54px}}
+
+/* 8. чанки */
+.chunks{display:grid;gap:8px;margin-top:10px;max-height:460px;overflow-y:auto;padding-right:4px}
+.chunk{font-size:.86em;line-height:1.55;background:var(--bg);border:1px solid var(--line-soft);border-left:4px solid var(--blue);border-radius:7px;padding:8px 12px}
+.chunk:nth-child(even){border-left-color:var(--orange)}
+.chunk .ch{font-family:"IBM Plex Mono",monospace;font-size:.75em;color:var(--muted);display:block;margin-bottom:2px}
+.chunk .ov{color:var(--muted);background:repeating-linear-gradient(45deg,transparent 0 5px,color-mix(in srgb,var(--line) 40%,transparent) 5px 10px);border-radius:3px}
+.chunk .key{background:color-mix(in srgb,var(--aqua) 22%,transparent);border-radius:3px}
+.chunk .key.cut{background:color-mix(in srgb,var(--rose) 22%,transparent)}
+.chunk.haskey{border-color:var(--aqua);border-left-color:var(--aqua)}
+
+/* 11. метрики */
+.mrows{display:grid;gap:4px;margin-top:8px}
+.mrow{display:grid;grid-template-columns:26px minmax(0,1fr) auto 120px;gap:10px;align-items:center;font-size:.86em;padding:4px 8px;border-radius:7px;background:var(--bg);border:1px solid var(--line-soft)}
+.mrow.out{opacity:.45}
+.mrow .n{font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+.mrow .gr{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.mrow .gr button{font:inherit;font-family:"IBM Plex Mono",monospace;font-size:.8em;border:0;border-right:1px solid var(--line-soft);background:var(--surface);color:var(--ink-2);padding:3px 9px;cursor:pointer}
+.mrow .gr button:last-child{border-right:0}
+.mrow .gr button[aria-pressed="true"]{background:var(--aqua);color:#fff}
+.mrow .gr button[data-g="0"][aria-pressed="true"]{background:var(--muted)}
+.mrow .gn{display:grid;grid-template-columns:1fr 38px;gap:6px;align-items:center}
+.mrow .gn .tr{display:block;height:12px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.mrow .gn .fl{height:100%;background:var(--aqua);border-radius:4px;transition:width .2s}
+.mrow .gn span{font-family:"IBM Plex Mono",monospace;font-size:.8em;text-align:right}
+.mrow.hidden-rel{border-style:dashed}
+@media (max-width:640px){.mrow{grid-template-columns:22px minmax(0,1fr) auto}.mrow .gn{display:none}}
+
+/* 14. розбір помилок: компактні пари смужок */
+#errBars .softbar{margin:2px 0;grid-template-columns:56px 1fr 48px;font-size:.8em}
+#errBars .softbar .tr{height:12px}
+/* 7. довжина індексу */
+.fits{font-size:.9em;margin-top:8px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="btn" href="./index.html" style="text-decoration:none" title="Повернутися до списку лекцій">← Усі лекції</a>
+  <span class="brand">NLP · Лекція 07 · Семантичний пошук</span>
+  <span class="spacer"></span>
+  <button class="btn" id="lectureBtn" aria-pressed="false" title="Збільшує шрифт і робить кожен розділ окремим слайдом"><span class="dot"></span>Режим лекції</button>
+  <button class="btn" id="themeBtn" title="Перемкнути тему">◐ Тема</button>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Зміст"><ol id="toc"></ol></nav>
+<main id="main">
+
+<!-- ============ 0. HERO ============ -->
+<section class="slide" id="s0" data-title="Вступ">
+  <div class="eyebrow">Обробка природної мови · Лекція 07 · <b>Семантичний пошук</b></div>
+  <h1>Семантичний пошук: як шукати за змістом, а не за словами</h1>
+  <div class="hero-grid">
+    <div>
+      <p class="lead">У лекції 02 ми шукали документи за спільними словами, і <span class="term" data-g="bm25">BM25</span> досі робить це добре. Але користувач пише «хочу назад свої гроші», а в довідці написано «повернення коштів». Сьогодні ми навчимо модель перетворювати текст на вектор так, щоб близькі за змістом тексти мали близькі вектори, і побудуємо з цього пошук серед мільйонів документів.</p>
+      <p>Ми пройдемо весь шлях. Спершу побачимо, чому середнього векторів слів не досить, як влаштований <span class="term" data-g="bi-encoder">біенкодер</span> і як його навчають. Далі розберемо, як розбити документи на фрагменти і як знайти найближчі вектори за мілісекунди. Головне питання наприкінці: як виміряти, чи пошук справді став кращим. Насамкінець побачимо, що рекомендаційні системи побудовані так само.</p>
+      <p>Гібридний пошук, переранжування і RAG спираються на сьогоднішній матеріал і будуть темою окремої лекції.</p>
+    </div>
+    <aside class="agenda">
+      <h3>Сьогодні</h3>
+      <ol>
+        <li>Де лексичний пошук ламається</li>
+        <li>Від векторів слів до векторів речень</li>
+        <li>Біенкодер</li>
+        <li>Простір ембедінгів: косинус і скалярний добуток</li>
+        <li>Контрастивне навчання</li>
+        <li>Негативи: прості, складні, хибні</li>
+        <li>Пари і триплети</li>
+        <li>Готові моделі і ціна індексу</li>
+        <li>Чанкінг</li>
+        <li>Найближчі сусіди: перебір і IVF</li>
+        <li>HNSW і векторні бази</li>
+        <li>Метрики: recall@K, MRR, NDCG</li>
+        <li>Власний тестовий набір</li>
+        <li>Розбір помилок</li>
+        <li>Дві вежі в рекомендаціях</li>
+        <li>Код: пошук, індекс, оцінка, донавчання</li>
+        <li>Підсумок і тест</li>
+      </ol>
+    </aside>
+  </div>
+  <div class="xref"><a class="chip" href="./02-tfidf-bm25.html#s10">↩ Лекція 02</a><p>TF-IDF, BM25, інвертований індекс, precision@K і recall@K. Сьогодні BM25 буде бейзлайном, з яким ми порівнюємо кожну нову систему.</p></div>
+  <div class="xref"><a class="chip" href="./06-heads-decoders.html#s5">↩ Лекція 06</a><p>Пулінг і таблиця голів. Її рядок «вектор для пошуку: середнє векторів, контрастивна loss функція, recall@K і NDCG» і є темою цієї лекції.</p></div>
+</section>
+
+<!-- ============ 1. LEXICAL GAP ============ -->
+<section class="slide" id="s1" data-title="Де лексичний пошук ламається">
+  <div class="eyebrow">Розділ 1 · <b>місток з лекції 02</b></div>
+  <h2>Де лексичний пошук ламається</h2>
+  <p class="lead">Лексичний пошук знаходить документ, лише якщо в ньому є слова запиту. А люди описують одне й те саме різними словами, і тоді BM25 не знаходить нічого.</p>
+
+  <p><span class="term" data-g="lexical-search">Лексичний пошук</span> порівнює токени. У <span class="term" data-g="ir">інформаційному пошуку</span> цю проблему називають розривом словника (vocabulary mismatch): автор документа і користувач обирають різні слова для одного поняття. <span class="term" data-g="stemming">Стемінг</span> трохи допомагає, бо «посилка» і «посилки» зводяться до однієї основи. Але від синонімів і перефразувань він не рятує.</p>
+
+  <div class="cards">
+    <div class="card"><div class="k">Синоніми</div><h4>«гроші» і «кошти»</h4><p>Різні слова, одне поняття. Спільних токенів немає, тож BM25 дає нуль.</p></div>
+    <div class="card"><div class="k">Перефразування</div><h4>«не можу увійти»</h4><p>Відповідь лежить у статті «Зміна пароля від кабінету». Зміст той самий, слова інші.</p></div>
+    <div class="card"><div class="k">Інша мова</div><h4>Запит українською</h4><p>Документ англійською. Лексичний пошук тут безсилий, а багатомовна модель ставить обидва тексти поруч.</p></div>
+    <div class="card"><div class="k">Опис замість назви</div><h4>«штука, що гріє воду»</h4><p>Користувач не знає слова «бойлер». Він описує призначення, а не назву.</p></div>
+  </div>
+
+  <p>Ідея <span class="term" data-g="semantic-search">семантичного пошуку</span> така: закодувати запит і кожен документ у <span class="term" data-g="dense-vector">dense-вектор</span>, щоб близькі за змістом тексти мали близькі вектори. Тоді пошук зводиться до геометрії: треба знайти вектори, найближчі до вектора запиту.</p>
+
+  <div class="demo" id="lexDemo">
+    <div class="head"><h4>BM25 проти пошуку за змістом</h4><span class="tag">interactive</span><span class="hint">Довідка інтернет-магазину з 11 статей. Оберіть запит. Ліворуч BM25 з простим стемінгом: жовтим підсвічено основи слів, спільні з запитом. Праворуч пошук за косинусом між іграшковими векторами, у яких кожен вимір — одне поняття (повернення, гроші, доставка…). Справжня модель вчить такі виміри сама. Зелена галочка позначає статтю, яку шукав користувач.</span></div>
+    <div class="seg" id="lexQ"></div>
+    <div class="qline" id="lexQl"></div>
+    <div class="two">
+      <div class="rk lex"><h5>BM25</h5><div id="lexBm"></div></div>
+      <div class="rk sem"><h5>За змістом (косинус)</h5><div id="lexSem"></div></div>
+    </div>
+    <div class="explain" id="lexExpl"></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Нюанс</div><p>Семантичний пошук не замінює лексичний. Подивіться на запит «E-1043»: модель не знає, що означає цей код, і його вектор розмитий. Точні збіги кодів, артикулів, імен і рідкісних термінів лишаються сильною стороною BM25. Тому на практиці обидва підходи поєднують, і це називають гібридним пошуком. Йому буде присвячена окрема лекція.</p></div>
+</section>
+
+<!-- ============ 2. WORD VECTORS → SENTENCE VECTORS ============ -->
+<section class="slide" id="s2" data-title="Від векторів слів до векторів речень">
+  <div class="eyebrow">Розділ 2 · <b>місток з лекції 04</b></div>
+  <h2>Від векторів слів до векторів речень</h2>
+  <p class="lead"><span class="term" data-g="word2vec">Word2Vec</span> і <span class="term" data-g="glove">GloVe</span> уже знають, що «авто» близьке до «машини». Але середнє векторів слів не бачить порядку слів і не розрізняє значень багатозначного слова.</p>
+
+  <p>У лекції 04 ви бачили статичні <span class="term" data-g="embedding">ембедінги</span>: кожне слово має один вектор, і синоніми лежать поруч. Найпростіший вектор речення — середнє векторів його слів. Як бейзлайн це працює непогано, і довго так і робили. Але є три проблеми.</p>
+
+  <div class="cards">
+    <div class="card"><div class="k">Порядок</div><h4>Середнє — це мішок слів</h4><p>«Фільм не поганий, а чудовий» і «фільм не чудовий, а поганий» складаються з тих самих слів. Середнє однакове, косинус дорівнює 1.</p></div>
+    <div class="card"><div class="k">Багатозначність</div><h4>Один «замок» на всі значення</h4><p>Статичний вектор «замка» усереднює дверний замок і фортецю. Речення про ключ і речення про туристів стають схожими через одне спільне слово.</p></div>
+    <div class="card"><div class="k">Заперечення</div><h4>«Не» майже нічого не змінює</h4><p>Одне коротке слово серед п'яти мало зсуває середнє. «Я люблю цей ресторан» і «я не люблю цей ресторан» виходять майже однаковими.</p></div>
+  </div>
+
+  <div class="demo" id="w2vDemo">
+    <div class="head"><h4>Вектор речення як середнє векторів слів</h4><span class="tag">interactive</span><span class="hint">Кожне слово — точка на іграшковій двовимірній карті статичних векторів (справжні мають сотні вимірів). Стрілка — середнє слів речення: синя для A, помаранчева для B. Що менший кут між стрілками, то вищий косинус. Фіолетові точки — слова, спільні для обох речень. Оберіть пару і подивіться, чому середнє помиляється. Наведіть на слово, щоб знайти його на карті.</span></div>
+    <div class="seg" id="w2vPair"></div>
+    <div class="em-wrap" style="margin-top:12px">
+      <svg class="viz" id="w2vSvg" viewBox="0 0 420 400" role="img" aria-label="Вектори слів двох речень і їхні середні"></svg>
+      <div>
+        <div class="sent"><span class="l">A</span><div class="toks" id="w2vA"></div></div>
+        <div class="sent"><span class="l">B</span><div class="toks" id="w2vB"></div></div>
+        <div class="softbars" id="w2vBars"></div>
+        <div class="explain" id="w2vExpl"></div>
+      </div>
+    </div>
+  </div>
+
+  <p><span class="term" data-g="transformer">Трансформер</span> із лекції 05 розв'язує перші дві проблеми: його вектори контекстуальні, тож «замок» поруч із ключем і «замок» поруч із туристами отримують різні вектори. <span class="term" data-g="pooling">Пулінг</span> з лекції 06 стискає вектори токенів в один вектор речення. Здавалося б, задача розв'язана: беремо BERT, усереднюємо вихід і шукаємо.</p>
+
+  <div class="callout warn"><div class="qm">Сирий BERT — поганий енкодер речень</div><p>Автори Sentence-BERT (2019) перевірили саме це. Середнє виходів BERT без додаткового навчання, а так само вектор [CLS], оцінювали схожість речень <em>гірше</em>, ніж середнє векторів GloVe. Причина в задачі навчання. <span class="term" data-g="mlm">MLM</span> вчить відновлювати пропущені токени, і ніхто не просив модель робити вектори схожих речень близькими. Тому вектори майже всіх текстів збираються у вузькому конусі, і косинус двох випадкових речень виходить 0.6–0.9. Щоб вектори відображали зміст, модель треба навчити саме цього (розділи 5–6).</p></div>
+
+  <details class="more">
+    <summary>Чому вектори збираються у вузькому конусі</summary>
+    <div class="body"><p>Це явище називають анізотропією. Вихідні вектори BERT і GPT-2 мають кілька спільних напрямків з великими значеннями, які присутні майже в кожному токені й пов'язані насамперед з частотою токена. Тому косинус між будь-якими двома текстами високий, а різниця за змістом ховається в малих компонентах. Пробували виправляти це постобробкою: відніманням середнього вектора чи «вибілюванням» (whitening). Але найкраще працює саме контрастивне навчання з розділу 5: воно явно розводить вектори різних текстів.</p></div>
+  </details>
+</section>
+
+<!-- ============ 3. BI-ENCODER ============ -->
+<section class="slide" id="s3" data-title="Біенкодер">
+  <div class="eyebrow">Розділ 3 · <b>місток з лекції 06</b></div>
+  <h2>Біенкодер: запит і документ кодуються окремо</h2>
+  <p class="lead">Біенкодер кодує запит і кожен документ окремо, тією самою моделлю. Документи кодують один раз заздалегідь, тому під час запиту лишається закодувати тільки запит і знайти найближчі вектори.</p>
+
+  <div class="pipes">
+    <div class="pl">Заздалегідь, один раз для всієї колекції</div>
+    <div class="pipe">
+      <div class="pstep"><div class="l">вхід</div><div class="t">документи</div></div><span class="arrow">→</span>
+      <div class="pstep emb"><div class="l">енкодер</div><div class="t">трансформер</div></div><span class="arrow">→</span>
+      <div class="pstep"><div class="l">пулінг</div><div class="t">середнє</div></div><span class="arrow">→</span>
+      <div class="pstep"><div class="l">‖v‖ = 1</div><div class="t">нормалізація</div></div><span class="arrow">→</span>
+      <div class="pstep hot"><div class="l">N × d</div><div class="t">індекс</div></div>
+    </div>
+    <div class="pl">Під час запиту, за мілісекунди</div>
+    <div class="pipe">
+      <div class="pstep"><div class="l">вхід</div><div class="t">запит</div></div><span class="arrow">→</span>
+      <div class="pstep emb"><div class="l">той самий енкодер</div><div class="t">трансформер</div></div><span class="arrow">→</span>
+      <div class="pstep"><div class="l">1 × d</div><div class="t">вектор запиту</div></div><span class="arrow">→</span>
+      <div class="pstep hot"><div class="l">найближчі в індексі</div><div class="t">топ-K</div></div>
+    </div>
+  </div>
+
+  <p>Усередині звичайний <span class="term" data-g="encoder">енкодер</span>: BERT, XLM-R або, у новіших моделях, навіть декодер LLM. Поверх нього стоїть пулінг: середнє векторів токенів, [CLS] або останній токен для декодера. Потім вектор нормалізують до довжини 1 і отримують <var>d</var> = 384…1024 чисел. Запит і документи проходять через ті самі ваги. Скор пари — <span class="term" data-g="cosine">косинусна подібність</span> їхніх векторів.</p>
+
+  <div class="vs">
+    <div class="card"><div class="k">Біенкодер</div><h4>Окремо, заздалегідь</h4><p>Документ кодується, ще не знаючи запиту. Усе важливе про документ має вміститися в один вектор. Зате пошук серед мільйонів займає мілісекунди. Це перший етап пошуку: знайти кандидатів.</p></div>
+    <div class="card b"><div class="k">Кросенкодер</div><h4>Разом, на кожну пару</h4><p><span class="term" data-g="cross-encoder">Кросенкодер</span> бачить запит і документ одночасно, тож увага порівнює їхні токени напряму. Він точніший, але потребує проходу моделі на кожну пару. Тому ним переранжовують кілька десятків кандидатів від біенкодера.</p></div>
+  </div>
+
+  <div class="demo" id="costDemo">
+    <div class="head"><h4>Скільки коштує один запит</h4><span class="tag">interactive</span><span class="hint">Рухайте розмір колекції. Грубі припущення: одна відеокарта, кросенкодер базового розміру оцінює близько 1 000 пар за секунду, біенкодер кодує запит за 10 мс, а повний перебір читає всі вектори d = 768 у float32 із пам'яті зі швидкістю 20 ГБ/с. Числа приблизні, важить порядок величини.</span></div>
+    <div class="ctl"><label class="grow">Документів у колекції: <span class="v" id="costNV"></span><input type="range" id="costN" min="3" max="9" step="0.5" value="6"></label></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">кросенкодер на кожен документ</div><div class="v b" id="costX"></div></div>
+      <div class="stat"><div class="l">біенкодер, повний перебір</div><div class="v a" id="costB"></div></div>
+      <div class="stat"><div class="l">біенкодер + ANN-індекс</div><div class="v c" id="costA"></div></div>
+      <div class="stat"><div class="l">закодувати колекцію (один раз)</div><div class="v" id="costI"></div></div>
+    </div>
+    <div class="explain" id="costExpl"></div>
+  </div>
+
+  <div class="callout"><p><strong>Асиметричний пошук.</strong> Запит короткий («повернення куртки»), а документ довгий. Багато моделей навчали з різними префіксами для цих двох ролей. E5 очікує <code>"query: "</code> перед запитом і <code>"passage: "</code> перед документом, а Qwen3-Embedding — інструкцію із задачею перед запитом. Модель без потрібного префікса працює, але гірше, і помилки ніхто не помітить. Тому перед використанням моделі прочитайте її model card. Для симетричних задач, наприклад пошуку дублікатів питань, обидва тексти отримують однаковий префікс.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Чому біенкодер швидкий навіть на мільйонах документів?</div>
+      <div class="opts"><button class="opt">Він менший за кросенкодер</button><button class="opt">Вектори документів пораховано заздалегідь, і на запит лишається один прохід моделі плюс пошук найближчих векторів</button><button class="opt">Він не використовує увагу</button></div>
+      <div class="ans">Архітектура в обох може бути однакова. Різниця в тому, що біенкодер не потребує проходу моделі на кожну пару «запит — документ».</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 4. GEOMETRY ============ -->
+<section class="slide" id="s4" data-title="Косинус і скалярний добуток">
+  <div class="eyebrow">Розділ 4 · <b>геометрія</b></div>
+  <h2>Простір ембедінгів: косинус чи скалярний добуток</h2>
+  <p class="lead">Пошук у біенкодері — це геометрія: ми шукаємо вектори з найменшим кутом до запиту. Для нормалізованих векторів косинус і скалярний добуток збігаються, тому вектори майже завжди нормалізують.</p>
+
+  <p>Косинус ви бачили в лекції 02: він дивиться лише на напрямок. Для TF-IDF він лежав у [0, 1], бо всі ваги додатні. Для dense-векторів він лежить у [−1, 1]. <span class="term" data-g="dot-product">Скалярний добуток</span> дорівнює косинусу, помноженому на довжини обох векторів, тож довгий вектор виграє майже за будь-якого кута. Евклідова відстань між векторами довжини 1 упорядковує документи так само, як косинус:</p>
+  <div class="formula">‖<var class="c1">q</var> − <var class="c2">d</var>‖² = ‖<var class="c1">q</var>‖² + ‖<var class="c2">d</var>‖² − 2 <var class="c1">q</var>·<var class="c2">d</var> = 2 − 2 cos(<var class="c1">q</var>, <var class="c2">d</var>), <span class="txt">якщо ‖<var>q</var>‖ = ‖<var>d</var>‖ = 1</span></div>
+
+  <div class="demo" id="emDemo">
+    <div class="head"><h4>Конус косинуса і півплощина скалярного добутку</h4><span class="tag">interactive</span><span class="hint">Двовимірний іграшковий простір, точки — документи чотирьох тем. Клацніть або потягніть, щоб задати напрямок запиту. Для косинуса топ-5 — це вузький конус навколо запиту. Для скалярного добутку — півплощина за пунктирною лінією, перпендикулярною до запиту, і туди першими потрапляють довгі вектори. Увімкніть нормалізацію: усі точки ляжуть на коло, і обидві метрики дадуть однаковий порядок.</span></div>
+    <div class="ctlrow">
+      <span class="lbl">Метрика</span><div class="seg" id="emMetric"><button data-v="cos" aria-pressed="true">косинус</button><button data-v="dot" aria-pressed="false">скалярний добуток</button></div>
+      <label class="chk"><input type="checkbox" id="emNorm"> нормалізувати вектори</label>
+    </div>
+    <div class="em-wrap">
+      <svg class="viz" id="emSvg" viewBox="0 0 420 420" role="img" aria-label="Двовимірний простір ембедінгів документів і запиту"></svg>
+      <div><div class="toplist" id="emTop"></div><div class="explain" id="emExpl"></div></div>
+    </div>
+  </div>
+
+  <div class="callout"><p><strong>Практичне правило.</strong> Подивіться в model card, з якою схожістю модель навчали. Більшість моделей sentence-transformers навчено з косинусом, і в коді досить передати <code>normalize_embeddings=True</code>. Деякі моделі навчено зі скалярним добутком без нормалізації, і тоді довжина вектора несе інформацію. Індекс має використовувати ту саму метрику, що й навчання. Для нормалізованих векторів у FAISS це inner product.</p></div>
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Модель навчено з косинусом, але вектори поклали в <code>IndexFlatIP</code>, забувши нормалізувати. Що станеться?</div>
+      <div class="opts"><button class="opt">Нічого: inner product і є косинус</button><button class="opt">Скор залежатиме від довжини векторів, і порядок відрізнятиметься від косинусного</button><button class="opt">Пошук упаде з помилкою</button></div>
+      <div class="ans">Inner product дорівнює косинусу лише для векторів довжини 1. Без нормалізації документи з довшими векторами отримають завищені скори.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 5. CONTRASTIVE ============ -->
+<section class="slide" id="s5" data-title="Контрастивне навчання">
+  <div class="eyebrow">Розділ 5 · <b>як навчають біенкодер</b></div>
+  <h2>Контрастивне навчання: правильна пара проти решти батчу</h2>
+  <p class="lead">Біенкодер навчають на парах «запит — правильний документ». Серед усіх документів батчу правильний має отримати найбільший скор, а решта документів батчу безкоштовно стають негативами.</p>
+
+  <p>Візьмемо батч із <var>B</var> пар (<var>q<sub>i</sub></var>, <var>d<sub>i</sub></var>). Закодуємо всі запити й усі документи і порахуємо матрицю скорів <var>S</var> розміром <var>B</var> × <var>B</var>, де <var>S<sub>ij</sub></var> = cos(<var>q<sub>i</sub></var>, <var>d<sub>j</sub></var>). На діагоналі стоять правильні пари. Поза діагоналлю — <span class="term" data-g="in-batch-negatives">негативи з батчу</span>: правильні документи інших запитів, які для запиту <var>i</var> є неправильними.</p>
+  <p>Кожен рядок матриці — це класифікація на <var>B</var> класів. Як і в мовній голові з лекції 06, беремо <span class="term" data-g="softmax">softmax</span> і <span class="term" data-g="cross-entropy">крос-ентропію</span>, тільки класами тепер є документи батчу:</p>
+  <div class="formula"><var>L<sub>i</sub></var> = −log <span class="frac"><span><var>e</var><sup><var class="c3">S<sub>ii</sub></var> / <var class="c1">τ</var></sup></span><span><span class="sum">Σ<small><var>j</var>=1…<var>B</var></small></span><var>e</var><sup><var>S<sub>ij</sub></var> / <var class="c1">τ</var></sup></span></span></div>
+  <p>Такий підхід називають <span class="term" data-g="contrastive-learning">контрастивним навчанням</span>, а саму loss функцію — InfoNCE (2018). У sentence-transformers вона називається <code>MultipleNegativesRankingLoss</code>. Число <var>τ</var> — та сама <span class="term" data-g="temperature">температура</span>, що й у генерації. Косинус лежить у вузькому діапазоні [−1, 1], і без ділення на мале <var>τ</var> softmax не зможе дати правильній парі ймовірність, близьку до 1. Типове <var>τ</var> = 0.05, у sentence-transformers це <code>scale = 20</code>.</p>
+
+  <div class="demo" id="clDemo">
+    <div class="head"><h4>Матриця схожостей батчу</h4><span class="tag">interactive</span><span class="hint">П'ять пар «запит — документ». Повзунок «навчання» плавно переводить матрицю зі стану сирої моделі (усі косинуси 0.74–0.86, діагональ ледве виділяється) у стан навченої. Клацніть рядок, щоб побачити його softmax. Зменшіть τ: на навченій матриці loss падає майже до нуля, а при τ = 1 лишається великим навіть тоді, коли порядок уже правильний.</span></div>
+    <div class="ctl">
+      <label class="grow">Навчання: <span class="v" id="clTV">0%</span><input type="range" id="clT" min="0" max="100" step="1" value="0"></label>
+      <label class="grow">Температура τ = <span class="v" id="clTauV">0.05</span><input type="range" id="clTau" min="0" max="100" step="1" value="35"></label>
+    </div>
+    <div class="cl-wrap">
+      <div>
+        <div class="clmx" id="clMx"></div>
+        <ul class="pairs" id="clPairs" style="margin-top:12px"></ul>
+      </div>
+      <div>
+        <div class="note" id="clRowCap"></div>
+        <div class="softbars dist" id="clBars"></div>
+        <div class="statrow">
+          <div class="stat"><div class="l">loss цього рядка</div><div class="v b" id="clLi"></div></div>
+          <div class="stat"><div class="l">середній loss батчу</div><div class="v" id="clL"></div></div>
+          <div class="stat"><div class="l">рядків з правильним топ-1</div><div class="v c" id="clAcc"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Чому батчі великі</h3>
+  <p>Що більше документів у батчі, то більше негативів на кожен запит і то складніша задача. Випадкове вгадування дає loss ln <var>B</var>: 1.6 для п'яти пар і 9.0 для восьми тисяч. Великі моделі ембедінгів навчали на батчах із десятків тисяч пар. На одну відеокарту такий батч не вміщується, тому використовують прийоми на кшталт GradCache (<code>CachedMultipleNegativesRankingLoss</code>): вектори рахують частинами без градієнтів, а градієнти — потім, по шматках.</p>
+</section>
+
+<!-- ============ 6. NEGATIVES ============ -->
+<section class="slide" id="s6" data-title="Негативи: прості, складні, хибні">
+  <div class="eyebrow">Розділ 6 · <b>звідки береться сигнал</b></div>
+  <h2>Негативи: прості, складні і хибні</h2>
+  <p class="lead">Модель вчиться лише на тих негативах, які їй важко відрізнити від правильного документа. Випадкові негативи надто прості, тому до батчу додають складні: схожі документи, знайдені BM25 чи попередньою версією моделі.</p>
+
+  <p>Похідна InfoNCE за скором негативу <var>j</var> дорівнює <var>p<sub>j</sub></var> / <var>τ</var>, де <var>p<sub>j</sub></var> — його ймовірність у softmax. Негатив, якому модель і так дає майже нуль, відштовхується з майже нульовою силою. Документ «Вакансії в компанії» для запиту про повернення товару нічого не вчить: модель уже знає, що це не те.</p>
+
+  <div class="demo" id="negDemo">
+    <div class="head"><h4>Які негативи вчать модель</h4><span class="tag">interactive</span><span class="hint">Запит «як повернути товар», τ = 0.05. Кожен рядок — документ у батчі, точка — його косинус із запитом; фіолетова риска праворуч — сам запит. Стрілки показують, куди штовхає скори градієнт: правильний документ (зелений) підтягується до запиту, негативи (помаранчеві) відштовхуються, і що вища їхня ймовірність у softmax, то довша стрілка. Число праворуч — зсув за один крок. Оберіть набір негативів і натисніть «Крок навчання» кілька разів. Спрощення: ніби модель може рухати кожен скор окремо.</span></div>
+    <div class="ctlrow">
+      <div class="seg" id="negSet"><button data-v="rand" aria-pressed="true">випадкові</button><button data-v="hard" aria-pressed="false">складні (з BM25)</button><button data-v="fn" aria-pressed="false">складні + хибний негатив</button></div>
+      <button class="btn" type="button" id="negStep">Крок навчання →</button>
+      <button class="btn" type="button" id="negReset" title="Повернути початкові скори">↺</button>
+    </div>
+    <div class="ng" id="negRows"></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">кроків навчання</div><div class="v" id="negN"></div></div>
+      <div class="stat"><div class="l">ймовірність правильного</div><div class="v c" id="negP"></div></div>
+      <div class="stat"><div class="l">loss</div><div class="v b" id="negL"></div></div>
+    </div>
+    <div class="explain" id="negExpl"></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">BM25</div><h4>Схожі за словами</h4><p>Топ BM25 для запиту без правильного документа. Так зробили в DPR (2020): негативи з батчу плюс один <span class="term" data-g="hard-negatives">складний негатив</span> з BM25. На Natural Questions модель знаходила відповідь у топ-20 приблизно в 78% питань проти 59% у BM25.</p></div>
+    <div class="card"><div class="k">Попередня модель</div><h4>Схожі за змістом</h4><p>Навчаємо модель, шукаємо нею кандидатів для кожного запиту і беремо найвищі неправильні як негативи для наступного раунду. Такі негативи складніші, ніж з BM25.</p></div>
+    <div class="card"><div class="k">Фільтр</div><h4>Кросенкодер як суддя</h4><p>Кандидатів у негативи перевіряє кросенкодер. Ті, яким він дає високу оцінку релевантності, викидають: найімовірніше, це хибні негативи.</p></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Хибні негативи</div><p>Розмітка майже завжди неповна: для запиту позначено один правильний документ, а насправді їх кілька. Що «складніший» негатив, то вища ймовірність, що він правильний. Тоді модель вчиться відштовхувати правильні відповіді. Тому при пошуку негативів пропускають саму верхівку (наприклад, перші 10 місць) або відкидають кандидатів зі скором, близьким до правильного документа. Окрема пастка — однакові тексти в батчі. Якщо два запити мають однаковий правильний документ, він стає негативом сам для себе. Для цього в sentence-transformers є семплер <code>NO_DUPLICATES</code>.</p></div>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="2">
+      <div class="q">Батч із 128 пар, кожна пара має ще один складний негатив. Скільки негативів отримує кожен запит у MultipleNegativesRankingLoss?</div>
+      <div class="opts"><button class="opt">1</button><button class="opt">127</button><button class="opt">255: 127 чужих правильних документів і 128 складних негативів</button></div>
+      <div class="ans">Кожен запит порівнюється з усіма документами батчу: 128 правильних і 128 складних. Свій правильний документ не рахується, тож негативів 255.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 7. PAIRS AND TRIPLETS ============ -->
+<section class="slide" id="s7" data-title="Пари і триплети">
+  <div class="eyebrow">Розділ 7 · <b>дані для навчання</b></div>
+  <h2>Пари і триплети: як виглядають дані для навчання</h2>
+  <p class="lead">Навчальний приклад для моделі ембедінгів — це пара «запит, правильний документ» або триплет, до якого додано неправильний документ. Триплет вчить лише тоді, коли модель ще плутає позитив із негативом.</p>
+
+  <p>Досі ми говорили про пари, а негативи брали з батчу. Розділ 6 додав до пари складний негатив. Так виходить <span class="term" data-g="triplet">триплет</span> (anchor, positive, negative) — найпоширеніший формат даних для навчання моделей ембедінгів. Anchor — це запит, positive — документ, який має бути поруч, negative — схожий документ, який має опинитися далі.</p>
+
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>anchor (запит)</th><th>positive</th><th>negative</th></tr></thead>
+    <tbody>
+      <tr><td>як повернути товар</td><td>Повернути товар можна протягом 14 днів після покупки</td><td>Товари, що не підлягають поверненню</td></tr>
+      <tr><td>скільки йде посилка по Україні</td><td>Доставка по Україні займає 1–3 робочі дні</td><td>Доставка за кордон займає 7–14 днів</td></tr>
+      <tr><td>забув пароль</td><td>Щоб відновити пароль, натисніть «Забули пароль?» на сторінці входу</td><td>Як змінити пароль у налаштуваннях профілю</td></tr>
+    </tbody>
+  </table></div>
+  <p>Подивіться на негативи: кожен схожий на запит словами й темою, але не відповідає на нього. Саме такі приклади, як ми бачили в розділі 6, вчать модель.</p>
+
+  <h3>Три формати даних</h3>
+  <div class="cards">
+    <div class="card"><div class="k">Пари</div><h4>(anchor, positive)</h4><p>Найпростіше зібрати: питання і відповідь, заголовок і текст. Функція втрат — MultipleNegativesRankingLoss, негативи — інші документи батчу.</p></div>
+    <div class="card"><div class="k">Триплети</div><h4>(anchor, positive, negative)</h4><p>Та сама MultipleNegativesRankingLoss додає negative до негативів із батчу. Негативів на запит може бути й кілька. Можна взяти й класичну TripletLoss (нижче).</p></div>
+    <div class="card"><div class="k">Пари з оцінкою</div><h4>(текст 1, текст 2, оцінка)</h4><p>Для схожості речень з градацією від 0 до 1, а не «так/ні». Функції втрат — CoSENTLoss або CosineSimilarityLoss.</p></div>
+  </div>
+
+  <h3>Triplet loss</h3>
+  <p>Класична функція втрат для триплетів прийшла з розпізнавання облич (FaceNet, 2015). Вона вимагає, щоб позитив був ближчим до запиту, ніж негатив, щонайменше на запас <var>m</var> (margin):</p>
+  <div class="formula">L = max(0, &nbsp;cos(<var class="c1">a</var>, <var class="c3">n</var>) − cos(<var class="c1">a</var>, <var class="c2">p</var>) + <var>m</var>)</div>
+  <p>Якщо запас уже є, loss дорівнює нулю і триплет нічого не вчить. За цим принципом триплети ділять на три види: легкі, напівскладні і складні.</p>
+
+  <div class="demo" id="tripDemo">
+    <div class="head"><h4>Легкий, напівскладний чи складний</h4><span class="tag">interactive</span><span class="hint">Вісь — косинус із запитом, фіолетова риска праворуч — сам запит. Зелена точка — позитив, помаранчева — негатив. Заштрихована смуга ліворуч від позитива — зона запасу шириною margin: негатив має опинитися лівіше за неї. Рожева лінія показує, наскільки негатив заліз у цю зону: її довжина і є loss. Оберіть вид триплета або рухайте повзунки і стежте за loss.</span></div>
+    <div class="ctlrow"><span class="lbl">Триплет</span><div class="seg" id="tripK"><button data-v="easy" aria-pressed="false">легкий</button><button data-v="semi" aria-pressed="true">напівскладний</button><button data-v="hard" aria-pressed="false">складний</button></div></div>
+    <div class="ctl">
+      <label class="grow">cos(запит, позитив) = <span class="v" id="tripPV"></span><input type="range" id="tripP" min="0" max="100" step="1" value="75"></label>
+      <label class="grow">cos(запит, негатив) = <span class="v" id="tripNV"></span><input type="range" id="tripN" min="0" max="100" step="1" value="68"></label>
+      <label class="grow">margin = <span class="v" id="tripMV"></span><input type="range" id="tripM" min="0" max="40" step="1" value="20"></label>
+    </div>
+    <div class="vizbox"><svg class="viz" id="tripSvg" viewBox="0 0 700 120" role="img" aria-label="Позитив, негатив і зона запасу на осі косинуса"></svg></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">вид триплета</div><div class="v" id="tripKind"></div></div>
+      <div class="stat"><div class="l">loss</div><div class="v b" id="tripL"></div></div>
+    </div>
+    <div class="explain" id="tripExpl"></div>
+  </div>
+
+  <p>У пошуку тексту класичну TripletLoss майже витіснила MultipleNegativesRankingLoss. TripletLoss бачить один негатив, а MNRL на тих самих триплетах — увесь батч плюс складний негатив, і їй не треба підбирати margin. Тому на практиці триплети — дуже поширений формат даних, а функція втрат для них — MNRL. Готових триплетів зазвичай немає: є пари, а негатив до них майнять. У коді розділу 17 це робить <code>mine_hard_negatives</code>: для кожного запиту вона бере документ із 10–50 місця видачі моделі, пропускаючи саму верхівку, де найчастіше трапляються хибні негативи.</p>
+
+  <div class="callout warn"><div class="qm">Перегляньте дані очима</div><p>Перед навчанням візьміть 50 випадкових триплетів і перевірте дві речі: чи positive справді відповідає на запит і чи negative справді не відповідає. Якщо хибних негативів більше кількох відсотків, відфільтруйте їх кросенкодером. Десять хвилин такої перевірки економлять дні навчання на зіпсованих даних.</p></div>
+
+  <h3>Звідки беруться пари</h3>
+  <div class="cards">
+    <div class="card"><div class="k">Розмічені запити</div><h4>MS MARCO</h4><p>Реальні запити Bing і фрагменти веб-сторінок з відповіддю: близько пів мільйона навчальних запитів на 8.8 млн фрагментів. Основа більшості англомовних моделей пошуку.</p></div>
+    <div class="card"><div class="k">Природні пари</div><h4>Структура самого вебу</h4><p>Заголовок і текст статті, питання і прийнята відповідь на форумі, назва товару і опис. Таких пар сотні мільйонів, хоч вони й шумні.</p></div>
+    <div class="card"><div class="k">Переклади</div><h4>Багатомовність</h4><p>Паралельні речення з різних мов мають отримати однаковий вектор. Так модель вчиться знаходити англійський документ за українським запитом.</p></div>
+    <div class="card"><div class="k">Синтетика</div><h4>Запити від LLM</h4><p>Для домену без розмітки LLM пише кілька запитів до кожного документа. Виходять пари для донавчання або тестовий набір. Докладніше — у лекції про практичне використання LLM.</p></div>
+  </div>
+  <p>Типовий рецепт сучасних моделей (E5, GTE, BGE) має два етапи. Спершу модель навчають на сотнях мільйонів шумних природних пар. Майнити для них негативи надто дорого, тож негативи беруться лише з батчу, а батчі роблять величезними: десятки тисяч пар. Потім модель донавчають на меншому якісному наборі вже у форматі триплетів, часто з кількома складними негативами на запит. Ваше власне донавчання — це майже завжди другий етап: кілька тисяч триплетів і звичайний батч.</p>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">margin = 0.1, cos(запит, позитив) = 0.70, cos(запит, негатив) = 0.65. Що це за триплет і який у нього loss?</div>
+      <div class="opts"><button class="opt">Легкий, loss = 0: позитив і так ближчий</button><button class="opt">Напівскладний, loss = 0.05: порядок правильний, але запас менший за margin</button><button class="opt">Складний, loss = 0.15</button></div>
+      <div class="ans">0.65 − 0.70 + 0.1 = 0.05. Позитив ближчий, але лише на 0.05, а треба щонайменше на 0.1.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 8. MODELS AND INDEX COST ============ -->
+<section class="slide" id="s8" data-title="Моделі і ціна індексу">
+  <div class="eyebrow">Розділ 8 · <b>практика</b></div>
+  <h2>Готові моделі і ціна індексу</h2>
+  <p class="lead">Майже завжди варто почати з готової моделі ембедінгів. Обирайте її за якістю пошуку вашою мовою і на ваших даних, за максимальною довжиною входу і за розміром вектора, бо від нього залежить ціна індексу.</p>
+
+  <h3>Які моделі брати</h3>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Модель</th><th>Параметри</th><th>d</th><th>Макс. токенів</th><th>Пулінг</th><th>Примітка</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">paraphrase-multilingual-MiniLM-L12-v2</td><td>118 млн</td><td>384</td><td>128</td><td>середнє</td><td>50+ мов, швидка, але старша (2020) і з коротким входом</td></tr>
+      <tr><td class="mono">multilingual-e5-base / -large</td><td>278 / 560 млн</td><td>768 / 1024</td><td>512</td><td>середнє</td><td>≈ 100 мов, префікси <code>query:</code> і <code>passage:</code>; надійний вибір для української</td></tr>
+      <tr><td class="mono">bge-m3</td><td>568 млн</td><td>1024</td><td>8 192</td><td>[CLS]</td><td>100+ мов, довгі документи; окрім dense-вектора дає й sparse-ваги токенів</td></tr>
+      <tr><td class="mono">embeddinggemma-300m</td><td>308 млн</td><td>768 → 128</td><td>2 048</td><td>середнє</td><td>100+ мов, мала, вектор можна обрізати (Matryoshka)</td></tr>
+      <tr><td class="mono">Qwen3-Embedding-0.6B / -8B</td><td>0.6 / 8 млрд</td><td>1024 / 4096</td><td>32 тис.</td><td>останній токен</td><td>декодер LLM як енкодер, інструкція перед запитом; 8B на момент виходу (2025) очолювала багатомовний рейтинг MTEB</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Є й моделі через API (OpenAI, Google, Cohere, Voyage): зручно, але кожен документ і запит іде на чужий сервер, а зміна моделі постачальником вимагає переіндексувати все.</p>
+
+  <p>Зверніть увагу на пулінг у Qwen3-Embedding: це декодер, тому вектор береться з останнього токена, як у класифікаторах на LLM з лекції 06.</p>
+
+  <div class="callout"><p><strong>MTEB.</strong> <span class="term" data-g="mteb">MTEB</span> — найвідоміший рейтинг моделей ембедінгів. Читайте його обережно. Загальний бал усереднює дуже різні задачі, тож дивіться на колонку Retrieval і на задачі вашою мовою. Крім того, частина навчальних даних моделей перетинається з бенчмарками. Рейтинг допомагає скласти короткий список із 2–3 моделей, а обирати з нього треба на власному тестовому наборі (розділ 13).</p></div>
+
+  <h3>Розмір вектора і ціна індексу</h3>
+  <p>Індекс зберігає <var>N</var> × <var>d</var> чисел. Мільйон документів із <var>d</var> = 1024 у float32 займає 4 ГБ, мільярд — 4 ТБ. Цю ціну зменшують двома способами. <span class="term" data-g="matryoshka">Matryoshka-ембедінги</span> навчено так, що перші 256 чи 128 компонент уже є повноцінним вектором: їх можна відрізати й перенормувати. Квантизація зберігає кожне число в int8 або навіть в одному біті.</p>
+
+  <div class="demo" id="memDemo">
+    <div class="head"><h4>Скільки пам'яті займає індекс</h4><span class="tag">interactive</span><span class="hint">Оберіть кількість документів (чанків), розмірність і формат чисел. Рахуємо лише самі вектори. Граф HNSW додає ще ≈ 100–250 байтів на вектор, а тексти й метадані зберігаються окремо.</span></div>
+    <div class="ctl"><label class="grow">Векторів: <span class="v" id="memNV"></span><input type="range" id="memN" min="4" max="10" step="0.5" value="6"></label></div>
+    <div class="ctlrow"><span class="lbl">d</span><div class="seg" id="memD"><button data-v="128" aria-pressed="false">128</button><button data-v="256" aria-pressed="false">256</button><button data-v="384" aria-pressed="false">384</button><button data-v="768" aria-pressed="true">768</button><button data-v="1024" aria-pressed="false">1024</button><button data-v="4096" aria-pressed="false">4096</button></div></div>
+    <div class="ctlrow"><span class="lbl">формат</span><div class="seg" id="memT"><button data-v="4" aria-pressed="true">float32</button><button data-v="2" aria-pressed="false">float16</button><button data-v="1" aria-pressed="false">int8</button><button data-v="0.125" aria-pressed="false">1 біт</button></div></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">на один вектор</div><div class="v" id="memPer"></div></div>
+      <div class="stat"><div class="l">увесь індекс</div><div class="v b" id="memTot"></div></div>
+      <div class="stat"><div class="l">стиснення відносно float32</div><div class="v c" id="memX"></div></div>
+    </div>
+    <div class="explain" id="memExpl"></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Нюанс</div><p>Стиснення не безкоштовне. Обрізання вектора вдвічі зазвичай коштує кілька відсотків якості, а бінарна квантизація — помітно більше. Типовий прийом: шукати кандидатів за стисненими векторами, а потім перерахувати скор для топ-100 за повними векторами (rescoring). Саму втрату вимірюйте на своєму тестовому наборі.</p></div>
+</section>
+
+<!-- ============ 9. CHUNKING ============ -->
+<section class="slide" id="s9" data-title="Чанкінг">
+  <div class="eyebrow">Розділ 9 · <b>що саме ми індексуємо</b></div>
+  <h2>Чанкінг: документ ріжуть на фрагменти</h2>
+  <p class="lead">Модель приймає обмежену кількість токенів, а один вектор погано представляє довгий текст на кілька тем. Тому документи ріжуть на фрагменти по кількасот токенів, і шукають саме їх.</p>
+
+  <p>Цей крок називають <span class="term" data-g="chunking">чанкінгом</span>, а фрагменти — чанками. Причин три. По-перше, <span class="term" data-g="context-window">контекстне вікно</span>: у E5 це 512 токенів, а решта просто обрізається. По-друге, навіть якщо модель приймає 8 тисяч токенів, вектор договору на двадцять сторінок усереднює всі його теми, і жодна з них не виділяється. По-третє, користувачеві, а згодом і LLM у <span class="term" data-g="rag">RAG</span>, потрібен саме той абзац, де є відповідь.</p>
+
+  <div class="demo" id="chDemo">
+    <div class="head"><h4>Розмір, перекриття і межі чанків</h4><span class="tag">interactive</span><span class="hint">Документ «Умови повернення». Зеленим позначено речення з відповіддю на запит «коли повернуть гроші на картку». Змінюйте розмір і перекриття. Подивіться, коли речення лишається цілим в одному чанку, а коли межа розрізає його навпіл (рожевий). Довжину рахуємо в словах. Для української це 1.5–2.5 токена на слово, залежно від токенізатора (лекція 03).</span></div>
+    <div class="ctlrow"><span class="lbl">Межі</span><div class="seg" id="chMode"><button data-v="words" aria-pressed="true">кожні N слів</button><button data-v="sent" aria-pressed="false">за реченнями</button><button data-v="para" aria-pressed="false">за абзацами</button></div></div>
+    <div class="ctl">
+      <label class="grow">Розмір чанка: <span class="v" id="chSizeV"></span><input type="range" id="chSize" min="15" max="120" step="5" value="40"></label>
+      <label class="grow">Перекриття: <span class="v" id="chOvV"></span><input type="range" id="chOv" min="0" max="40" step="5" value="0"></label>
+    </div>
+    <div class="statrow">
+      <div class="stat"><div class="l">чанків</div><div class="v" id="chN"></div></div>
+      <div class="stat"><div class="l">слів у чанку, в середньому</div><div class="v" id="chAvg"></div></div>
+      <div class="stat"><div class="l">речення з відповіддю</div><div class="v" id="chKey"></div></div>
+    </div>
+    <div class="chunks" id="chOut"></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Фіксована довжина</div><h4>N токенів з перекриттям</h4><p>Найпростіше. Перекриття 10–20% рятує речення на межі, але індекс росте, і той самий текст може повернутися двічі.</p></div>
+    <div class="card"><div class="k">Рекурсивно</div><h4>Абзаци → речення → слова</h4><p>Ріжемо за абзацами, а занадто довгі абзаци — за реченнями. Межі збігаються зі змістовими, тож речення не розрізаються.</p></div>
+    <div class="card"><div class="k">За структурою</div><h4>Заголовки й розділи</h4><p>Markdown, HTML, пункти договору, функції в коді. Структура документа часто краща за будь-яке правило довжини.</p></div>
+    <div class="card"><div class="k">Контекст</div><h4>Заголовок у кожен чанк</h4><p>Чанк «Строк — 14 днів» без контексту нічого не означає. Допишіть до нього назву документа й розділу. Збережіть id документа, щоб згрупувати результати й показати джерело.</p></div>
+  </div>
+
+  <div class="callout q"><div class="qm">Який розмір обрати?</div><p>Універсальної відповіді немає. Розумний старт — 200–500 токенів із перекриттям 10–20%. Короткі чанки точніші, але відривають факт від контексту. Довгі несуть контекст, але розмивають вектор. Тож розмір — це гіперпараметр, і обирати його треба вимірюванням на тестовому наборі (розділ 13), а не на око.</p></div>
+</section>
+
+<!-- ============ 10. EXACT kNN, IVF ============ -->
+<section class="slide" id="s10" data-title="Найближчі сусіди: перебір і IVF">
+  <div class="eyebrow">Розділ 10 · <b>індекс</b></div>
+  <h2>Найближчі сусіди: від повного перебору до IVF</h2>
+  <p class="lead">Точний пошук порівнює запит з кожним вектором. На мільйоні документів це ще частки секунди, на мільярді — вже хвилини. Наближені індекси переглядають малу частку колекції і жертвують кількома відсотками повноти.</p>
+
+  <p>Повний перебір — це одне множення матриці <var>N</var> × <var>d</var> на вектор запиту. Для мільйона векторів <var>d</var> = 768 це 0.77 млрд множень і 3 ГБ, які треба прочитати з пам'яті. На відеокарті чи з добрим BLAS до кількох мільйонів векторів повного перебору цілком досить, і він дає точний результат (<code>IndexFlat</code> у FAISS).</p>
+  <p>Далі потрібен <span class="term" data-g="ann">наближений пошук найближчих сусідів</span> (ANN). Його якість теж міряють recall@K, але це інша повнота: яку частку справжніх K найближчих векторів знайшов індекс. Вона не каже, чи релевантні ці вектори запиту. Це вже питання до моделі.</p>
+
+  <p><span class="term" data-g="ivf">IVF</span> (inverted file) нагадує <span class="term" data-g="inverted-index">інвертований індекс</span> з лекції 02. Заздалегідь k-means ділить вектори на <var>nlist</var> кластерів, і для кожного центроїда зберігається список його векторів. Запит спершу порівнюють з центроїдами, а потім переглядають лише вектори <var>nprobe</var> найближчих кластерів.</p>
+
+  <div class="demo" id="ivfDemo">
+    <div class="head"><h4>IVF: які кластери ми переглядаємо</h4><span class="tag">interactive</span><span class="hint">900 векторів на площині, кольорові області — кластери k-means. Клацніть, щоб поставити запит. Кільцями позначено 10 справжніх найближчих сусідів: бірюзові індекс знайшов, рожеві пропустив. Поставте запит біля межі кластерів при nprobe = 1: частина сусідів лежить у сусідньому кластері, і їх не видно. Збільшуйте nprobe і стежте, як ростуть повнота й кількість порівнянь.</span></div>
+    <div class="ctl">
+      <label class="grow">Кластерів nlist = <span class="v" id="ivfLV"></span><input type="range" id="ivfL" min="4" max="64" step="1" value="16"></label>
+      <label class="grow">Переглядаємо nprobe = <span class="v" id="ivfPV"></span><input type="range" id="ivfP" min="1" max="16" step="1" value="1"></label>
+    </div>
+    <canvas class="cv" id="ivfCv" aria-label="Кластери IVF, запит і його найближчі сусіди"></canvas>
+    <div class="statrow">
+      <div class="stat"><div class="l">порівнянь: центроїди + вектори</div><div class="v" id="ivfC"></div></div>
+      <div class="stat"><div class="l">частка колекції</div><div class="v a" id="ivfF"></div></div>
+      <div class="stat"><div class="l">recall@10 відносно точного</div><div class="v c" id="ivfR"></div></div>
+    </div>
+  </div>
+
+  <p>Емпіричне правило FAISS: <var>nlist</var> порядку √<var>N</var>…16√<var>N</var>, а <var>nprobe</var> підбирають під потрібну повноту, зазвичай від 1 до кількох відсотків <var>nlist</var>. IVF потребує навчання k-means на зразку даних. Якщо дані змінюються, кластери поступово застарівають.</p>
+
+  <details class="more">
+    <summary>Мільярди векторів: product quantization</summary>
+    <div class="body"><p>Product quantization (PQ) стискає самі вектори. Вектор ділять на <var>m</var> шматків, і для кожного шматка k-means вчить 256 центроїдів. Тоді шматок заміняють номером найближчого центроїда, тобто одним байтом. Вектор 768 × float32 займає 3 072 байти, а з <var>m</var> = 96 — лише 96 байтів, у 32 рази менше. Відстані рахують за таблицями відстаней до центроїдів, тож це ще й швидко. Комбінація IVF-PQ дає змогу тримати мільярд векторів на одному сервері. Ціна — неточні відстані, тому кандидатів зазвичай перераховують за повними векторами.</p></div>
+  </details>
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Що вийде, якщо в IVF поставити nprobe = nlist?</div>
+      <div class="opts"><button class="opt">Повний перебір: recall@K = 1, але жодного виграшу в швидкості</button><button class="opt">Індекс знайде лише центроїди</button><button class="opt">Recall упаде, бо кластерів забагато</button></div>
+      <div class="ans">Переглядаються всі кластери, тобто всі вектори, плюс ще порівняння з центроїдами. Результат точний, але повільніший за простий перебір.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 11. HNSW, VECTOR DB ============ -->
+<section class="slide" id="s11" data-title="HNSW і векторні бази">
+  <div class="eyebrow">Розділ 11 · <b>граф сусідства</b></div>
+  <h2>HNSW і векторні бази даних</h2>
+  <p class="lead">HNSW — це граф, у якому кожен вектор з'єднаний з кількома найближчими сусідами. Пошук іде від сусіда до сусіда, щоразу ближче до запиту, і перевіряє лише малу частку всіх векторів.</p>
+
+  <p>Уявіть, що кожен вектор — будинок, а від кожного будинку прокладено дороги до <var>M</var> найближчих сусідів. Щоб знайти будинок, найближчий до запиту, не треба обходити всі. Досить іти так:</p>
+  <ol>
+    <li>Стаємо в якийсь будинок і рахуємо відстань від нього до запиту.</li>
+    <li>Дивимося на його сусідів. Якщо хтось із них ближчий до запиту, переходимо туди.</li>
+    <li>Повторюємо, доки жоден сусід не ближчий. Цей будинок і є відповіддю.</li>
+  </ol>
+  <p>Так можна застрягнути в глухому куті: усі сусіди далі, а справжній найближчий будинок — за рогом. Тому пошук пам'ятає не один найкращий будинок, а список з <var>efSearch</var> найкращих, і перевіряє сусідів кожного з них. Якщо одна дорога завела в глухий кут, у списку лишаються інші кандидати. Більший список — точніший, але повільніший пошук.</p>
+  <p>Друга проблема: якщо старт далеко від мети, дорога від сусіда до сусіда буде довгою. Тому <span class="term" data-g="hnsw">HNSW</span> (2016) будує кілька рівнів, як карту доріг. На верхньому рівні мало будинків і довгі дороги, як автомагістралі. Нижче будинків більше, а на рівні 0 є всі. Пошук завжди починає з одного будинку на верхньому рівні, кількома великими стрибками добирається до потрібного району і лише там, на рівні 0, шукає ретельно зі списком <var>efSearch</var>.</p>
+
+  <div class="demo" id="hnswDemo">
+    <div class="head"><h4>Пошук у графі HNSW</h4><span class="tag">interactive</span><span class="hint">260 векторів. Великі фіолетові вершини є на верхніх рівнях, фіолетова лінія — шлях жадібного спуску ними. Помаранчеві точки — вершини, з якими пошук порівняв запит на рівні 0. Клацніть, щоб поставити запит, і натисніть «▶ показати пошук». Зменште M і ef до мінімуму: пошук застрягне в локальному мінімумі, і частина з 5 справжніх сусідів (рожеві кільця) лишиться незнайденою.</span></div>
+    <div class="ctlrow">
+      <span class="lbl">M</span><div class="seg" id="hnM"><button data-v="2" aria-pressed="false">2</button><button data-v="4" aria-pressed="true">4</button><button data-v="8" aria-pressed="false">8</button></div>
+      <label class="chk"><input type="checkbox" id="hnE" checked> показати ребра рівня 0</label>
+      <button class="btn" type="button" id="hnPlay">▶ показати пошук</button>
+    </div>
+    <div class="ctl"><label class="grow">efSearch = <span class="v" id="hnEfV"></span><input type="range" id="hnEf" min="1" max="40" step="1" value="5"></label></div>
+    <canvas class="cv" id="hnCv" aria-label="Граф HNSW і шлях пошуку"></canvas>
+    <div class="statrow">
+      <div class="stat"><div class="l">порівнянь з векторами</div><div class="v" id="hnC"></div></div>
+      <div class="stat"><div class="l">стрибків верхніми рівнями</div><div class="v a" id="hnH"></div></div>
+      <div class="stat"><div class="l">recall@5 відносно точного</div><div class="v c" id="hnR"></div></div>
+    </div>
+  </div>
+
+  <h3>Три параметри HNSW</h3>
+  <div class="cards">
+    <div class="card"><div class="k">M · побудова</div><h4>Скільки доріг з кожного перехрестя</h4><p>Більше ребер — менше глухих кутів і вища повнота, але більше пам'яті. <b>Типово 16.</b></p></div>
+    <div class="card"><div class="k">efConstruction · побудова</div><h4>Наскільки ретельно прокладали дороги</h4><p>Більше — точніші ребра, але довша побудова. На швидкість запиту не впливає. <b>Типово 100–200.</b></p></div>
+    <div class="card"><div class="k">efSearch · запит</div><h4>Скільки маршрутів тримати в голові</h4><p>Більше — вища повнота, але повільніший запит. Змінюється без перебудови, efSearch ≥ <var>K</var>. <b>Типово 64–256.</b></p></div>
+  </div>
+  <p>На практиці <var>M</var> і efConstruction лишають типовими, а efSearch збільшують, доки recall відносно точного пошуку не досягне цілі на тестових запитах.</p>
+
+  <div class="vs">
+    <div class="card"><div class="k">IVF</div><h4>Кластери</h4><p>Компактний, швидко будується, добре поєднується з PQ для мільярдів векторів. Потребує навчання k-means, повнота падає для запитів на межах кластерів.</p></div>
+    <div class="card b"><div class="k">HNSW</div><h4>Граф</h4><p>Висока повнота при малій затримці, нові вектори додаються без перенавчання. Займає більше пам'яті, а видалення складніші. Дефолт більшості векторних баз.</p></div>
+  </div>
+
+  <h3>Векторні бази даних</h3>
+  <p>Індекс — це лише структура для пошуку сусідів. <span class="term" data-g="vector-db">Векторна база даних</span> додає до нього те, що потрібно в продакшні: зберігає тексти й метадані поруч із векторами, фільтрує за ними («лише документи 2025 року», «лише мова uk»), оновлює і видаляє записи, реплікує дані.</p>
+  <div class="cards">
+    <div class="card"><div class="k">Бібліотека</div><h4>FAISS, hnswlib</h4><p>Індекс у пам'яті вашого процесу. Ідеально для експериментів і пакетної обробки, але зберігання, фільтри й оновлення доведеться писати самим.</p></div>
+    <div class="card"><div class="k">Розширення</div><h4>pgvector</h4><p>Вектори в Postgres поруч з рештою даних, звичайний SQL і транзакції. Добрий вибір, якщо Postgres уже є, а векторів до кількох десятків мільйонів.</p></div>
+    <div class="card"><div class="k">Векторна БД</div><h4>Qdrant, Milvus, Weaviate</h4><p>Спеціалізовані сервери з HNSW, фільтрами, квантизацією і шардингом. Для великих колекцій і складних фільтрів.</p></div>
+    <div class="card"><div class="k">Пошуковий рушій</div><h4>Elasticsearch, OpenSearch</h4><p>BM25 і вектори в одній системі. Звідси один крок до гібридного пошуку.</p></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Дві пастки</div><p><strong>Фільтри.</strong> Якщо спершу знайти 10 сусідів, а потім відфільтрувати їх, може лишитися два. Якщо фільтр вузький, база має враховувати його під час обходу графа, тож перевірте, чи вміє це ваша. <strong>Зміна моделі.</strong> Вектори різних моделей, навіть двох версій однієї, несумісні. Нова модель означає переіндексацію всієї колекції, тож зберігайте тексти чанків, а не лише вектори.</p></div>
+</section>
+
+<!-- ============ 12. METRICS ============ -->
+<section class="slide" id="s12" data-title="Метрики: recall@K, MRR, NDCG">
+  <div class="eyebrow">Розділ 12 · <b>місток з лекції 02</b></div>
+  <h2>Метрики пошуку: recall@K, MRR, NDCG</h2>
+  <p class="lead"><span class="term" data-g="precision-k">Precision@K</span> і <span class="term" data-g="recall-k">recall@K</span> з лекції 02 не дивляться на порядок усередині топ-K. MRR винагороджує за високе місце першого релевантного документа, а NDCG враховує і порядок, і ступінь релевантності.</p>
+
+  <p><span class="term" data-g="mrr">MRR</span> (mean reciprocal rank) бере позицію першого релевантного документа: на першому місці запит отримує 1, на другому ½, на третьому ⅓. Якщо в топ-K релевантних немає, запит отримує 0. Потім значення усереднюють по запитах.</p>
+  <div class="formula">MRR = <span class="frac"><span>1</span><span>|<var>Q</var>|</span></span> <span class="sum">Σ<small><var>q</var></small></span> <span class="frac"><span>1</span><span>rank<sub><var>q</var></sub></span></span></div>
+
+  <p><span class="term" data-g="ndcg">NDCG</span> працює з градаціями: 3 — ідеальна відповідь, 2 — корисна, 1 — частково по темі, 0 — ні. Кожен документ дає свою оцінку, поділену на логарифм позиції. Отримана сума — DCG. Її ділять на DCG ідеального порядку (IDCG), щоб результат лежав у [0, 1]:</p>
+  <div class="formula">DCG@<var>K</var> = <span class="sum">Σ<small><var>i</var>=1…<var>K</var></small></span> <span class="frac"><span><var class="c3">rel<sub>i</sub></var></span><span>log<sub>2</sub>(<var class="c1">i</var> + 1)</span></span>&nbsp;&nbsp;&nbsp; NDCG@<var>K</var> = <span class="frac"><span>DCG@<var>K</var></span><span>IDCG@<var>K</var></span></span></div>
+
+  <div class="demo" id="metDemo">
+    <div class="head"><h4>Метрики одного запиту</h4><span class="tag">interactive</span><span class="hint">Запит «як повернути товар, що не підійшов» і десять результатів пошуку. Змінюйте оцінку релевантності кожного результату (0–3) і K. Кнопки вгорі переставляють ті самі документи. Смужка праворуч — внесок документа в DCG: оцінка, поділена на log₂(позиція + 1). Для precision, recall і MRR релевантним вважаємо документ з оцінкою ≥ 1. Прапорець додає релевантний документ, якого пошук не знайшов: він знижує recall і NDCG, хоча список не змінився.</span></div>
+    <div class="ctlrow">
+      <span class="lbl">Порядок</span><div class="seg" id="metOrd"><button data-v="sys" aria-pressed="true">як видав пошук</button><button data-v="ideal" aria-pressed="false">ідеальний</button><button data-v="worst" aria-pressed="false">найкращі внизу</button></div>
+      <label class="chk"><input type="checkbox" id="metMiss" checked> є ще один релевантний документ поза топ-10</label>
+    </div>
+    <div class="ctl"><label class="grow">K = <span class="v" id="metKV">10</span><input type="range" id="metK" min="1" max="10" step="1" value="10"></label></div>
+    <div class="mrows" id="metRows"></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">precision@K</div><div class="v" id="metP"></div></div>
+      <div class="stat"><div class="l">recall@K</div><div class="v a" id="metR"></div></div>
+      <div class="stat"><div class="l">reciprocal rank</div><div class="v" id="metRR"></div></div>
+      <div class="stat"><div class="l">DCG / IDCG</div><div class="v" id="metD"></div></div>
+      <div class="stat"><div class="l">NDCG@K</div><div class="v c" id="metN"></div></div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">recall@100</div><h4>Перший етап</h4><p>Коли за пошуком стоїть кросенкодер чи LLM, порядок у топ-100 ще зміниться. Важливо одне: чи потрапила відповідь у кандидати взагалі.</p></div>
+    <div class="card"><div class="k">MRR@10</div><h4>Одна правильна відповідь</h4><p>FAQ, пошук відповіді на питання. Офіційна метрика MS MARCO. Байдуже, що стоїть після першого влучення.</p></div>
+    <div class="card"><div class="k">NDCG@10</div><h4>Градації і порядок</h4><p>Стандарт BEIR і MTEB Retrieval. Потребує розмітки з градаціями, але найкраще відображає те, що бачить користувач на першій сторінці.</p></div>
+  </div>
+  <p class="note">Варіанти формули: часто чисельник DCG пишуть як 2<sup>rel</sup> − 1, що сильніше винагороджує оцінку 3 порівняно з 2. Порівнюйте системи лише однією й тією самою формулою. <code>trec_eval</code> і sentence-transformers використовують лінійну оцінку, як тут.</p>
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Усі 10 результатів у топ-10 релевантні, але NDCG@10 = 0.82. Як таке може бути?</div>
+      <div class="opts"><button class="opt">Це помилка обчислення: NDCG має бути 1</button><button class="opt">Документи з вищими оцінками стоять нижче за документи з нижчими, або в колекції є кращі документи поза топ-10</button><button class="opt">NDCG ігнорує градації</button></div>
+      <div class="ans">IDCG будується з найкращих оцінок у всій колекції. Якщо оцінки 3 стоять нижче за оцінки 1 або взагалі не потрапили в топ-10, NDCG менший за 1.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 13. TEST SET ============ -->
+<section class="slide" id="s13" data-title="Власний тестовий набір">
+  <div class="eyebrow">Розділ 13 · <b>оцінювання</b></div>
+  <h2>Власний тестовий набір: як дізнатися, чи пошук став кращим</h2>
+  <p class="lead">Публічні бенчмарки показують, яка модель сильна загалом, але не кажуть, чи працюватиме вона на ваших документах. Для цього потрібен свій набір: кількасот реальних запитів із розміченими релевантними документами.</p>
+
+  <div class="pipe">
+    <div class="pstep"><div class="l">крок 1</div><div class="t">запити</div></div><span class="arrow">→</span>
+    <div class="pstep"><div class="l">крок 2</div><div class="t">кандидати з кількох систем</div></div><span class="arrow">→</span>
+    <div class="pstep emb"><div class="l">крок 3</div><div class="t">розмітка 0–3</div></div><span class="arrow">→</span>
+    <div class="pstep"><div class="l">крок 4</div><div class="t">qrels</div></div><span class="arrow">→</span>
+    <div class="pstep hot"><div class="l">крок 5</div><div class="t">метрики + бейзлайн</div></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">1 · Запити</div><h4>Справжні, з логів</h4><p>Беріть запити з логів пошуку чи звернень у підтримку, а не вигадані вами. Додайте рідкісні й «важкі»: коди, опечатки, суржик, інші мови. Тримайте їх окремо від навчальних даних.</p></div>
+    <div class="card"><div class="k">2 · Кандидати</div><h4>Об'єднання кількох систем</h4><p>Розмітити всю колекцію неможливо. Беруть топ-10…20 від кількох систем (BM25, одна-дві dense-моделі) і розмічають їхнє об'єднання.</p></div>
+    <div class="card"><div class="k">3 · Розмітка</div><h4>Люди або LLM</h4><p>Шкала 0–3 з чіткою інструкцією і прикладами. LLM-суддя пришвидшує роботу в десятки разів, але його треба перевірити на частині запитів, розміченій людьми.</p></div>
+    <div class="card"><div class="k">5 · Бейзлайн</div><h4>Завжди проти BM25</h4><p>У BEIR (2021) багато dense-моделей поза своїм доменом поступалися BM25. Нова система має обіграти простий бейзлайн на ваших даних.</p></div>
+  </div>
+
+  <p>Результат розмітки зберігають як <span class="term" data-g="qrels">оцінки релевантності</span> (qrels): «запит → документ → оцінка». Метрики з розділу 12 рахують по них для кожного запиту окремо, а потім усереднюють.</p>
+
+  <div class="callout warn"><div class="qm">Неповна розмітка</div><p>Документ без оцінки зазвичай вважають нерелевантним. Нова система знаходить документи, яких не бачила жодна з систем під час розмітки, і її штрафують за справжні знахідки. Тому, порівнюючи нову систему, доразмітьте її топ-10 і стежте, яка частка її видачі розмічена взагалі. Синтетичні запити від LLM мають іншу пастку: модель охоче повторює слова документа, і такі запити штучно полегшують задачу для BM25.</p></div>
+
+  <div class="demo" id="ciDemo">
+    <div class="head"><h4>Скільки запитів потрібно</h4><span class="tag">interactive</span><span class="hint">Симуляція: насправді система B трохи краща за A (на 0.02 NDCG@10 у середньому), але на окремих запитах буває й гіршою. Уявімо, що 20 команд незалежно зібрали власні тестові набори однакового розміру і порівняли A і B. Кожна плитка — висновок однієї команди: хто переміг за середнім NDCG і з якою перевагою. Змінюйте кількість запитів і дивіться, як часто команди помиляються.</span></div>
+    <div class="ctlrow">
+      <span class="lbl">Запитів у наборі</span><div class="seg" id="ciN"><button data-v="10" aria-pressed="true">10</button><button data-v="30" aria-pressed="false">30</button><button data-v="100" aria-pressed="false">100</button><button data-v="300" aria-pressed="false">300</button></div>
+      <button class="btn" type="button" id="ciNew">🎲 Повторити</button>
+    </div>
+    <div class="citiles" id="ciTiles"></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">правильно обрали B</div><div class="v c" id="ciOk"></div></div>
+      <div class="stat"><div class="l">виміряна перевага B</div><div class="v" id="ciRange"></div></div>
+    </div>
+    <div class="explain" id="ciExpl"></div>
+  </div>
+
+  <p>Для розробки зазвичай вистачає 100–300 запитів. Порівнюйте системи на одних і тих самих запитах і рахуйте різницю для кожного запиту. Це парний тест (парний бутстреп або t-тест різниць): він каже, чи не випадкова виміряна перевага, без двадцяти команд із демо. Він чутливіший, ніж порівняння двох середніх окремо: легкі й важкі запити однаково легкі й важкі для обох систем, і цей розкид скорочується. Дивіться не лише на середнє. Розбийте запити за типами (короткі, довгі, з кодами) і перевірте, де система виграла, а де програла.</p>
+
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="0">
+      <div class="q">Нова dense-модель отримала NDCG@10 нижчий, ніж BM25, але ви бачите, що її видача виглядає краще. Що перевірити насамперед?</div>
+      <div class="opts"><button class="opt">Яка частка її топ-10 узагалі має оцінки в qrels: можливо, розмітку робили лише по кандидатах BM25</button><button class="opt">Чи нормалізовано вектори BM25</button><button class="opt">Нічого: метрика об'єктивна</button></div>
+      <div class="ans">Якщо кандидатів для розмітки брали лише з BM25, знахідки нової моделі лишилися без оцінок і порахувалися як нерелевантні.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 14. ERROR ANALYSIS ============ -->
+<section class="slide" id="s14" data-title="Розбір помилок">
+  <div class="eyebrow">Розділ 14 · <b>оцінювання, продовження</b></div>
+  <h2>Розбір помилок: де саме програє пошук</h2>
+  <p class="lead">Одне середнє число ховає, на яких запитах система виграла, а на яких програла. Розбийте запити на типи й подивіться на найгірші приклади. Так стає видно, що лагодити: модель, чанки, індекс чи саму постановку задачі.</p>
+
+  <div class="demo" id="errDemo">
+    <div class="head"><h4>NDCG@10 по запитах: BM25 проти dense-моделі</h4><span class="tag">interactive</span><span class="hint">Ілюстративні результати для пошуку в каталозі магазину побутової техніки: 15 запитів шести типів. Сині смужки — BM25, помаранчеві — dense-модель. Оберіть тип запитів і порівняйте середні. Остання цифра — «оракул»: якби для кожного запиту ми якимось чином обирали кращу з двох систем. Це стеля, до якої наближається вдале поєднання обох.</span></div>
+    <div class="seg" id="errType"></div>
+    <div class="softbars" id="errBars" style="margin-top:12px"></div>
+    <div class="statrow">
+      <div class="stat"><div class="l">середнє BM25</div><div class="v a" id="errB"></div></div>
+      <div class="stat"><div class="l">середнє dense</div><div class="v b" id="errD"></div></div>
+      <div class="stat"><div class="l">оракул: краща з двох</div><div class="v c" id="errO"></div></div>
+    </div>
+    <div class="explain" id="errExpl"></div>
+  </div>
+
+  <h3>Що перевірити, коли запит провалився</h3>
+  <p>Пройдіться ланцюжком від документа до видачі. Помилка майже завжди сидить в одній ланці.</p>
+  <div class="cards">
+    <div class="card"><div class="k">1 · Колекція</div><h4>Чи є відповідь узагалі?</h4><p>Знайдіть правильний документ вручну. Іноді його немає, і жодна модель не допоможе: треба поповнювати базу знань.</p></div>
+    <div class="card"><div class="k">2 · Індекс</div><h4>Чи потрапив він у чанк цілим?</h4><p>Таблиця з PDF розсипалася на окремі числа, відповідь розрізало межею чанка, а хвіст документа обрізано після 512 токенів. Подивіться на сам текст чанка, а не на вихідний документ.</p></div>
+    <div class="card"><div class="k">3 · ANN</div><h4>Чи знаходить його точний перебір?</h4><p>Порівняйте видачу ANN-індексу з повним перебором. Якщо перебір документ знаходить, а індекс ні, збільшуйте efSearch чи nprobe, а модель не чіпайте.</p></div>
+    <div class="card"><div class="k">4 · Модель</div><h4>Префікс, нормалізація, домен</h4><p>Перевірте префікси <code>query:</code>/<code>passage:</code> і нормалізацію. Якщо все правильно, а модель не розуміє доменних слів, це сигнал до донавчання зі складними негативами.</p></div>
+  </div>
+
+  <div class="callout warn"><div class="qm">Не все — семантика</div><p>«Ноутбук до 30 тисяч з 16 ГБ пам'яті» містить дві умови на атрибути товару. Ембедінг не вміє порівнювати числа: для нього «до 30 тисяч» і «від 30 тисяч» майже однакові. Такі умови треба витягти із запиту в структуровані фільтри (ціна ≤ 30 000, RAM = 16) і передати у векторну базу, а векторний пошук лишити для решти запиту. Витягувати такі фільтри часто доручають LLM зі структурованим виходом, про це — у лекції про практичне використання LLM.</p></div>
+</section>
+
+<!-- ============ 15. TWO TOWERS ============ -->
+<section class="slide" id="s15" data-title="Дві вежі в рекомендаціях">
+  <div class="eyebrow">Розділ 15 · <b>місток до рекомендацій</b></div>
+  <h2>Дві вежі: та сама архітектура в рекомендаціях</h2>
+  <p class="lead">Рекомендаційні системи побудовані так само. Одна вежа кодує користувача, друга — товар, а скор дорівнює скалярному добутку їхніх векторів. Навчання контрастивне з негативами з батчу, а кандидатів шукають ANN-індексом.</p>
+
+  <p><span class="term" data-g="two-tower">Двобаштова модель</span> (two-tower) — це біенкодер, у якого дві різні вежі, бо користувач і товар описуються різними ознаками. Вежа користувача отримує історію переглядів, мову, пристрій і час доби. Вежа товару — назву, опис, категорію і ціну. Пара для навчання — «користувач — товар, на який він клацнув». Решта товарів батчу стають негативами, точно як у розділі 5.</p>
+
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Пошук</th><th>Рекомендації</th></tr></thead>
+    <tbody>
+      <tr><td>запит</td><td>користувач і його контекст</td></tr>
+      <tr><td>документ, чанк</td><td>товар, фільм, пост</td></tr>
+      <tr><td>пара «запит — релевантний документ»</td><td>пара «користувач — клік, покупка, перегляд до кінця»</td></tr>
+      <tr><td>біенкодер → ANN → топ-100</td><td>дві вежі → ANN → тисячі кандидатів</td></tr>
+      <tr><td>кросенкодер переранжовує</td><td>модель ранжування з перехресними ознаками</td></tr>
+      <tr><td>recall@K, NDCG</td><td>recall@K, NDCG, а онлайн — CTR, час перегляду, A/B-тести</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="demo" id="ttDemo">
+    <div class="head"><h4>Один вектор на користувача</h4><span class="tag">interactive</span><span class="hint">Фільми п'яти жанрів у двовимірному просторі. Клацайте фільми, щоб додати їх в історію переглядів. Вектор користувача (фіолетова стрілка) — нормалізоване середнє векторів переглянутого. Праворуч чотири рекомендації за косинусом. Оберіть «мультфільми + фантастика»: середнє двох далеких напрямків показує на жанр, якого користувач не дивився.</span></div>
+    <div class="ctlrow"><span class="lbl">Історія</span><div class="seg" id="ttPre"><button data-v="com" aria-pressed="true">дві комедії</button><button data-v="comdoc" aria-pressed="false">комедії + документальні</button><button data-v="anisf" aria-pressed="false">мультфільми + фантастика</button><button data-v="none" aria-pressed="false">очистити</button></div></div>
+    <div class="em-wrap">
+      <svg class="viz" id="ttSvg" viewBox="0 0 420 420" role="img" aria-label="Фільми, історія користувача і рекомендації"></svg>
+      <div><div class="toplist" id="ttTop"></div><div class="explain" id="ttExpl"></div></div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Популярність</div><h4>Корекція негативів з батчу</h4><p>Популярні товари частіше потрапляють у батч, а отже, частіше стають негативами, і модель їх несправедливо штрафує. YouTube (2019) віднімав від скору логарифм частоти товару (logQ-корекція).</p></div>
+    <div class="card"><div class="k">Кілька інтересів</div><h4>Більше одного вектора</h4><p>Як показало демо, один вектор погано описує людину з різними смаками. Деякі системи тримають кілька векторів інтересів на користувача і шукають за кожним окремо.</p></div>
+    <div class="card"><div class="k">Воронка</div><h4>Відбір → ранжування</h4><p>Дві вежі за мілісекунди відбирають тисячі кандидатів з мільйонів. Важча модель, що бачить користувача й товар разом, як кросенкодер, упорядковує сотню найкращих. Ту саму воронку для текстового пошуку ми побудуємо в лекції про переранжування.</p></div>
+  </div>
+  <details class="check"><summary>Перевір себе</summary>
+    <div class="quiz" data-ans="1">
+      <div class="q">Чому для відбору кандидатів з мільйонів товарів беруть дві вежі, а не модель, що бачить користувача й товар разом?</div>
+      <div class="opts"><button class="opt">Дві вежі точніші</button><button class="opt">Вектори товарів рахують заздалегідь, і на запит лишається один прохід вежі користувача плюс ANN-пошук</button><button class="opt">Модель, що бачить пару, не можна навчити на кліках</button></div>
+      <div class="ans">Це той самий аргумент, що й для біенкодера проти кросенкодера: спільна модель потребує проходу на кожну пару «користувач — товар». Її ставлять на наступному етапі, для сотні кандидатів.</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 16. CODE: SEARCH ============ -->
+<section class="slide" id="s16" data-title="Код: пошук та індекс">
+  <div class="eyebrow">Розділ 16 · <b>код</b></div>
+  <h2>Пошук та індекс: sentence-transformers і FAISS</h2>
+  <p>Потрібні <code>sentence-transformers</code>, <code>faiss-cpu</code> і <code>numpy</code>. Модель і документи з першого фрагмента використовуються далі.</p>
+
+  <div class="codelabel">Кодуємо документи і запит, шукаємо повним перебором</div>
+<pre class="code" data-lang="python"><code class="py">import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("intfloat/multilingual-e5-base")
+docs = ["Повернути товар можна протягом 14 днів після покупки.",
+        "Доставка Новою поштою займає від 1 до 3 днів.",
+        "Оплата частинами від 3 до 24 місяців.",
+        "Якщо SMS-код не надходить, перевірте номер телефону."]
+
+# E5 навчено з префіксами: "passage: " для документів, "query: " для запитів
+D = model.encode(docs, prompt="passage: ", normalize_embeddings=True, batch_size=64)
+Q = model.encode(["хочу назад свої гроші"], prompt="query: ", normalize_embeddings=True)
+print(D.shape)                    # (4, 768), float32
+
+scores = Q @ D.T                  # вектори нормалізовані, тож це косинус
+for i in np.argsort(-scores[0])[:3]:
+    print(f"{scores[0, i]:.3f}  {docs[i]}")</code></pre>
+
+  <div class="codelabel">FAISS: точний індекс, HNSW та IVF</div>
+<pre class="code" data-lang="python"><code class="py">import faiss
+
+d = D.shape[1]
+flat = faiss.IndexFlatIP(d)                 # повний перебір, inner product
+flat.add(D)
+S, I = flat.search(Q, 3)                    # скори і номери документів
+
+hnsw = faiss.IndexHNSWFlat(d, 32, faiss.METRIC_INNER_PRODUCT)   # M = 32
+hnsw.hnsw.efConstruction = 200
+hnsw.add(D)
+hnsw.hnsw.efSearch = 64                     # можна змінювати без перебудови
+S, I = hnsw.search(Q, 3)
+
+# IVF має сенс від сотень тисяч векторів: X — ваша велика матриця [N, d]
+nlist = 1024
+ivf = faiss.IndexIVFFlat(faiss.IndexFlatIP(d), d, nlist, faiss.METRIC_INNER_PRODUCT)
+ivf.train(X)                                # k-means на векторах колекції
+ivf.add(X)
+ivf.nprobe = 16
+
+def ann_recall(I_ann, I_exact, k=10):
+    """Яку частку справжніх k сусідів знайшов наближений індекс."""
+    return np.mean([len(set(a[:k]) &amp; set(e[:k])) / k for a, e in zip(I_ann, I_exact)])</code></pre>
+
+  <details class="more">
+    <summary>Векторна база: Qdrant у пам'яті, з фільтром</summary>
+    <div class="body">
+<pre class="code" data-lang="python"><code class="py">from qdrant_client import QdrantClient
+from qdrant_client.models import (Distance, VectorParams, PointStruct,
+                                  Filter, FieldCondition, MatchValue)
+
+client = QdrantClient(":memory:")           # або QdrantClient(url="http://localhost:6333")
+client.create_collection("help", vectors_config=VectorParams(size=d, distance=Distance.COSINE))
+client.upsert("help", points=[
+    PointStruct(id=i, vector=D[i].tolist(), payload={"text": t, "lang": "uk"})
+    for i, t in enumerate(docs)])
+
+hits = client.query_points("help", query=Q[0].tolist(), limit=3,
+    query_filter=Filter(must=[FieldCondition(key="lang", match=MatchValue(value="uk"))])).points
+for h in hits:
+    print(round(h.score, 3), h.payload["text"])</code></pre>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 17. CODE: EVAL AND TRAINING ============ -->
+<section class="slide" id="s17" data-title="Код: оцінка і донавчання">
+  <div class="eyebrow">Розділ 17 · <b>код, продовження</b></div>
+  <h2>Оцінка і донавчання біенкодера</h2>
+  <p>Спершу метрики вручну, щоб не лишалося магії. Потім те саме через вбудований evaluator і донавчання на своїх парах.</p>
+
+  <div class="codelabel">recall@K, reciprocal rank і NDCG@K для одного запиту</div>
+<pre class="code" data-lang="python"><code class="py">import math
+
+# ranked: список id документів у порядку видачі; qrels: {doc_id: оцінка 0–3}
+def recall_at_k(ranked, qrels, k=10):
+    rel = [d for d, g in qrels.items() if g > 0]
+    return sum(1 for d in ranked[:k] if qrels.get(d, 0) > 0) / max(1, len(rel))
+
+def reciprocal_rank(ranked, qrels, k=10):
+    for i, d in enumerate(ranked[:k], start=1):
+        if qrels.get(d, 0) > 0:
+            return 1 / i
+    return 0.0
+
+def ndcg_at_k(ranked, qrels, k=10):
+    dcg = sum(qrels.get(d, 0) / math.log2(i + 1) for i, d in enumerate(ranked[:k], start=1))
+    ideal = sorted(qrels.values(), reverse=True)[:k]
+    idcg = sum(g / math.log2(i + 1) for i, g in enumerate(ideal, start=1))
+    return dcg / idcg if idcg else 0.0
+
+ranked = ["d7", "d2", "d9", "d1"]
+qrels = {"d1": 3, "d2": 2, "d5": 1}
+print(recall_at_k(ranked, qrels), reciprocal_rank(ranked, qrels), ndcg_at_k(ranked, qrels))
+# MRR і середній NDCG — середні цих чисел по всіх запитах набору</code></pre>
+
+  <div class="codelabel">Те саме для всього набору: InformationRetrievalEvaluator</div>
+<pre class="code" data-lang="python"><code class="py">from sentence_transformers.evaluation import InformationRetrievalEvaluator
+
+queries = {"q1": "хочу назад свої гроші", "q2": "де моя посилка"}
+corpus  = {"d1": docs[0], "d2": docs[1], "d3": docs[2], "d4": docs[3]}
+relevant = {"q1": {"d1"}, "q2": {"d2"}}     # бінарні оцінки: множина релевантних
+
+ev = InformationRetrievalEvaluator(queries, corpus, relevant, name="dev",
+                                   query_prompt="query: ", corpus_prompt="passage: ")
+res = ev(model)
+print(res["dev_cosine_ndcg@10"], res["dev_cosine_mrr@10"], res["dev_cosine_recall@10"])</code></pre>
+
+  <div class="codelabel">Донавчання: MultipleNegativesRankingLoss і складні негативи</div>
+<pre class="code" data-lang="python"><code class="py">from datasets import Dataset
+from sentence_transformers import SentenceTransformerTrainer, SentenceTransformerTrainingArguments
+from sentence_transformers.losses import MultipleNegativesRankingLoss
+from sentence_transformers.training_args import BatchSamplers
+from sentence_transformers.util import mine_hard_negatives
+
+train = Dataset.from_dict({                  # ваші пари; префікси E5 пишемо прямо в текст
+    "anchor":   ["query: хочу назад свої гроші", "query: скільки йде посилка"],
+    "positive": ["passage: " + docs[0],          "passage: " + docs[1]],
+})
+# по одному складному негативу на пару; місця 1–10 пропускаємо, бо там часто хибні негативи
+train = mine_hard_negatives(train, model, range_min=10, range_max=50, num_negatives=1)
+
+loss = MultipleNegativesRankingLoss(model)   # InfoNCE з негативами з батчу, scale = 20 → τ = 0.05
+args = SentenceTransformerTrainingArguments(
+    output_dir="e5-shop", num_train_epochs=1,
+    per_device_train_batch_size=64,          # більший батч — більше негативів
+    learning_rate=2e-5, warmup_ratio=0.1,
+    batch_sampler=BatchSamplers.NO_DUPLICATES,   # без однакових текстів у батчі
+    eval_strategy="steps", eval_steps=200)
+trainer = SentenceTransformerTrainer(model=model, args=args, train_dataset=train,
+                                     loss=loss, evaluator=ev)
+trainer.train()
+print(ev(model)["dev_cosine_ndcg@10"])       # порівняйте з числом до донавчання і з BM25</code></pre>
+  <div class="callout warn"><div class="qm">Нюанс</div><p>Після донавчання модель дає <em>інші</em> вектори. Усю колекцію треба переіндексувати, бо старі вектори з новими несумісні. Перевірте також, чи не просіла якість на запитах поза вашим доменом: модель, донавчена на кількох тисячах пар, легко «забуває» загальні знання.</p></div>
+</section>
+
+<!-- ============ 18. SUMMARY ============ -->
+<section class="slide" id="s18" data-title="Підсумок і тест">
+  <div class="eyebrow">Розділ 18</div>
+  <h2>Підсумок</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Навіщо</div><h4>Зміст замість слів</h4><p>Семантичний пошук закриває розрив словника: синоніми, перефразування, інші мови. Коди й рідкісні слова лишаються за BM25.</p></div>
+    <div class="card"><div class="k">Архітектура</div><h4>Біенкодер</h4><p>Енкодер + пулінг + нормалізація. Документи кодуються заздалегідь, на запит — один прохід і пошук найближчих векторів за косинусом.</p></div>
+    <div class="card"><div class="k">Навчання</div><h4>InfoNCE і негативи</h4><p>Дані — пари або триплети з майненим складним негативом. Матриця B × B, softmax із τ ≈ 0.05 по кожному рядку. Великі батчі, складні негативи, обережно з хибними.</p></div>
+    <div class="card"><div class="k">Індексація</div><h4>Чанки, IVF, HNSW</h4><p>Документи ріжуть на чанки по кількасот токенів. ANN-індекс переглядає малу частку колекції, efSearch і nprobe регулюють баланс швидкості й повноти.</p></div>
+    <div class="card"><div class="k">Оцінка</div><h4>Свій набір, парне порівняння</h4><p>recall@100 для кандидатів, MRR для однієї відповіді, NDCG@10 для градацій. Кількасот реальних запитів, бейзлайн BM25, повнота розмітки, розбір помилок за типами запитів.</p></div>
+    <div class="card"><div class="k">Місток</div><h4>Дві вежі</h4><p>Рекомендації — той самий біенкодер: користувач і товар, негативи з батчу, ANN і воронка «відбір → ранжування».</p></div>
+  </div>
+
+  <h3>Перевірте себе</h3>
+  <div class="quiz" data-ans="2">
+    <div class="q">Чому середнє виходів BERT без донавчання — поганий вектор речення для пошуку?</div>
+    <div class="opts"><button class="opt">Бо BERT не бачить порядку слів</button><button class="opt">Бо середнє завжди гірше за [CLS]</button><button class="opt">Бо MLM не вчив робити вектори схожих речень близькими: вектори всіх текстів скупчуються у вузькому конусі</button></div>
+    <div class="ans">BERT контекстуальний і бачить порядок. Проблема в задачі навчання, тому біенкодер навчають контрастивно на парах.</div>
+  </div>
+  <div class="quiz" data-ans="0">
+    <div class="q">Усі вектори нормалізовано до довжини 1. Яка метрика дасть інший порядок документів, ніж косинус?</div>
+    <div class="opts"><button class="opt">Жодна: скалярний добуток і евклідова відстань дають той самий порядок</button><button class="opt">Скалярний добуток</button><button class="opt">Евклідова відстань</button></div>
+    <div class="ans">Для одиничних векторів q·d = cos, а ‖q − d‖² = 2 − 2 cos. Обидві — монотонні функції косинуса.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">Ви взяли складні негативи з перших п'яти місць BM25, і після донавчання якість упала. Найімовірніша причина?</div>
+    <div class="opts"><button class="opt">Складні негативи завжди шкодять</button><button class="opt">Серед них багато хибних негативів: насправді релевантних документів без розмітки</button><button class="opt">BM25 не можна використовувати разом з dense-моделлю</button></div>
+    <div class="ans">Що вище документ у видачі, то більша ймовірність, що він теж правильний. Пропускайте верхівку або фільтруйте кандидатів кросенкодером.</div>
+  </div>
+  <div class="quiz" data-ans="2">
+    <div class="q">Для запиту є один релевантний документ, і пошук поставив його на третє місце. Яке reciprocal rank і чи зміниться воно, якщо на четверте місце додати ще один релевантний документ?</div>
+    <div class="opts"><button class="opt">0.75, зросте</button><button class="opt">0.33, зросте</button><button class="opt">0.33, не зміниться: важить лише перший релевантний</button></div>
+    <div class="ans">RR = 1/3. MRR дивиться лише на позицію першого влучення. Друге влучення помітять recall@K і NDCG.</div>
+  </div>
+  <div class="quiz" data-ans="1">
+    <div class="q">На 30 запитах нова система дає NDCG@10 на 0.02 вищий за стару. Що робити?</div>
+    <div class="opts"><button class="opt">Впроваджувати: 0.02 — помітний приріст</button><button class="opt">Порахувати довірчий інтервал парної різниці по тих самих запитах і, найімовірніше, розширити набір</button><button class="opt">Перейти на MRR, бо він стабільніший</button></div>
+    <div class="ans">На 30 запитах різниця 0.02 часто менша за розкид. Парне порівняння звужує інтервал, але для таких малих різниць зазвичай потрібні сотні запитів.</div>
+  </div>
+
+  <p class="kbd-hint">Навігація: <kbd>←</kbd> <kbd>→</kbd> між розділами · <kbd>L</kbd> режим лекції · <kbd>T</kbd> тема</p>
+</section>
+
+</main>
+</div>
+<script src="glossary.js"></script>
+<script src="common.js"></script>
+<script src="offline.js"></script>
+<script>
+/* Тут доступні хелпери з common.js: $, $$, esc, fmt, store, cssVar, redraws, hlPy. */
+
+/* ===================== helpers ===================== */
+const pct=(x,d=0)=>(x*100).toFixed(d)+"%";
+const nUk=n=>Math.round(n).toLocaleString("uk-UA");
+// 1234567 → «1.2 млн»
+function big(n){const a=Math.abs(n);
+  if(a>=1e9)return (n/1e9).toFixed(a>=1e10?0:1).replace(/\.0$/,"")+" млрд";
+  if(a>=1e6)return (n/1e6).toFixed(a>=1e7?0:1).replace(/\.0$/,"")+" млн";
+  if(a>=1e4)return (n/1e3).toFixed(0)+" тис.";
+  return nUk(n)}
+// десяткові одиниці, як у специфікаціях пам'яті й дисків
+function bytes(b){const u=["Б","КБ","МБ","ГБ","ТБ","ПБ"];let i=0;while(b>=1000&&i<u.length-1){b/=1000;i++}return (i===0||b>=100?b.toFixed(0):b.toFixed(1)).replace(/\.0$/,"")+" "+u[i]}
+function dur(s){if(s<1e-3)return "< 1 мс";if(s<1)return Math.round(s*1000)+" мс";if(s<60)return s.toFixed(s<10?1:0)+" с";if(s<3600)return Math.round(s/60)+" хв";if(s<86400)return (s/3600).toFixed(1)+" год";if(s<86400*365)return Math.round(s/86400)+" дн.";return (s/86400/365).toFixed(1)+" р."}
+// 0.0000098 → «9.8·10⁻⁶»
+const SUP={"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
+const small=x=>{if(x<1e-12)return "≈ 0";if(x>=1e-3)return x.toFixed(3);const [m,e]=x.toExponential(1).split("e");return m+"·10"+String(+e).replace(/./g,c=>SUP[c]||c)};
+// seeded random: однакові «випадкові» дані при кожному завантаженні
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const gauss=r=>Math.sqrt(-2*Math.log(r()+1e-12))*Math.cos(2*Math.PI*r());
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+const norm=a=>Math.sqrt(dot(a,a));
+const cos=(a,b)=>{const n=norm(a)*norm(b);return n?dot(a,b)/n:0};
+const softmax=(v,T=1)=>{const z=v.map(x=>x/T),m=Math.max(...z),e=z.map(x=>Math.exp(x-m)),s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)};
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+// перемикач .seg: кнопки з data-v, aria-pressed позначає обрану
+function segPick(el,v){$$("button",el).forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===String(v))))}
+function seg(el,cb){el.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!el.contains(b))return;segPick(el,b.dataset.v);cb(b.dataset.v)})}
+// смужка розподілу: підпис · смужка · число
+function distBar(label,p,{color="var(--blue)",cls="",num=null}={}){
+  return `<div class="softbar ${cls}"><span class="w" title="${esc(label.replace(/<[^>]+>/g,""))}">${label}</span><div class="tr"><div class="fl" style="width:${Math.min(100,p*100)}%;background:${color}"></div></div><span class="n">${num!=null?num:pct(p,1)}</span></div>`}
+// canvas з даними в координатах [0, 2] × [0, 1]: зберігаємо пропорції й чіткість на retina
+function cvSetup(c){const w=c.clientWidth||c.parentElement.clientWidth||600,h=Math.round(clamp(w/2,180,420)),r=window.devicePixelRatio||1;
+  c.width=Math.round(w*r);c.height=Math.round(h*r);c.style.height=h+"px";const x=c.getContext("2d");x.setTransform(r,0,0,r,0,0);
+  const s=Math.min(w/2,h),ox=(w-2*s)/2,oy=(h-s)/2;return{x,w,h,X:u=>ox+u*s,Y:v=>oy+v*s,inv:(px,py)=>[(px-ox)/s,(py-oy)/s]}}
+function cvPointer(c,cb){let down=false;const at=e=>{const r=c.getBoundingClientRect();cb(e.clientX-r.left,e.clientY-r.top)};
+  c.addEventListener("pointerdown",e=>{down=true;c.setPointerCapture(e.pointerId);at(e)});
+  c.addEventListener("pointermove",e=>{if(down)at(e)});
+  c.addEventListener("pointerup",()=>{down=false});c.addEventListener("pointercancel",()=>{down=false})}
+const hooks=window.narrHooks=window.narrHooks||{};
+
+/* ===================== 1. BM25 проти пошуку за змістом ===================== */
+(function(){
+  const C=["повернення","гроші","доставка","оплата","гарантія","акаунт","знижка","скасування","терміни","відстеження","помилка"];
+  const vec=o=>C.map(c=>o[c]||0);
+  const D=[
+    {t:"Повернення коштів: оформіть заявку протягом 14 днів після отримання товару.",v:{повернення:1,гроші:.7,терміни:.3}},
+    {t:"Скасування замовлення до відправлення зі складу.",v:{скасування:1,доставка:.2}},
+    {t:"Терміни доставки Новою поштою: від 1 до 3 днів.",v:{доставка:1,терміни:.6}},
+    {t:"Оплата частинами і кредит без переплат.",v:{оплата:1,гроші:.5}},
+    {t:"Гарантійний ремонт ноутбуків і телефонів.",v:{гарантія:1}},
+    {t:"Зміна пароля від особистого кабінету.",v:{акаунт:1}},
+    {t:"Обмін товару на інший розмір чи колір.",v:{повернення:.7}},
+    {t:"Промокоди і знижки не сумуються.",v:{знижка:1,гроші:.3}},
+    {t:"Відстеження посилки за номером ТТН.",v:{відстеження:1,доставка:.6}},
+    {t:"Код помилки E-1043: банк відхилив платіж карткою.",v:{оплата:.6,помилка:1,гроші:.2}},
+    {t:"Самовивіз із магазину: графік роботи у свята.",v:{доставка:.5,терміни:.4}}
+  ];
+  const blur={};C.forEach(c=>blur[c]=.2);blur.оплата=.3;blur.гроші=.3;
+  const Q=[
+    {l:"гроші назад",t:"хочу назад свої гроші, річ не підійшла",v:{повернення:.9,гроші:.6},g:0,
+     e:"Жодного спільного слова: «гроші» проти «коштів», «назад» проти «повернення». BM25 повертає порожній список. Пошук за змістом ставить потрібну статтю першою, бо обидва тексти про повернення і гроші."},
+    {l:"посилка",t:"де зараз моя посилка",v:{відстеження:1,доставка:.5},g:8,
+     e:"Тут працюють обидва підходи. Стемінг звів «посилка» і «посилки» до однієї основи, тож BM25 знаходить статтю про відстеження."},
+    {l:"не можу увійти",t:"не можу увійти в акаунт",v:{акаунт:1},g:5,
+     e:"Користувач описує проблему, а стаття називає рішення: «увійти в акаунт» і «зміна пароля від кабінету». Спільних слів немає, і BM25 безсилий."},
+    {l:"E-1043",t:"E-1043",v:blur,g:9,
+     e:"Точний код є лише в одній статті, і BM25 знаходить її з першої спроби. Іграшкова модель не знає, що означає «E-1043», тож вектор запиту розмитий, а порядок результатів майже випадковий. Справжні моделі схоже поводяться з артикулами, номерами й рідкісними іменами."},
+    {l:"оплатити частинами",t:"оплатити частинами",v:{оплата:1,гроші:.4},g:3,
+     e:"Спільне слово «частинами» знаходить потрібну статтю і для BM25. «Оплатити» й «оплата» простий стемер до однієї основи не звів, але одного збігу вистачило."}
+  ];
+  // простий стемер для української: відрізаємо одне закінчення, лишаючи основу ≥ 4 літер
+  const STOP=new Set("в у і й та на до за з із зі від не чи а як де моя мій моє мої свої свій що про після без для по це".split(" "));
+  const ENDS=["ами","ями","ові","еві","ого","ому","ими","іми","ють","ать","ять","ах","ях","ам","ям","ою","ею","ів","їв","ий","ій","ня","ти","ть","ла","ло","ли","ує","а","я","о","е","и","і","ї","у","ю","ь","й"];
+  const stem=w=>{if(/\d/.test(w))return w;for(const e of ENDS)if(w.endsWith(e)&&w.length-e.length>=4)return w.slice(0,-e.length);return w};
+  const WRE=/[\p{L}\d]+(?:-[\p{L}\d]+)*/gu;
+  const toks=s=>(s.toLowerCase().match(WRE)||[]).filter(w=>!STOP.has(w)).map(stem);
+  const DT=D.map(d=>toks(d.t)),N=D.length,avg=DT.reduce((a,t)=>a+t.length,0)/N,vocab=new Set(DT.flat());
+  const df={};DT.forEach(t=>new Set(t).forEach(w=>df[w]=(df[w]||0)+1));
+  const idf=w=>Math.log(1+(N-(df[w]||0)+.5)/((df[w]||0)+.5));
+  const bm25=q=>{const qs=[...new Set(toks(q))];return DT.map((t,i)=>{let s=0;for(const w of qs){const f=t.filter(x=>x===w).length;if(f)s+=idf(w)*f*2.2/(f+1.2*(.25+.75*t.length/avg))}return{i,s}})};
+  const hl=(text,qs)=>text.replace(WRE,w=>{const l=w.toLowerCase();return !STOP.has(l)&&qs.has(stem(l))?`<mark>${esc(w)}</mark>`:esc(w)}).replace(/[^<>\p{L}\d\s-]/gu,c=>esc(c));
+  const row=(r,html,s,gold)=>`<div class="row${gold?" gold":""}"><span class="n">${r+1}</span><span class="t">${html}</span><span class="s">${s}</span></div>`;
+  const qb=$("#lexQ");qb.innerHTML=Q.map((q,i)=>`<button data-v="${i}" aria-pressed="${i===0}">${esc(q.l)}</button>`).join("");
+  function run(k){const q=Q[k],qset=new Set(toks(q.t));
+    $("#lexQl").innerHTML="Запит: "+hl(q.t,new Set([...qset].filter(w=>vocab.has(w))));
+    const bm=bm25(q.t).filter(o=>o.s>0).sort((a,b)=>b.s-a.s).slice(0,5);
+    $("#lexBm").innerHTML=bm.length?`<div class="rk">${bm.map((o,r)=>row(r,hl(D[o.i].t,qset),o.s.toFixed(2),o.i===q.g)).join("")}</div>`
+      :`<div class="empty">Жодна стаття не містить слів запиту. BM25 нічого не повертає.</div>`;
+    const qv=vec(q.v),sem=D.map((d,i)=>({i,s:cos(qv,vec(d.v))})).sort((a,b)=>b.s-a.s).slice(0,5).filter((o,r)=>!r||o.s>=.01);
+    $("#lexSem").innerHTML=`<div class="rk">${sem.map((o,r)=>row(r,esc(D[o.i].t),o.s.toFixed(2),o.i===q.g)).join("")}</div>`;
+    $("#lexExpl").innerHTML=q.e}
+  seg(qb,v=>run(+v));run(0);
+})();
+
+/* ===================== 2. середнє векторів слів ===================== */
+(function(){
+  // Іграшкова 2D-карта статичних векторів: для кожної пари свої дві осі-поняття.
+  const P=[
+    {l:"порядок слів",ax:["оцінка: погано ← → добре","кіно"],a:"фільм не поганий, а чудовий",b:"фільм не чудовий, а поганий",enc:.80,
+     w:{фільм:[.1,1],не:[-.25,.3],поганий:[-.85,.45],а:[.15,.2],чудовий:[.9,.4]},
+     e:"Обидва речення складаються з тих самих п'яти слів, тож і середнє однакове: стрілки лягли одна на одну, косинус рівно 1. Середнє не знає, яке слово стояло першим. Енкодер бачить порядок і розводить вектори, хоча й не дуже далеко: обидва речення справді про оцінку фільму."},
+    {l:"багатозначність",ax:["двері, ключі","туризм, будівлі"],a:"відкрив замок ключем",b:"туристи оглянули старовинний замок",enc:.21,
+     w:{відкрив:[.9,.1],замок:[.7,.7],ключем:[1,-.1],туристи:[.1,1],оглянули:[.3,.8],старовинний:[.2,.9]},
+     e:"Статичний «замок» — один вектор на обидва значення, тож він стоїть посередині між дверима й фортецею. Це спільне слово тягне обидві стрілки до діагоналі, і речення про ключ здається схожим на речення про туристів. Енкодер бачить сусідні слова і дає «замку» різні вектори в кожному реченні."},
+    {l:"синоніми",ax:["автомобіль","запуск, робота"],a:"авто не заводиться",b:"машина не запускається",enc:.87,
+     w:{авто:[1,.15],машина:[.95,.25],не:[-.5,-.3],заводиться:[.3,1],запускається:[.35,.95]},
+     e:"Спільне лише «не», тож BM25 тут майже нічого не знайде. Але синоніми лежать поруч на карті, тож середні майже збігаються і косинус близький до 1. Тут статичні вектори вже роблять те, чого не вміє лексичний пошук. Енкодер речень теж ставить ці речення поруч."},
+    {l:"заперечення",ax:["почуття","ресторан"],a:"я люблю цей ресторан",b:"я не люблю цей ресторан",enc:.86,
+     w:{я:[-.1,.5],люблю:[.9,.5],цей:[.45,.15],ресторан:[.4,.95],не:[-.6,-.4]},
+     e:"«Не» — одне слово з п'яти. Воно трохи вкорочує стрілку B, але майже не повертає її, і косинус лишається близьким до 1. Зверніть увагу: енкодер речень теж дає високу схожість. Заперечення — відома слабкість і біенкодерів, бо обидва речення справді про той самий ресторан."}
+  ];
+  const words=s=>s.toLowerCase().match(/[\p{L}']+/gu)||[];
+  const mean=(ws,W)=>{const v=[0,0];ws.forEach(w=>{v[0]+=W[w][0]/ws.length;v[1]+=W[w][1]/ws.length});return v};
+  const svg=$("#w2vSvg"),C=[200,290],U=190,X=v=>C[0]+v[0]*U,Y=v=>C[1]-v[1]*U;
+  let k=0,hov=null;
+  const el=$("#w2vPair");el.innerHTML=P.map((p,i)=>`<button data-v="${i}" aria-pressed="${i===0}">${esc(p.l)}</button>`).join("");
+  function arrow(v,col,dash){const x=X(v),y=Y(v),a=Math.atan2(C[1]-y,x-C[0]),h=11;
+    return `<line x1="${C[0]}" y1="${C[1]}" x2="${x}" y2="${y}" style="stroke:${col};stroke-width:4;stroke-linecap:round${dash?";stroke-dasharray:7 6":""}"/>`+
+      `<path d="M${x},${y} L${x-h*Math.cos(a-.45)},${y+h*Math.sin(a-.45)} L${x-h*Math.cos(a+.45)},${y+h*Math.sin(a+.45)} Z" style="fill:${col}"/>`}
+  function run(){const p=P[k],wa=words(p.a),wb=words(p.b),sa=new Set(wa),sb=new Set(wb),ma=mean(wa,p.w),mb=mean(wb,p.w),c=cos(ma,mb);
+    let g=`<rect x="0" y="0" width="420" height="400" rx="8" style="fill:var(--bg)"/>`;
+    g+=`<line x1="20" x2="405" y1="${C[1]}" y2="${C[1]}" style="stroke:var(--axis)"/><line x1="${C[0]}" x2="${C[0]}" y1="40" y2="385" style="stroke:var(--axis)"/>`;
+    g+=`<text class="mut" x="405" y="${C[1]+44}" text-anchor="end">${esc(p.ax[0])} →</text><text class="mut" x="${C[0]}" y="28" text-anchor="middle">↑ ${esc(p.ax[1])}</text>`;
+    // кут між середніми
+    const a1=Math.atan2(ma[1],ma[0]),a2=Math.atan2(mb[1],mb[0]),deg=Math.abs(a1-a2)*180/Math.PI;
+    if(deg>1.5){const r=46,lo=Math.min(a1,a2),hi=Math.max(a1,a2);
+      g+=`<path d="M${C[0]+r*Math.cos(lo)},${C[1]-r*Math.sin(lo)} A${r},${r} 0 0,0 ${C[0]+r*Math.cos(hi)},${C[1]-r*Math.sin(hi)}" style="fill:none;stroke:var(--violet);stroke-width:2"/>`;
+      const am=(lo+hi)/2;g+=`<text x="${C[0]+(r+16)*Math.cos(am)}" y="${C[1]-(r+16)*Math.sin(am)+4}" text-anchor="middle" style="fill:var(--violet);font-weight:600">${Math.round(deg)}°</text>`}
+    // слова: точка, тонкий промінь від початку координат, підпис
+    Object.entries(p.w).forEach(([w,v])=>{const both=sa.has(w)&&sb.has(w),col=both?"var(--violet)":sa.has(w)?"var(--blue)":"var(--orange)",x=X(v),y=Y(v),on=hov===w;
+      g+=`<line x1="${C[0]}" y1="${C[1]}" x2="${x}" y2="${y}" style="stroke:${col};opacity:${on?.8:.22};stroke-width:${on?2:1}"/>`;
+      g+=`<circle cx="${x}" cy="${y}" r="${on?8:6}" style="fill:${col};stroke:var(--surface);stroke-width:2"/>`;
+      const left=v[0]<0||x>340;g+=`<text x="${x+(left?-10:10)}" y="${y+4}" text-anchor="${left?"end":"start"}" style="${on?"font-weight:600":""}">${esc(w)}</text>`});
+    g+=arrow(ma,"var(--blue)",false)+arrow(mb,"var(--orange)",true);
+    // підписи A і B посередині стрілок, з того боку, що далі від іншої стрілки
+    const lab=(m,o,txt,col)=>{const ang=Math.atan2(m[1],m[0]),side=Math.atan2(o[1],o[0])>ang?-1:1,mx=X([m[0]*.55,m[1]*.55]),my=Y([m[0]*.55,m[1]*.55]);
+      return `<text x="${mx+side*16*Math.sin(ang)}" y="${my+side*16*Math.cos(ang)+4}" text-anchor="middle" style="fill:${col};font-weight:700;font-size:14px">${txt}</text>`};
+    g+=deg<=1.5?`<text x="${X(ma)}" y="${Y(ma)-16}" text-anchor="middle" style="fill:var(--violet);font-weight:700;font-size:14px">A = B</text>`:lab(ma,mb,"A","var(--blue)")+lab(mb,ma,"B","var(--orange)");
+    svg.innerHTML=g;
+    const chips=(ws,other,cls)=>ws.map(w=>`<span class="tk ${other.has(w)?"sh":cls}${hov===w?" on":""}" data-w="${esc(w)}">${esc(w)}</span>`).join("");
+    $("#w2vA").innerHTML=chips(wa,sb,"a");$("#w2vB").innerHTML=chips(wb,sa,"b");
+    $("#w2vBars").innerHTML=distBar("cos середніх слів",Math.max(0,c),{color:"var(--blue)",num:fmt(c)})+distBar("енкодер речень*",p.enc,{color:"var(--orange)",num:"≈ "+fmt(p.enc)})+
+      `<p class="note" style="margin:4px 0 0">* ілюстративне значення для типового енкодера речень; точні числа залежать від моделі.</p>`;
+    $("#w2vExpl").textContent=p.e}
+  const hover=e=>{const t=e.target.closest(".tk[data-w]"),w=t?t.dataset.w:null;if(w!==hov){hov=w;run()}};
+  ["#w2vA","#w2vB"].forEach(id=>{$(id).addEventListener("mouseover",hover);$(id).addEventListener("mouseleave",()=>{hov=null;run()})});
+  seg(el,v=>{k=+v;hov=null;run()});run();
+})();
+
+/* ===================== 3. ціна запиту: біенкодер проти кросенкодера ===================== */
+(function(){
+  const r=$("#costN");
+  function run(){const N=Math.pow(10,+r.value);$("#costNV").textContent=big(N);
+    const x=N/1000,b=.01+N*768*4/20e9,a=.012,idx=N/1000;
+    $("#costX").textContent=dur(x);$("#costB").textContent=dur(b);$("#costA").textContent="≈ "+dur(a);$("#costI").textContent=dur(idx);
+    $("#costExpl").innerHTML=`Кросенкодер робить ${big(N)} проходів моделі на <b>кожен</b> запит. Біенкодер робить їх <b>один раз</b>, під час індексації, а на запит — лише один прохід для самого запиту.`+
+      (b>.2?` Але й повний перебір ${big(N)} векторів уже займає ${dur(b)}, тому потрібен наближений індекс (розділи 10–11).`:` На такій колекції повного перебору векторів ще цілком досить.`)}
+  r.addEventListener("input",run);run();
+})();
+
+/* ===================== 4. простір ембедінгів: косинус і скалярний добуток ===================== */
+(function(){
+  const T=[{n:"повернення",c:"var(--blue)",a:35},{n:"доставка",c:"var(--orange)",a:125},{n:"оплата",c:"var(--aqua)",a:215},{n:"акаунт",c:"var(--violet)",a:305}];
+  // [тема, зсув кута, довжина, текст]
+  const P=[[0,-14,.9,"Повернення коштів за товар"],[0,-4,.75,"Як оформити заявку на повернення"],[0,6,.85,"Обмін на інший розмір"],[0,15,.7,"Товари, що не підлягають поверненню"],[0,-22,.65,"Повернення передплати"],
+    [1,-15,.8,"Терміни доставки"],[1,-3,.9,"Відстеження посилки"],[1,8,.7,"Самовивіз із магазину"],[1,18,.75,"Доставка за кордон"],
+    [2,-12,.85,"Оплата частинами"],[2,0,.7,"Помилка оплати карткою"],[2,12,.8,"Оплата при отриманні"],
+    [3,-10,.8,"Зміна пароля"],[3,4,.75,"Вхід через SMS-код"],[3,14,.7,"Видалення акаунта"],
+    [0,45,1.85,"Повні умови користування магазином (40 сторінок)"],[2,-40,1.7,"Річний фінансовий звіт компанії"]]
+    .map(([t,da,len,s])=>({t,ang:(T[t].a+da)*Math.PI/180,len,s}));
+  const svg=$("#emSvg"),C=210,R=100;let qa=35*Math.PI/180,metric="cos";
+  const vecOf=p=>{const l=$("#emNorm").checked?1:p.len;return[l*Math.cos(p.ang),l*Math.sin(p.ang)]};
+  function draw(){
+    const q=[Math.cos(qa),Math.sin(qa)],nz=$("#emNorm").checked;
+    const sc=P.map((p,i)=>{const v=vecOf(p);return{i,v,c:cos(q,v),d:dot(q,v)}});
+    const key=metric==="cos"?"c":"d",top=[...sc].sort((a,b)=>b[key]-a[key]).slice(0,5),rank=new Map(top.map((o,r)=>[o.i,r]));
+    const px=v=>C+v[0]*R,py=v=>C-v[1]*R;
+    let g=`<defs><clipPath id="emClip"><rect x="0" y="0" width="420" height="420" rx="8"/></clipPath></defs><g clip-path="url(#emClip)">`;
+    g+=`<rect x="0" y="0" width="420" height="420" rx="8" style="fill:var(--bg)"/>`;
+    g+=`<line x1="0" x2="420" y1="${C}" y2="${C}" style="stroke:var(--grid)"/><line y1="0" y2="420" x1="${C}" x2="${C}" style="stroke:var(--grid)"/>`;
+    g+=`<circle cx="${C}" cy="${C}" r="${R}" style="fill:none;stroke:var(--axis);stroke-dasharray:3 4"/>`;
+    // область топ-5: конус для косинуса, півплощина для скалярного добутку
+    if(metric==="cos"){const th=Math.max(...top.map(o=>Math.acos(clamp(o.c,-1,1))))+.02,L=330,a1=qa-th,a2=qa+th;
+      g+=`<path d="M${C},${C} L${C+L*Math.cos(a1)},${C-L*Math.sin(a1)} A${L},${L} 0 ${th>Math.PI/2?1:0},0 ${C+L*Math.cos(a2)},${C-L*Math.sin(a2)} Z" style="fill:var(--violet);opacity:.1"/>`}
+    else{const t=top[4].d-.01,bx=C+q[0]*t*R,by=C-q[1]*t*R,nx=-q[1],ny=q[0],L=400;
+      const A=[bx+nx*L,by-ny*L],B=[bx-nx*L,by+ny*L];
+      g+=`<path d="M${A[0]},${A[1]} L${B[0]},${B[1]} L${B[0]+q[0]*L},${B[1]-q[1]*L} L${A[0]+q[0]*L},${A[1]-q[1]*L} Z" style="fill:var(--violet);opacity:.1"/>`;
+      g+=`<line x1="${A[0]}" y1="${A[1]}" x2="${B[0]}" y2="${B[1]}" style="stroke:var(--violet);stroke-dasharray:6 4;stroke-width:1.5"/>`}
+    sc.forEach(o=>{const p=P[o.i],x=px(o.v),y=py(o.v),r=rank.get(o.i);
+      g+=`<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" style="stroke:${T[p.t].c};opacity:${r!=null?.55:.18};stroke-width:${r!=null?1.5:1}"/>`;
+      g+=`<circle cx="${x}" cy="${y}" r="${r!=null?7:5}" style="fill:${T[p.t].c};stroke:var(--surface);stroke-width:2"><title>${esc(p.s)}</title></circle>`;
+      if(r!=null)g+=`<text x="${x+(x>=C?10:-10)}" y="${y+4}" text-anchor="${x>=C?"start":"end"}" style="font-weight:600">${r+1}</text>`});
+    const qx=C+q[0]*R*1.15,qy=C-q[1]*R*1.15;
+    g+=`<line x1="${C}" y1="${C}" x2="${qx}" y2="${qy}" style="stroke:var(--ink);stroke-width:2.5"/><circle cx="${qx}" cy="${qy}" r="6" style="fill:var(--ink)"/>`;
+    g+=`<text x="${qx+(qx>=C?10:-10)}" y="${qy-8}" text-anchor="${qx>=C?"start":"end"}" style="font-weight:600">запит</text>`;
+    T.forEach(t=>{const a=t.a*Math.PI/180;g+=`<text class="mut" x="${C+Math.cos(a)*196}" y="${C-Math.sin(a)*196+4}" text-anchor="middle">${t.n}</text>`});
+    g+=`</g>`;svg.innerHTML=g;
+    $("#emTop").innerHTML=`<div class="row hd"><span>#</span><span>документ</span><span class="s">cos</span><span class="s">q·d</span></div>`+
+      top.map((o,r)=>`<div class="row"><span class="n">${r+1}</span><span><span class="sw" style="background:${T[P[o.i].t].c}"></span>${esc(P[o.i].s)}</span><span class="s ${metric==="cos"?"on":"off"}">${fmt(o.c)}</span><span class="s ${metric==="dot"?"on":"off"}">${fmt(o.d)}</span></div>`).join("");
+    const longIn=top.filter(o=>P[o.i].len>1.5);
+    $("#emExpl").innerHTML=nz?"Усі вектори мають довжину 1, тому скалярний добуток дорівнює косинусу, і обидві метрики дають однаковий порядок. Саме тому вектори нормалізують."
+      :metric==="dot"?(longIn.length?`Документ «${esc(P[longIn[0].i].s)}» потрапив у топ, хоча кут до запиту великий: скалярний добуток множить косинус на довжину вектора. Довгий вектор виграє майже за будь-якого напрямку.`:"Скалярний добуток: усі документи за пунктирною лінією мають скор, вищий за п'ятий результат. Поверніть запит ближче до довгих векторів.")
+      :"Косинус бачить лише кут: топ-5 — п'ять документів із найменшим кутом до запиту, довжина вектора не важить."}
+  function setQ(px,py){const r=svg.getBoundingClientRect(),x=(px-r.left)/r.width*420-C,y=-((py-r.top)/r.height*420-C);if(Math.hypot(x,y)<8)return;qa=Math.atan2(y,x);draw()}
+  let down=false;
+  svg.addEventListener("pointerdown",e=>{down=true;svg.setPointerCapture(e.pointerId);setQ(e.clientX,e.clientY)});
+  svg.addEventListener("pointermove",e=>{if(down)setQ(e.clientX,e.clientY)});
+  svg.addEventListener("pointerup",()=>down=false);svg.addEventListener("pointercancel",()=>down=false);
+  seg($("#emMetric"),v=>{metric=v;draw()});$("#emNorm").addEventListener("change",draw);
+  // для озвучки: напрямок запиту в градусах
+  hooks.emQ=(deg,ms=600)=>{const a0=qa,a1=deg*Math.PI/180,t0=performance.now();
+    const step=t=>{const k=ms?Math.min(1,(t-t0)/ms):1;qa=a0+(a1-a0)*k;draw();if(k<1)requestAnimationFrame(step)};step(t0)};
+  draw();
+})();
+
+/* ===================== 5. матриця схожостей і InfoNCE ===================== */
+(function(){
+  const Qs=["як повернути товар","скільки йде посилка до Львова","чи можна платити частинами","не приходить код для входу","ноутбук зламався через місяць"];
+  const Ds=["Повернення можливе протягом 14 днів","Доставка по Україні — 1–3 дні","Оплата частинами від 3 до 24 місяців","Якщо SMS-код не надходить, перевірте номер","Гарантійний ремонт — 12 місяців"];
+  const S0=[[.81,.78,.80,.76,.79],[.77,.80,.83,.75,.78],[.79,.76,.82,.74,.80],[.75,.79,.77,.78,.76],[.80,.74,.78,.77,.79]];
+  const S1=[[.86,.21,.30,.12,.35],[.18,.84,.27,.09,.15],[.33,.24,.88,.14,.28],[.10,.11,.16,.83,.20],[.31,.14,.22,.19,.85]];
+  const B=5;let sel=1;
+  $("#clPairs").innerHTML=Qs.map((q,i)=>`<li><b>q${i+1}</b><span>${esc(q)} → <span class="muted">d${i+1}: ${esc(Ds[i])}</span></span></li>`).join("");
+  const tau=()=>Math.pow(10,-2+2*$("#clTau").value/100);
+  const cell=s=>`color-mix(in srgb, var(--blue) ${Math.round(clamp(s,0,1)*80)}%, var(--surface-2))`;
+  function run(){
+    const t=$("#clT").value/100,T=tau(),S=S0.map((r,i)=>r.map((x,j)=>x+(S1[i][j]-x)*t));
+    $("#clTV").textContent=Math.round(t*100)+"%";$("#clTauV").textContent=T<.1?T.toFixed(3):T.toFixed(2);
+    let h=`<span></span>`+Ds.map((_,j)=>`<span class="h">d${j+1}</span>`).join("");
+    S.forEach((r,i)=>{h+=`<span class="rh${i===sel?" on":""}" data-i="${i}">q${i+1}</span>`+r.map((x,j)=>`<span class="c${i===j?" dg":""}${i===sel?" on":""}" data-i="${i}" style="background:${cell(x)};color:${x>.6?"#fff":"var(--ink)"}">${x.toFixed(2)}</span>`).join("")});
+    $("#clMx").innerHTML=h;
+    const P=S.map(r=>softmax(r,T)),L=P.map((p,i)=>-Math.log(Math.max(p[i],1e-300))),acc=S.filter((r,i)=>r.indexOf(Math.max(...r))===i).length;
+    $("#clRowCap").innerHTML=`Softmax рядка <b>q${sel+1}</b> «${esc(Qs[sel])}» з τ = ${T<.1?T.toFixed(3):T.toFixed(2)}`;
+    $("#clBars").innerHTML=P[sel].map((p,j)=>distBar(`d${j+1} ${esc(Ds[j])}${j===sel?"<small>правильний</small>":""}`,p,{color:j===sel?"var(--aqua)":"var(--blue)",cls:j===sel?"pos":""})).join("");
+    $("#clLi").textContent=L[sel]<.001?small(L[sel]):L[sel].toFixed(3);
+    const m=L.reduce((a,b)=>a+b,0)/B;$("#clL").textContent=m<.001?small(m):m.toFixed(3);
+    $("#clAcc").textContent=acc+" з "+B}
+  $("#clMx").addEventListener("click",e=>{const c=e.target.closest("[data-i]");if(!c)return;sel=+c.dataset.i;run()});
+  $("#clT").addEventListener("input",run);$("#clTau").addEventListener("input",run);
+  hooks.clRow=i=>{sel=+i;run()};
+  run();
+})();
+
+/* ===================== 6. які негативи вчать ===================== */
+(function(){
+  // Спрощена модель кроку: скор кожного документа зсувається на −η·∂L/∂s.
+  // ∂L/∂s_pos = −(1−p_pos)/τ, ∂L/∂s_j = p_j/τ.
+  const T=.05,ETA=.003,AR=3,pos={t:"Повернути товар можна протягом 14 днів після покупки",s:.82};
+  const SETS={
+    rand:{n:[{t:"Вакансії в компанії",s:.09},{t:"Як стати нашим партнером",s:.15},{t:"Наші магазини у Львові",s:.18},{t:"Графік роботи у святкові дні",s:.21}]},
+    hard:{n:[{t:"Товари, що не підлягають поверненню",s:.79},{t:"Як повернути кошти за скасоване замовлення",s:.76},{t:"Повернення передплати за підписку",s:.74},{t:"Обмін товару на інший розмір",s:.71}]},
+    fn:{n:[{t:"Повернути покупку можна впродовж двох тижнів",s:.84,fn:1},{t:"Товари, що не підлягають поверненню",s:.79},{t:"Як повернути кошти за скасоване замовлення",s:.76},{t:"Повернення передплати за підписку",s:.74}]}
+  };
+  let k="rand",docs=[],sc=[],n=0;
+  const X=v=>(clamp(v,0,1)*100).toFixed(2)+"%";
+  function grads(){const p=softmax(sc,T);return {p,d:sc.map((v,j)=>j===0?ETA*(1-p[0])/T:-ETA*p[j]/T)}}
+  function build(){
+    docs=[pos,...SETS[k].n];sc=docs.map(d=>d.s);n=0;
+    const cls=d=>d===pos?"pos":d.fn?"fn":"neg";
+    $("#negRows").innerHTML=`<div class="hd l">документ</div><div class="ax">${[0,.25,.5,.75].map(v=>`<span style="left:${v*100}%">${v}</span>`).join("")}<span class="q" style="left:100%">запит 1.0</span></div><div class="hd r">за крок</div>`+
+      docs.map((d,j)=>`<div class="lab ${cls(d)==="neg"?"":cls(d)}" title="${esc(d.t)}">${esc(d.t)}<small>${j===0?"правильний документ":d.fn?"хибний негатив":"негатив"}</small></div>`+
+        `<div class="tr"><div class="arr c-${cls(d)}" id="negA${j}"></div><div class="dot c-${cls(d)}" id="negD${j}"></div></div><div class="d" id="negV${j}"></div>`).join("");
+    show()}
+  function show(){const {p,d}=grads();
+    docs.forEach((doc,j)=>{const a=$("#negA"+j),to=clamp(sc[j]+AR*d[j],0,1),w=Math.abs(to-sc[j]);
+      $("#negD"+j).style.left=X(sc[j]);
+      a.style.left=X(Math.min(sc[j],to));a.style.width=X(w);a.className=`arr c-${doc===pos?"pos":doc.fn?"fn":"neg"} ${d[j]>0?"r":"l"}`;a.style.display=w<.006?"none":"";
+      const v=$("#negV"+j);v.textContent=Math.abs(d[j])<.0005?"0":(d[j]>0?"+":"−")+Math.abs(d[j]).toFixed(3);v.className="d "+(Math.abs(d[j])<.0005?"z":d[j]>0?"pl":"mi")});
+    $("#negN").textContent=n;
+    $("#negP").textContent=p[0]>.9995?"≈ 100%":pct(p[0],1);
+    const L=-Math.log(p[0]);$("#negL").textContent=L<.001?small(L):L.toFixed(2);
+    $("#negStep").disabled=n>=12;
+    $("#negExpl").textContent=explain(p)}
+  function explain(p){
+    if(k==="rand")return n===0?"Негативи далеко від запиту, і модель і так дає правильному документу майже всю ймовірність. Loss близький до нуля, стрілок майже не видно. Натисніть «Крок навчання»: нічого не зрушить, такий батч майже нічого не вчить."
+      :`Зроблено кроків: ${n}. Точки не зрушили: градієнт пропорційний ймовірності негативу в softmax, а вона тут практично нуль. Модель уже знає, що вакансії — не про повернення товару.`;
+    if(k==="hard")return n===0?"Негативи схожі на запит словами й темою, і модель розрізняє їх неупевнено: правильному документу дістається менше половини ймовірності. Тому стрілки довгі, а найдовша з помаранчевих — у найсхожішого негативу. Натисніть «Крок навчання»."
+      :`Після ${n} ${n===1?"кроку":"кроків"} правильний документ отримує ${pct(p[0],0)} ймовірності. Негативи відсунулися, і що далі вони від правильного, то коротші їхні стрілки: модель вчиться тонких відмінностей, доки задача не стане легкою.`;
+    const f=sc[1];
+    return n===0?"Верхній «негатив» каже те саме, що й правильний документ, іншими словами. Модель цілком слушно ставить його найближче до запиту, і саме тому він отримує найдовшу стрілку «відштовхнути». Натисніть «Крок навчання» і подивіться, що станеться з ним."
+      :`Після ${n} ${n===1?"кроку":"кроків"} перефраз правильної відповіді відсунуто з 0.84 до ${f.toFixed(2)}. Модель вчиться, що «повернути покупку впродовж двох тижнів» — не відповідь на «як повернути товар». Так хибні негативи псують модель.`}
+  $("#negStep").addEventListener("click",()=>{const {d}=grads();sc=sc.map((v,j)=>clamp(v+d[j],0,1));n++;show()});
+  $("#negReset").addEventListener("click",build);
+  seg($("#negSet"),v=>{k=v;build()});build();
+})();
+
+/* ===================== 7. триплети ===================== */
+(function(){
+  const PRE={easy:[75,40,20],semi:[75,68,20],hard:[62,74,20]},svg=$("#tripSvg"),X=v=>20+v*620;
+  const ip=$("#tripP"),inn=$("#tripN"),im=$("#tripM");
+  function run(){const p=ip.value/100,n=inn.value/100,m=im.value/100,L=Math.max(0,n-p+m);
+    $("#tripPV").textContent=p.toFixed(2);$("#tripNV").textContent=n.toFixed(2);$("#tripMV").textContent=m.toFixed(2);
+    const kind=n>=p?"hard":n>p-m?"semi":"easy";
+    $$("#tripK button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===kind));
+    let g="";
+    for(let v=0;v<=1.001;v+=.25)g+=`<line x1="${X(v)}" x2="${X(v)}" y1="30" y2="88" style="stroke:var(--grid)"/><text class="mut" x="${X(v)}" y="108" text-anchor="middle">${v}</text>`;
+    g+=`<line x1="${X(0)}" x2="${X(1)}" y1="62" y2="62" style="stroke:var(--axis)"/>`;
+    g+=`<line x1="${X(1)}" x2="${X(1)}" y1="38" y2="86" style="stroke:var(--violet);stroke-width:4;stroke-linecap:round"/><text x="${X(1)}" y="24" text-anchor="end" style="fill:var(--violet);font-weight:600">запит</text>`;
+    const z0=Math.max(0,p-m);
+    if(m>0)g+=`<rect x="${X(z0)}" y="46" width="${X(p)-X(z0)}" height="32" rx="4" style="fill:var(--orange);opacity:.13;stroke:var(--orange);stroke-dasharray:4 3;stroke-opacity:.6"/>`;
+    if(L>0)g+=`<line x1="${X(z0)}" x2="${X(n)}" y1="84" y2="84" style="stroke:var(--rose);stroke-width:4;stroke-linecap:round"/>`;
+    const dot=(v,c,t,up)=>`<circle cx="${X(v)}" cy="62" r="9" style="fill:${c};stroke:var(--surface);stroke-width:2"/><text x="${X(v)}" y="${up?36:26}" text-anchor="middle" style="fill:${c};font-weight:600">${t}</text>`;
+    const close=Math.abs(X(p)-X(n))<70;
+    g+=dot(n,"var(--orange)","негатив",close&&n<p)+dot(p,"var(--aqua)","позитив",close&&p<=n);
+    svg.innerHTML=g;
+    $("#tripKind").textContent={easy:"легкий",semi:"напівскладний",hard:"складний"}[kind];
+    $("#tripKind").style.color=kind==="easy"?"var(--aqua)":kind==="semi"?"var(--orange)":"var(--rose)";
+    $("#tripL").textContent=L.toFixed(2);
+    $("#tripExpl").innerHTML=kind==="easy"?"<b>Легкий:</b> негатив лівіше за зону запасу, loss = 0. Градієнта немає, і модель на цьому триплеті нічого не вчить. Випадкові негативи майже завжди такі."
+      :kind==="semi"?"<b>Напівскладний:</b> позитив уже ближчий за негатив, але запас менший за margin. Loss невеликий, і модель розсуває їх далі. Такі триплети вчать найстабільніше."
+      :"<b>Складний:</b> негатив ближчий до запиту, ніж позитив, і модель ранжує їх неправильно. Loss найбільший. Саме такі приклади найкорисніші, але серед них найчастіше трапляються хибні негативи: перевірте, чи це справді не правильна відповідь."}
+  [ip,inn,im].forEach(e=>e.addEventListener("input",run));
+  seg($("#tripK"),v=>{const [a,b,c]=PRE[v];ip.value=a;inn.value=b;im.value=c;run()});
+  run();
+})();
+
+/* ===================== 8. пам'ять індексу ===================== */
+(function(){
+  let d=768,b=4;const r=$("#memN");
+  function run(){const N=Math.pow(10,+r.value),per=d*b,tot=N*per,x=1024*4/per;
+    $("#memNV").textContent=big(N);$("#memPer").textContent=bytes(per);$("#memTot").textContent=bytes(tot);
+    $("#memX").textContent=(x>=1?x.toFixed(x>=10?0:1):x.toFixed(2)).replace(/\.0$/,"")+"×";
+    $("#memExpl").innerHTML=(tot<=16e9?"Вміщується в оперативну пам'ять ноутбука (16 ГБ).":tot<=512e9?"Потрібен сервер із великою оперативною пам'яттю (до 512 ГБ) або індекс на диску.":"Не вміщується в пам'ять одного сервера: потрібен шардинг між машинами, сильніше стиснення (PQ) або індекс на диску.")+
+      ` <span class="muted">Порівняння — з вектором 1024 × float32 (${bytes(4096)}).</span>`}
+  r.addEventListener("input",run);seg($("#memD"),v=>{d=+v;run()});seg($("#memT"),v=>{b=+v;run()});run();
+})();
+
+/* ===================== 9. чанкінг ===================== */
+(function(){
+  const PARAS=["Умови повернення товару. Ви можете повернути товар належної якості протягом 14 днів з моменту отримання. Товар має зберегти товарний вигляд, бирки й упаковку. Для повернення оформіть заявку в особистому кабінеті або зверніться до служби підтримки.",
+    "Після оформлення заявки ви отримаєте номер повернення. Надішліть товар Новою поштою на адресу нашого складу або принесіть його в будь-який магазин мережі. Вартість доставки при поверненні оплачує покупець, крім випадків, коли товар має брак.",
+    "Гроші повертаються на картку протягом 7 банківських днів після того, як товар прибуде на склад і пройде перевірку. Якщо ви платили готівкою в магазині, кошти можна отримати на касі того самого магазину. При оплаті частинами банк перерахує платежі за вашим договором.",
+    "Деякі товари не підлягають поверненню: нижня білизна, косметика з відкритою упаковкою, товари, виготовлені на замовлення. Обмін на інший розмір чи колір можливий у ті самі 14 днів за наявності товару на складі."];
+  const KEY="Гроші повертаються на картку";
+  // слова з номером абзацу й речення
+  const W=[],SENT=[];
+  PARAS.forEach((p,pi)=>p.split(/(?<=[.!?])\s+/).forEach(s=>{const ws=s.split(/\s+/),st=W.length;
+    ws.forEach(w=>W.push({w,p:pi,s:SENT.length}));SENT.push({a:st,b:W.length,p:pi,key:s.startsWith(KEY)})}));
+  const KS=SENT.find(s=>s.key),KI=SENT.indexOf(KS);
+  function chunks(mode,size,ov){const out=[];
+    if(mode==="words"){let a=0;while(a<W.length){const b=Math.min(W.length,a+size);out.push([a,b]);if(b===W.length)break;a=Math.max(a+1,b-ov)}return out}
+    // за реченнями (і за абзацами): пакуємо цілі речення, доки вміщуються
+    let i=0;while(i<SENT.length){let j=i,n=0;
+      while(j<SENT.length&&(j===i||n+SENT[j].b-SENT[j].a<=size)&&(mode!=="para"||SENT[j].p===SENT[i].p)){n+=SENT[j].b-SENT[j].a;j++}
+      out.push([SENT[i].a,SENT[j-1].b]);if(j>=SENT.length)break;
+      // перекриття: повторюємо останні речення, що разом не довші за ov слів
+      let k=j,m=0;if(mode==="sent")while(k-1>i&&m+SENT[k-1].b-SENT[k-1].a<=ov){k--;m+=SENT[k].b-SENT[k].a}
+      i=k}
+    return out}
+  let mode="words";
+  function run(){const size=+$("#chSize").value,ov=Math.min(+$("#chOv").value,size-5);
+    $("#chSizeV").textContent=size+" слів";$("#chOvV").textContent=mode==="para"?"— (межі абзаців)":ov+" слів";
+    $("#chOv").disabled=mode==="para";
+    const C=chunks(mode,size,ov);let home=-1;
+    $("#chOut").innerHTML=C.map(([a,b],ci)=>{const prevEnd=ci?C[ci-1][1]:0,whole=a<=KS.a&&b>=KS.b,part=!whole&&a<KS.b&&b>KS.a;if(whole&&home<0)home=ci;
+      let h="",prevP=W[a].p;
+      for(let i=a;i<b;i++){const o=W[i];if(o.p!==prevP){h+="<br>";prevP=o.p}
+        let t=esc(o.w);if(o.s===KI)t=`<span class="key${whole?"":" cut"}">${t}</span>`;
+        if(i<prevEnd)t=`<span class="ov">${t}</span>`;h+=t+" "}
+      return `<div class="chunk${whole?" haskey":""}"><span class="ch">чанк ${ci+1} · ${b-a} слів${part?" · речення з відповіддю розрізане":""}</span>${h}</div>`}).join("");
+    $("#chN").textContent=C.length;$("#chAvg").textContent=Math.round(C.reduce((s,[a,b])=>s+b-a,0)/C.length);
+    const k=$("#chKey");k.textContent=home>=0?"ціле, чанк "+(home+1):"розрізане";k.className="v "+(home>=0?"c":"b")}
+  seg($("#chMode"),v=>{mode=v;run()});$("#chSize").addEventListener("input",run);$("#chOv").addEventListener("input",run);run();
+})();
+
+/* ===================== 10. IVF ===================== */
+(function(){
+  const r=rng(2024),N=900,pts=[];
+  const cl=Array.from({length:7},()=>({x:.15+r()*1.7,y:.12+r()*.76,s:.05+r()*.07}));
+  for(let i=0;i<N;i++){if(r()<.8){const c=cl[Math.floor(r()*cl.length)];pts.push([clamp(c.x+gauss(r)*c.s,.01,1.99),clamp(c.y+gauss(r)*c.s,.01,.99)])}else pts.push([.02+r()*1.96,.02+r()*.96])}
+  const d2=(a,b)=>(a[0]-b[0])**2+(a[1]-b[1])**2;
+  const cache={};
+  function kmeans(k){if(cache[k])return cache[k];const rr=rng(1000+k),C=[pts[Math.floor(rr()*N)].slice()];
+    while(C.length<k){const ds=pts.map(p=>Math.min(...C.map(c=>d2(p,c)))),tot=ds.reduce((a,b)=>a+b,0);let u=rr()*tot,i=0;while(u>ds[i]&&i<N-1){u-=ds[i];i++}C.push(pts[i].slice())}
+    let as=new Array(N).fill(0);
+    for(let it=0;it<15;it++){as=pts.map(p=>{let bi=0,bd=1e9;C.forEach((c,j)=>{const d=d2(p,c);if(d<bd){bd=d;bi=j}});return bi});
+      const sx=new Array(k).fill(0),sy=new Array(k).fill(0),n=new Array(k).fill(0);
+      pts.forEach((p,i)=>{sx[as[i]]+=p[0];sy[as[i]]+=p[1];n[as[i]]++});C.forEach((c,j)=>{if(n[j]){c[0]=sx[j]/n[j];c[1]=sy[j]/n[j]}})}
+    return cache[k]={C,as}}
+  let q=[1.0,.5];const cv=$("#ivfCv"),L=$("#ivfL"),P=$("#ivfP");let res=null;
+  function compute(){const k=+L.value;P.max=k;if(+P.value>k)P.value=k;const np=+P.value,{C,as}=kmeans(k);
+    const order=C.map((c,j)=>({j,d:d2(q,c)})).sort((a,b)=>a.d-b.d).slice(0,np).map(o=>o.j),probe=new Set(order);
+    const all=pts.map((p,i)=>({i,d:d2(p,q)})).sort((a,b)=>a.d-b.d),exact=all.slice(0,10).map(o=>o.i);
+    const cand=all.filter(o=>probe.has(as[o.i])),found=new Set(cand.slice(0,10).map(o=>o.i));
+    res={C,as,probe,exact,found,cmp:k+cand.length,cand:cand.length};
+    $("#ivfLV").textContent=k;$("#ivfPV").textContent=np;
+    $("#ivfC").textContent=nUk(res.cmp)+" з "+nUk(N);$("#ivfF").textContent=pct(cand.length/N);
+    $("#ivfR").textContent=pct(exact.filter(i=>found.has(i)).length/10)}
+  const PAL=["--blue","--orange","--aqua","--violet","--rose","--olive"];
+  function draw(){if(!res)compute();const g=cvSetup(cv),x=g.x,{C,as,probe,exact,found}=res,col=PAL.map(cssVar);
+    x.clearRect(0,0,g.w,g.h);
+    const step=6;for(let py=0;py<g.h;py+=step)for(let px=0;px<g.w;px+=step){const p=g.inv(px+step/2,py+step/2);if(p[0]<0||p[0]>2||p[1]<0||p[1]>1)continue;
+      let bj=0,bd=1e9;C.forEach((c,j)=>{const d=d2(p,c);if(d<bd){bd=d;bj=j}});x.globalAlpha=probe.has(bj)?.3:.09;x.fillStyle=col[bj%col.length];x.fillRect(px,py,step,step)}
+    x.globalAlpha=1;const ink=cssVar("--ink"),mut=cssVar("--muted");
+    pts.forEach((p,i)=>{x.fillStyle=probe.has(as[i])?ink:mut;x.globalAlpha=probe.has(as[i])?.85:.45;x.beginPath();x.arc(g.X(p[0]),g.Y(p[1]),1.8,0,7);x.fill()});
+    x.globalAlpha=1;x.strokeStyle=ink;x.lineWidth=1.5;C.forEach(c=>x.strokeRect(g.X(c[0])-3.5,g.Y(c[1])-3.5,7,7));
+    exact.forEach(i=>{x.strokeStyle=cssVar(found.has(i)?"--aqua":"--rose");x.lineWidth=2.2;x.beginPath();x.arc(g.X(pts[i][0]),g.Y(pts[i][1]),6,0,7);x.stroke()});
+    const qx=g.X(q[0]),qy=g.Y(q[1]);x.strokeStyle=cssVar("--violet");x.lineWidth=3;x.beginPath();x.moveTo(qx-8,qy-8);x.lineTo(qx+8,qy+8);x.moveTo(qx+8,qy-8);x.lineTo(qx-8,qy+8);x.stroke()}
+  cvPointer(cv,(px,py)=>{const g=cvSetup(cv),p=g.inv(px,py);q=[clamp(p[0],0,2),clamp(p[1],0,1)];compute();draw()});
+  L.addEventListener("input",()=>{compute();draw()});P.addEventListener("input",()=>{compute();draw()});
+  hooks.ivfQ=(a,b)=>{q=[+a,+b];compute();draw()};
+  redraws.push(draw);compute();draw();
+})();
+
+/* ===================== 11. HNSW ===================== */
+(function(){
+  const r=rng(77),N=260,pts=Array.from({length:N},()=>[.03+r()*1.94,.04+r()*.92]);
+  const lv=pts.map(()=>Math.min(3,Math.floor(-Math.log(1-r())*0.62)));
+  const top=Math.max(...lv),entry=lv.indexOf(top);
+  const d2=(a,b)=>(a[0]-b[0])**2+(a[1]-b[1])**2;
+  const graphs={};
+  function build(M){if(graphs[M])return graphs[M];const G=[];
+    for(let l=0;l<=top;l++){const ids=pts.map((_,i)=>i).filter(i=>lv[i]>=l),m=l?M:2*M,adj=new Map(ids.map(i=>[i,new Set()]));
+      ids.forEach(i=>{ids.filter(j=>j!==i).sort((a,b)=>d2(pts[i],pts[a])-d2(pts[i],pts[b])).slice(0,m).forEach(j=>{adj.get(i).add(j);adj.get(j).add(i)})});
+      G.push(adj)}
+    return graphs[M]=G}
+  function search(G,q,ef,k){let ep=entry,dc=1;const dq=i=>d2(pts[i],q),ev=[],hops=[];
+    for(let l=top;l>=1;l--){let moved=true;while(moved){moved=false;let best=ep;for(const n of G[l].get(ep)){dc++;if(dq(n)<dq(best))best=n}
+      if(best!==ep){hops.push([ep,best,l]);ev.push({hop:[ep,best]});ep=best;moved=true}}}
+    const vis=new Set([ep]),Cn=[ep],Wr=[ep];ev.push({vis:[ep]});
+    while(Cn.length){Cn.sort((a,b)=>dq(a)-dq(b));const c=Cn.shift(),far=Wr.reduce((a,b)=>dq(a)>dq(b)?a:b);
+      if(dq(c)>dq(far)&&Wr.length>=ef)break;const nv=[];
+      for(const e of G[0].get(c)){if(vis.has(e))continue;vis.add(e);dc++;nv.push(e);const f=Wr.reduce((a,b)=>dq(a)>dq(b)?a:b);
+        if(Wr.length<ef||dq(e)<dq(f)){Cn.push(e);Wr.push(e);if(Wr.length>ef)Wr.splice(Wr.indexOf(Wr.reduce((a,b)=>dq(a)>dq(b)?a:b)),1)}}
+      ev.push({vis:nv})}
+    return{res:Wr.sort((a,b)=>dq(a)-dq(b)).slice(0,k),vis,dc,ev,hops}}
+  let M=4,q=[1.55,.3],anim=null,timer=0,S=null;const cv=$("#hnCv"),ef=$("#hnEf");
+  function compute(){const G=build(M);S=search(G,q,Math.max(+ef.value,1),5);S.G=G;
+    S.exact=pts.map((p,i)=>i).sort((a,b)=>d2(pts[a],q)-d2(pts[b],q)).slice(0,5);
+    $("#hnEfV").textContent=ef.value;$("#hnC").textContent=nUk(S.dc)+" з "+N;$("#hnH").textContent=S.hops.length;
+    const f=new Set(S.res);$("#hnR").textContent=pct(S.exact.filter(i=>f.has(i)).length/5)}
+  function draw(){if(!S)compute();const g=cvSetup(cv),x=g.x,P=i=>[g.X(pts[i][0]),g.Y(pts[i][1])];x.clearRect(0,0,g.w,g.h);
+    const lineC=cssVar("--line"),vio=cssVar("--violet"),org=cssVar("--orange"),mut=cssVar("--muted"),ink=cssVar("--ink");
+    if($("#hnE").checked){x.strokeStyle=lineC;x.lineWidth=.7;x.globalAlpha=.8;x.beginPath();
+      S.G[0].forEach((ns,i)=>ns.forEach(j=>{if(j>i){const a=P(i),b=P(j);x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1])}}));x.stroke();
+      x.strokeStyle=vio;x.globalAlpha=.3;x.lineWidth=1;x.beginPath();
+      if(S.G[1])S.G[1].forEach((ns,i)=>ns.forEach(j=>{if(j>i){const a=P(i),b=P(j);x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1])}}));x.stroke();x.globalAlpha=1}
+    const n=anim==null?S.ev.length:anim,vis=new Set(),hp=[];
+    S.ev.slice(0,n).forEach(e=>{if(e.hop)hp.push(e.hop);else e.vis.forEach(i=>vis.add(i))});
+    pts.forEach((p,i)=>{const [X,Y]=P(i),rad=lv[i]?2.5+lv[i]*1.6:2;x.beginPath();x.arc(X,Y,vis.has(i)?3.2:rad,0,7);
+      x.fillStyle=vis.has(i)?org:lv[i]?vio:mut;x.globalAlpha=vis.has(i)||lv[i]?1:.6;x.fill()});x.globalAlpha=1;
+    x.strokeStyle=vio;x.lineWidth=3;hp.forEach(([a,b])=>{const A=P(a),B=P(b);x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(B[0],B[1]);x.stroke()});
+    const E=P(entry);x.strokeStyle=vio;x.lineWidth=2;x.beginPath();x.arc(E[0],E[1],9,0,7);x.stroke();
+    x.fillStyle=ink;x.font='11px "IBM Plex Mono", monospace';x.fillText("вхід",E[0]+12,E[1]-8);
+    if(anim==null){const f=new Set(S.res);
+      S.res.forEach(i=>{const [X,Y]=P(i);x.fillStyle=cssVar("--aqua");x.beginPath();x.arc(X,Y,5,0,7);x.fill()});
+      S.exact.filter(i=>!f.has(i)).forEach(i=>{const [X,Y]=P(i);x.strokeStyle=cssVar("--rose");x.lineWidth=2.2;x.beginPath();x.arc(X,Y,7,0,7);x.stroke()})}
+    const qx=g.X(q[0]),qy=g.Y(q[1]);x.strokeStyle=ink;x.lineWidth=3;x.beginPath();x.moveTo(qx-8,qy-8);x.lineTo(qx+8,qy+8);x.moveTo(qx+8,qy-8);x.lineTo(qx-8,qy+8);x.stroke()}
+  function play(){clearInterval(timer);anim=0;draw();timer=setInterval(()=>{anim++;if(anim>=S.ev.length){clearInterval(timer);anim=null}draw()},reduceMotionMs())}
+  const reduceMotionMs=()=>matchMedia("(prefers-reduced-motion: reduce)").matches?1:Math.max(40,Math.min(160,2400/S.ev.length));
+  const stop=()=>{clearInterval(timer);anim=null};
+  cvPointer(cv,(px,py)=>{stop();const g=cvSetup(cv),p=g.inv(px,py);q=[clamp(p[0],0,2),clamp(p[1],0,1)];compute();draw()});
+  ef.addEventListener("input",()=>{stop();compute();draw()});$("#hnE").addEventListener("change",draw);
+  seg($("#hnM"),v=>{stop();M=+v;compute();draw()});$("#hnPlay").addEventListener("click",play);
+  hooks.hnQ=(a,b)=>{stop();q=[+a,+b];compute();draw()};
+  redraws.push(draw);compute();draw();
+})();
+
+/* ===================== 12. метрики одного запиту ===================== */
+(function(){
+  const DOCS=[["Обмін товару на інший розмір",2],["Повернення коштів на картку: терміни",2],["Графік роботи магазину",0],["Повернути товар можна протягом 14 днів",3],
+    ["Товари, що не підлягають поверненню",1],["Доставка по Україні",0],["Як оформити заявку на повернення",3],["Промокоди і знижки",0],["Гарантійний ремонт",0],["Повернення передплати за підписку",0]];
+  const HIDDEN=["Повернення товару, купленого онлайн, у магазині",2];
+  const gr=DOCS.map(d=>d[1]);let mode="sys";
+  const order=()=>{const ids=DOCS.map((_,i)=>i);if(mode==="ideal")return ids.sort((a,b)=>gr[b]-gr[a]||a-b);if(mode==="worst")return ids.sort((a,b)=>gr[a]-gr[b]||a-b);return ids};
+  function run(){const K=+$("#metK").value,miss=$("#metMiss").checked,ord=order();$("#metKV").textContent=K;
+    const allG=[...gr,...(miss?[HIDDEN[1]]:[])],nRel=allG.filter(g=>g>0).length,topK=ord.slice(0,K);
+    const hit=topK.filter(i=>gr[i]>0).length,first=topK.findIndex(i=>gr[i]>0);
+    const dcg=topK.reduce((s,i,r)=>s+gr[i]/Math.log2(r+2),0),idcg=[...allG].sort((a,b)=>b-a).slice(0,K).reduce((s,g,r)=>s+g/Math.log2(r+2),0);
+    $("#metRows").innerHTML=ord.map((i,r)=>{const c=r<K?gr[i]/Math.log2(r+2):0;
+      return `<div class="mrow${r<K?"":" out"}"><span class="n">${r+1}</span><span>${esc(DOCS[i][0])}</span><span class="gr" data-i="${i}">${[0,1,2,3].map(g=>`<button type="button" data-g="${g}" aria-pressed="${gr[i]===g}">${g}</button>`).join("")}</span><span class="gn"><span class="tr"><span class="fl" style="display:block;width:${c/3*100}%"></span></span><span>${r<K?c.toFixed(2):"—"}</span></span></div>`}).join("")+
+      (miss?`<div class="mrow out hidden-rel"><span class="n">—</span><span>поза топ-10: ${esc(HIDDEN[0])}</span><span class="mono note">оцінка ${HIDDEN[1]}</span><span></span></div>`:"");
+    $("#metP").textContent=fmt(hit/K);$("#metR").textContent=nRel?`${hit}/${nRel} = ${fmt(hit/nRel)}`:"—";
+    $("#metRR").textContent=first<0?"0":first===0?"1":`1/${first+1} = ${fmt(1/(first+1))}`;
+    $("#metD").textContent=`${dcg.toFixed(2)} / ${idcg.toFixed(2)}`;$("#metN").textContent=idcg?fmt(dcg/idcg):"—"}
+  $("#metRows").addEventListener("click",e=>{const b=e.target.closest("button[data-g]");if(!b)return;gr[+b.parentNode.dataset.i]=+b.dataset.g;run()});
+  seg($("#metOrd"),v=>{mode=v;run()});$("#metK").addEventListener("input",run);$("#metMiss").addEventListener("change",run);
+  hooks.metGrade=(i,g)=>{gr[+i]=+g;run()};
+  run();
+})();
+
+/* ===================== 13. скільки запитів потрібно ===================== */
+(function(){
+  // Різниця B − A на одному запиті: справжня перевага 0.02 плюс шум запиту (σ = 0.15).
+  const DELTA=.02,SD=.15,RUNS=20;let n=10,seed=1;
+  const f=v=>Math.abs(v)<.005?"≈ 0":(v>0?"+":"−")+Math.abs(v).toFixed(2);
+  // обернена функція нормального розподілу (наближення Акклама)
+  function probit(p){const A=[-39.6968302866538,220.946098424521,-275.928510446969,138.357751867269,-30.6647980661472,2.50662827745924],
+    B=[-54.4760987982241,161.585836858041,-155.698979859887,66.8013118877197,-13.2806815528857],Cc=[-.00778489400243029,-.322396458041136,-2.40075827716184,-2.54973253934373,4.37466414146497,2.93816398269878],
+    D=[.00778469570904146,.32246712907004,2.445134137143,3.75440866190742],pl=.02425;let q,t;
+    if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((Cc[0]*q+Cc[1])*q+Cc[2])*q+Cc[3])*q+Cc[4])*q+Cc[5])/((((D[0]*q+D[1])*q+D[2])*q+D[3])*q+1)}
+    if(p>1-pl){q=Math.sqrt(-2*Math.log(1-p));return-(((((Cc[0]*q+Cc[1])*q+Cc[2])*q+Cc[3])*q+Cc[4])*q+Cc[5])/((((D[0]*q+D[1])*q+D[2])*q+D[3])*q+1)}
+    q=p-.5;t=q*q;return(((((A[0]*t+A[1])*t+A[2])*t+A[3])*t+A[4])*t+A[5])*q/(((((B[0]*t+B[1])*t+B[2])*t+B[3])*t+B[4])*t+1)}
+  function run(){const r=rng(seed*7919+n);
+    // середнє n запитів ~ N(DELTA, SD/√n); стратифікована вибірка: по одній команді на кожну 1/20 розподілу
+    const M=Array.from({length:RUNS},(_,k)=>DELTA+SD/Math.sqrt(n)*probit((k+.15+.7*r())/RUNS));
+    for(let i=M.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[M[i],M[j]]=[M[j],M[i]]}
+    const ok=M.filter(m=>m>0).length,lo=Math.min(...M),hi=Math.max(...M);
+    $("#ciTiles").innerHTML=M.map(m=>`<div class="citile ${m>0?"b":"a"}"><b>${m>0?"B":"A"}</b><small>${f(m)}</small></div>`).join("");
+    $("#ciOk").textContent=`${ok} з ${RUNS}`;
+    $("#ciRange").textContent=`від ${f(lo)} до ${f(hi)}`;
+    const wrong=RUNS-ok;
+    $("#ciExpl").innerHTML=wrong>=3?`<b>${wrong} з ${RUNS} команд вирішили, що краща A.</b> На ${n} запитах випадковий підбір запитів важить більше, ніж справжня різниця між системами. Таким висновкам не можна вірити.`
+      :wrong>0?`Майже всі команди обрали B, але ${wrong} ${wrong===1?"помилилася":"помилилися"}. І виміряна перевага сильно скаче: від ${f(lo)} до ${f(hi)} при справжній +0.02.`
+      :`Усі команди обрали B, а виміряна перевага лежить близько до справжньої +0.02. Сотні запитів дають стабільну відповідь. Саме тому для розробки беруть 100–300 запитів, а для малих різниць — більше.`}
+  seg($("#ciN"),v=>{n=+v;run()});
+  $("#ciNew").addEventListener("click",()=>{seed++;run()});
+  run();
+})();
+
+/* ===================== 14. розбір помилок за типами запитів ===================== */
+(function(){
+  const TY={para:"перефразування",code:"коди й артикули",name:"назви й транслітерація",neg:"заперечення",attr:"кілька умов",lang:"інша мова"};
+  const Q=[["хочу назад свої гроші","para",0,.92],["не можу увійти в акаунт","para",.10,.85],["штука, що гріє воду","para",0,.71],
+    ["E-1043","code",1,.31],["артикул 70214-B","code",.94,.12],["ТТН 2045001234","code",.88,.20],
+    ["Bosch Serie 6","name",.90,.64],["ксіомі редмі ноут","name",.05,.77],["делонгі магніфіка","name",.41,.70],
+    ["ноутбук без підсвітки клавіатури","neg",.52,.38],["пральна машина не з фронтальним завантаженням","neg",.45,.30],
+    ["легкий ноутбук до 30 тисяч з 16 ГБ пам'яті","attr",.48,.55],["холодильник no frost, ширина до 60 см","attr",.58,.49],
+    ["wireless headphones with noise cancelling","lang",.15,.80],["повербанк для айфона","lang",.62,.74]];
+  const EX={all:"Середні двох систем близькі, і за одним числом здається, що різниця невелика. Але подивіться на смужки: системи помиляються на різних запитах. Тому оракул набагато вищий за обидві.",
+    para:"Dense-модель упевнено виграє: розрив словника — саме те, для чого її навчали.",
+    code:"BM25 знаходить точний рядок, а для моделі «70214-B» — майже випадковий набір субслів. Тут dense-пошук програє розгромно.",
+    name:"Бренди латиницею BM25 знаходить, а транслітерацію кирилицею («ксіомі») — ні. Модель бачила обидва написання в навчальних даних і зводить їх докупи.",
+    neg:"Обидві системи слабкі. BM25 ігнорує «без» як стоп-слово або просто шукає «підсвітку», модель погано кодує заперечення. Часто це задача для фільтра за атрибутом, а не для пошуку.",
+    attr:"Числові умови не розуміє жодна система. Що з цим робити, пояснює виноска під демо.",
+    lang:"Багатомовна модель знаходить український опис за англійським запитом, BM25 — лише якщо в описі випадково є англійські слова."};
+  const el=$("#errType");el.innerHTML=[["all","усі"],...Object.entries(TY)].map(([k,l],i)=>`<button data-v="${k}" aria-pressed="${i===0}">${esc(l)}</button>`).join("");
+  const avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+  function run(t){const L=Q.filter(q=>t==="all"||q[1]===t);
+    $("#errBars").innerHTML=L.map(([q,ty,b,d])=>`<div class="note" style="margin:8px 0 2px">${esc(q)} <span class="mono">· ${esc(TY[ty])}</span></div>`+
+      distBar("BM25",b,{color:"var(--blue)",num:fmt(b)})+distBar("dense",d,{color:"var(--orange)",num:fmt(d)})).join("");
+    const mb=avg(L.map(q=>q[2])),md=avg(L.map(q=>q[3])),mo=avg(L.map(q=>Math.max(q[2],q[3])));
+    $("#errB").textContent=fmt(mb);$("#errD").textContent=fmt(md);$("#errO").textContent=fmt(mo);
+    $("#errExpl").textContent=EX[t]}
+  seg(el,run);run("all");
+})();
+
+/* ===================== 15. дві вежі ===================== */
+(function(){
+  const G=[{n:"комедії",c:"var(--orange)",a:90},{n:"мультфільми",c:"var(--aqua)",a:162},{n:"жахи",c:"var(--rose)",a:234},{n:"фантастика",c:"var(--violet)",a:306},{n:"документальні",c:"var(--blue)",a:18}];
+  const I=[[0,85,"Весілля в Карпатах"],[0,96,"Сусіди з третього поверху"],[0,104,"Відпустка за свій рахунок"],
+    [1,152,"Кіт-детектив"],[1,163,"Пригоди маленької хмаринки"],[1,172,"Дракон, який боявся вогню"],
+    [2,226,"Будинок на болоті"],[2,236,"Тінь у підвалі"],[2,244,"Остання електричка"],
+    [3,298,"Колонія на Марсі"],[3,308,"Код безсмертя"],[3,317,"Станція «Оріон»"],
+    [4,10,"Антарктида: рік на станції"],[4,20,"Історія Києва за 90 хвилин"],[4,30,"Як працює мозок"],
+    [0,55,"Документальна комедія про стендап"],[1,128,"Мультфільм-комедія про пінгвінів"]]
+    .map(([g,a,t],i)=>({g,t,v:[Math.cos(a*Math.PI/180),Math.sin(a*Math.PI/180)].map(x=>x*(.88+.12*Math.sin(i*2.3)))}));
+  const PRE={com:[0,1],comdoc:[0,1,12,13],anisf:[3,4,9,10],none:[]};
+  let H=new Set(PRE.com);const svg=$("#ttSvg"),C=210,R=150;
+  function draw(){const u=[0,0];H.forEach(i=>{u[0]+=I[i].v[0]/H.size;u[1]+=I[i].v[1]/H.size});const un=norm(u);
+    const recs=H.size&&un>1e-6?I.map((o,i)=>({i,s:cos(u,o.v)})).filter(o=>!H.has(o.i)).sort((a,b)=>b.s-a.s).slice(0,4):[];const rk=new Map(recs.map((o,r)=>[o.i,r]));
+    let g=`<rect x="0" y="0" width="420" height="420" rx="8" style="fill:var(--bg)"/><circle cx="${C}" cy="${C}" r="${R}" style="fill:none;stroke:var(--axis);stroke-dasharray:3 4"/>`;
+    g+=`<line x1="${C-6}" x2="${C+6}" y1="${C}" y2="${C}" style="stroke:var(--axis)"/><line y1="${C-6}" y2="${C+6}" x1="${C}" x2="${C}" style="stroke:var(--axis)"/>`;
+    G.forEach(o=>{const a=o.a*Math.PI/180;g+=`<text class="mut" x="${C+Math.cos(a)*190}" y="${C-Math.sin(a)*190+4}" text-anchor="middle" style="fill:${o.c}">${o.n}</text>`});
+    I.forEach((o,i)=>{const x=C+o.v[0]*R,y=C-o.v[1]*R,h=H.has(i),r=rk.get(i);
+      if(r!=null)g+=`<circle cx="${x}" cy="${y}" r="13" style="fill:none;stroke:var(--aqua);stroke-width:2.5"/><text x="${x+(x>=C?17:-17)}" y="${y+4}" text-anchor="${x>=C?"start":"end"}" style="font-weight:600;fill:var(--aqua)">${r+1}</text>`;
+      g+=`<circle data-i="${i}" cx="${x}" cy="${y}" r="${h?9:7}" style="cursor:pointer;fill:${G[o.g].c};stroke:${h?"var(--ink)":"var(--surface)"};stroke-width:${h?3:2}"><title>${esc(o.t)} · ${G[o.g].n}</title></circle>`});
+    if(un>1e-6)g+=`<line x1="${C}" y1="${C}" x2="${C+u[0]*R}" y2="${C-u[1]*R}" style="stroke:var(--violet);stroke-width:3"/><circle cx="${C+u[0]*R}" cy="${C-u[1]*R}" r="5" style="fill:var(--violet)"/>`;
+    svg.innerHTML=g;
+    const hist=[...H].map(i=>I[i]);
+    $("#ttTop").innerHTML=`<div class="row hd"><span>#</span><span>${H.size?"історія":"історія порожня"}</span><span></span><span></span></div>`+
+      hist.map(o=>`<div class="row"><span class="n">·</span><span><span class="sw" style="background:${G[o.g].c}"></span>${esc(o.t)}</span><span></span><span></span></div>`).join("")+
+      (recs.length?`<div class="row hd" style="margin-top:8px"><span>#</span><span>рекомендації</span><span class="s">cos</span><span></span></div>`+
+      recs.map((o,r)=>`<div class="row"><span class="n">${r+1}</span><span><span class="sw" style="background:${G[I[o.i].g].c}"></span>${esc(I[o.i].t)}</span><span class="s on">${fmt(o.s)}</span><span></span></div>`).join(""):"");
+    const hg=new Set(hist.map(o=>o.g)),alien=recs.filter(o=>!hg.has(I[o.i].g)).length;
+    $("#ttExpl").innerHTML=!H.size?"Клацніть фільми, щоб додати їх в історію.":
+      `Довжина вектора користувача: ${fmt(un)}. `+(un<.5?"Інтереси розходяться, тож середнє вийшло коротким і показує кудись між ними. ":"")+
+      (hg.size<2?"Історія з одного жанру, тож вектор показує прямо на нього. Першим іде фільм того самого жанру, далі найближчі сусіди на межі з іншими жанрами.":
+       alien>=3?"<b>Більшість рекомендацій — з жанру, якого користувач не дивився.</b> Один вектор не може одночасно показувати у двох далеких напрямках.":
+       alien?"Частина рекомендацій лежить між жанрами історії: середнє знаходить фільми, що поєднують обидва інтереси.":"Рекомендації з тих самих жанрів, що й історія.")}
+  svg.addEventListener("click",e=>{const c=e.target.closest("[data-i]");if(!c)return;const i=+c.dataset.i;H.has(i)?H.delete(i):H.add(i);segPick($("#ttPre"),"");draw()});
+  seg($("#ttPre"),v=>{H=new Set(PRE[v]);draw()});
+  draw();
+})();
+
+</script>
+</body>
+</html>
